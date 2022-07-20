@@ -42,6 +42,6 @@ contain the actual implementation code and not just the header:
 
 When you link your final program, make sure to add [SDL2](
 https://libsdl.org) to the linked libraries, and everything that SDL2
-needs. It should work no matter if you dynamically or statically link
-SDL2.
+needs. It should work no matter whether you dynamically or statically
+link SDL2.
 
