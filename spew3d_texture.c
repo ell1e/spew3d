@@ -7,8 +7,10 @@
 #include <string.h>
 #include <SDL2/SDL.h>
 
+
 uint64_t _internal_spew3d_texlist_count;
 spew3d_texture_info *_internal_spew3d_texlist;
+
 
 void _internal_normpath(char *p) {
     uint32_t plen = strlen(p);
@@ -42,6 +44,7 @@ void _internal_normpath(char *p) {
         i++;
     }
 }
+
 
 char *_internal_tex_get_buf = NULL;
 uint32_t _internal_tex_get_buf_size = 0;
@@ -100,14 +103,14 @@ spew3d_texture_t _internal_spew3d_texture_ByFileOrName(
     if (!pathdup)
         return 0;
     spew3d_texture_info *newinfo = &_internal_spew3d_texlist[
-        _internal_spew3d_texlist_count + 1
+        _internal_spew3d_texlist_count
     ];
     _internal_spew3d_texlist_count++;
     memset(newinfo, 0, sizeof(*newinfo));
     newinfo->nameorfilepath = pathdup;
     newinfo->fromfile = (fromfile != 0);
     newinfo->loaded = 0;
-    return _internal_spew3d_texlist_count - 1;
+    return _internal_spew3d_texlist_count;
 }
 
 
@@ -145,6 +148,7 @@ spew3d_texture_t spew3d_texture_ByName(
     }
     return tex;
 }
+
 
 void spew3d_texture_Destroy(spew3d_texture_t tid) {
     assert(tid >= 0 && tid < _internal_spew3d_texlist_count);

@@ -12,8 +12,11 @@ int main(int argc, const char **argv) {
         return 1;
     }
 
-    SDL_Window *window = SDL_CreateWindow("sdl dpi bug", 0, 0, 200, 200,
-        SDL_WINDOW_RESIZABLE|SDL_WINDOW_OPENGL|SDL_WINDOW_ALLOW_HIGHDPI);
+    SDL_Window *window = SDL_CreateWindow(
+        "Spew 3D Cube Example", SDL_WINDOWPOS_UNDEFINED,
+        SDL_WINDOWPOS_UNDEFINED, 800, 500,
+        SDL_WINDOW_RESIZABLE|SDL_WINDOW_OPENGL|
+        SDL_WINDOW_ALLOW_HIGHDPI);
     SDL_Renderer *renderer = NULL;
     if (window != NULL) {
         renderer = SDL_CreateRenderer(window, -1,
@@ -51,6 +54,7 @@ int main(int argc, const char **argv) {
                 }
             }
         }
+        SDL_RenderPresent(renderer);
     }
 
     return 0;
