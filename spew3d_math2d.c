@@ -7,17 +7,19 @@
 #include <string.h>
 
 
-static void __attribute__((constructor)) _mathtest() {
+#ifndef NDEBUG
+static void __attribute__((constructor))
+        _spew3d_math2dtest() {
     spew3d_point p = {0};
     p.x = 1;
     p.y = 0;
-    assert(fabs(spew3d_math2d_angle(p) - 0.0) < 0.1); 
+    assert(fabs(spew3d_math2d_angle(&p) - 0.0) < 0.1);
     p.x = 0;
     p.y = 1;
-    assert(fabs(spew3d_math2d_angle(p) - 90.0) < 0.1);
+    assert(fabs(spew3d_math2d_angle(&p) - 90.0) < 0.1);
     p.x = 1;
     p.y = -1;
-    assert(fabs(spew3d_math2d_angle(p) - (-45.0)) < 0.1);
+    assert(fabs(spew3d_math2d_angle(&p) - (-45.0)) < 0.1);
 
     p.x = 1;
     p.y = 0;
@@ -25,6 +27,8 @@ static void __attribute__((constructor)) _mathtest() {
     assert(fabs(p.x - 0.0) < 0.1);
     assert(fabs(p.y - (-1.0)) < 0.1);
 }
+#endif  // not(NDEBUG)
+
 
 #endif  // SPEW3D_IMPLEMENTATION
 

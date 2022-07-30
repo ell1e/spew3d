@@ -34,13 +34,13 @@ static inline void spew3d_math2d_rotatecenter(
 
 
 static inline double spew3d_math2d_angle(
-        spew3d_point p
+        spew3d_point *p
         ) {
     /// Return the angle of a point's origin to the point.
     /// Angles: (1.0, 0.0) returns 0 degrees angle,
     /// CW rotation increases angle. X is right, Y is down,
     /// (0.0, 1.0) returns 90 degrees angle.
-    return ((atan2(p.y, p.x) / M_PI) * 180.0);
+    return ((atan2(p->y, p->x) / M_PI) * 180.0);
 }
 
 #endif  // SPEW3D_MATH2D_H_
