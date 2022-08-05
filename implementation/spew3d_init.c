@@ -79,6 +79,13 @@ int spew3d_Init(
             if ((initflags & SPEW3D_INITFLAG_FORCE_OPENGL) != 0)
                 return 0;
         } else {
+            if (!spew3d_InitFromManualSDLInit(window, renderer)) {
+                SDL_DestroyWindow(window);
+                window = NULL;
+                SDL_DestroyRenderer(renderer);
+                renderer = NULL;
+                return 1;
+            }
             *out_window = window;
             *out_renderer = renderer;
             return 1;
@@ -101,6 +108,7 @@ int spew3d_Init(
         return 0;
     }
 
+    assert(window != NULL && renderer != NULL);
     if (!spew3d_InitFromManualSDLInit(window, renderer)) {
         SDL_DestroyWindow(window);
         window = NULL;
