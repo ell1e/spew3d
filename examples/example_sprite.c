@@ -4,8 +4,8 @@
 #define SPEW3D_IMPLEMENTATION
 #include <spew3d.h>
 #undef SPEW3D_IMPLEMENTATION
-#include <stdio.h>
 #include <stdint.h>
+#include <stdio.h>
 
 
 int main(int argc, const char **argv) {
@@ -20,25 +20,18 @@ int main(int argc, const char **argv) {
     SDL_Window *window = NULL;
     SDL_Renderer * renderer = NULL;
     if (!spew3d_Init(
-            "Spew 3D Cube Example", 0,
+            "Spew 3D Sprite Example", 0,
             &window, &renderer)) {
         fprintf(stderr, "Spew3D initialization failed\n");
         return 1;
     }
 
-    printf("Creating a cube\n");
-    spew3d_geometry *cube = spew3d_geometry_Create();
-    if (cube) {
-        if (!spew3d_geometry_AddCubeSimple(
-                cube, 1.0,
-                spew3d_texture_FromFile("numberone.jpg"), 0
-                )) {
-            spew3d_geometry_Destroy(cube);
-            cube = NULL;
-        }
-    }
-    if (!cube) {
-        fprintf(stderr, "Failed to create geometry\n");
+    printf("Loading sprite texture\n");
+    spew3d_texture_t spritetex = spew3d_texture_FromFile(
+        "helloworld.png"
+    );
+    if (!spritetex) {
+        fprintf(stderr, "Failed to load sprite\n");
         return 1;
     }
 
@@ -57,6 +50,22 @@ int main(int argc, const char **argv) {
                 }
             }
         }
+        SDL_SetRenderDrawColor(renderer, 255, 225, 255, 255);
+        SDL_RenderClear(renderer);
+
+        int32_t cvwidth = spew3d_window_CanvasWidth();
+        int32_t cvheight = spew3d_window_CanvasHeight();
+        int32_t imagewidth = spew3d_texinfo(spritetex)->width;
+        int32_t imageheight = spew3d_texinfo(spritetex)->height;
+        spew3d_texture_Draw(
+            spritetex,
+            cvwidth / 2 - imagewidth / 2,
+            cvheight / 2 - imageheight / 2,
+            fmin((double)cvwidth, (double)cvheight) /
+                (double)imagewidth,
+            90, 1.0, 1.0, 1.0, 1.0, 1
+        );
+
         SDL_RenderPresent(renderer);
     }
 

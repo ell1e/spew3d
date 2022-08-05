@@ -34,7 +34,7 @@ typedef uint64_t spew3d_texture_t;
 typedef struct spew3d_texture_info {
     char *idstring, *diskpath;
     uint8_t loaded, correspondstofile;
-    uint32_t w, h;
+    uint32_t width, height;
     char *pixels;
 
     void *_internal;
@@ -43,7 +43,7 @@ typedef struct spew3d_texture_info {
 extern uint64_t _internal_spew3d_texlist_count;
 extern spew3d_texture_info *_internal_spew3d_texlist;
 
-spew3d_texture_t spew3d_texture_NewFromFile(
+spew3d_texture_t spew3d_texture_FromFile(
     const char *path
 );
 

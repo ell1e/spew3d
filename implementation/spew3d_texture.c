@@ -124,6 +124,8 @@ static int _internal_spew3d_ForceLoadTexture(spew3d_texture_t tid) {
     if (!data32) {
         return 0;
     }
+    tinfo->width = w;
+    tinfo->height = h;
     tinfo->pixels = data32;
     tinfo->loaded = 1;
     return 1;
@@ -154,8 +156,8 @@ static int _internal_spew3d_TextureToGPU(
         _internal_spew3d_outputrenderer
     ); 
     SDL_Surface *s = SDL_CreateRGBSurfaceFrom(
-        tinfo->pixels, tinfo->w, tinfo->h,
-        32, tinfo->w * 4, 0x000000ff,
+        tinfo->pixels, tinfo->width, tinfo->height,
+        32, tinfo->width * 4, 0x000000ff,
         0x0000ff00, 0x00ff0000,
         (alpha ? 0xff000000 : 0));
     if (!s)
@@ -436,8 +438,8 @@ int spew3d_texture_Draw(
     SDL_Rect r = {0};
     r.x = x;
     r.y = y;
-    r.w = tinfo->w;
-    r.h = tinfo->h;
+    r.w = tinfo->width;
+    r.h = tinfo->height;
     if (!SDL_RenderCopyEx(renderer, tex, NULL, &r,
             angle, NULL, SDL_FLIP_NONE))
         return 0;
@@ -448,7 +450,7 @@ int spew3d_texture_Draw(
 }
 
 
-spew3d_texture_t spew3d_texture_NewFromFile(
+spew3d_texture_t spew3d_texture_FromFile(
         const char *path
         ) {
     return _internal_spew3d_texture_NewEx(
@@ -473,8 +475,8 @@ spew3d_texture_t spew3d_texture_NewWritable(
     assert(tinfo->idstring != NULL);
     if (!tinfo->loaded) {
         assert(tex == _internal_spew3d_texlist_count - 1);
-        tinfo->w = w;
-        tinfo->h = h;
+        tinfo->width = w;
+        tinfo->height = h;
         int64_t pixelcount = ((int64_t)w) * ((int64_t)h);
         if (pixelcount <= 0) pixelcount = 1;
         tinfo->pixels = malloc(4 * pixelcount);
