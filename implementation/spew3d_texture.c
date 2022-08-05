@@ -85,7 +85,7 @@ static inline spew3d_texture_info *_fast_spew3d_texinfo(
 }
 
 
-voidspew3d_texture_info *spew3d_texinfo(
+spew3d_texture_info *spew3d_texinfo(
         spew3d_texture_t id
         ) {
     assert(id > 0 && id <= _internal_spew3d_texlist_count);
