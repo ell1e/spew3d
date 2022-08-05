@@ -24,7 +24,8 @@ You've found **Spew3D**, a one-header file **retro 3d toolkit for C.**
 *(If you're using this directly from the repository, run `make` in the
 repo folder to prepare the resulting `spew3d.h` file with everything.)*
 
-**Step 1:** put this in all your files where you want to use it from:
+**Step 1:** add `spew3d.h` into your project's code folder, and
+put this in all your files where you want to use it from:
 
 ```
 #include <spew3d.h>
@@ -41,4 +42,10 @@ will make it contain the actual implementation code and not just its API:
 
 **Step 3:** When you link your final program, make sure to add [SDL2](
 https://libsdl.org) to your linked libraries.
+
+
+## License
+
+Spew3D is licensed under the MIT license, [see here](LICENSE.md).
+It includes other projects baked in, see `vendor` folder in the repository.
 
