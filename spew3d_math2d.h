@@ -26,9 +26,10 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #ifndef SPEW3D_MATH2D_H_
 #define SPEW3D_MATH2D_H_
 
-typedef struct spew3d_point {
+typedef struct spew3d_point spew3d_point;
+struct spew3d_point {
     double x, y;
-} spew3d_point;
+};
 
 
 static inline void spew3d_math2d_rotate(

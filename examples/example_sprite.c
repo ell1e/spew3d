@@ -53,8 +53,8 @@ int main(int argc, const char **argv) {
         SDL_SetRenderDrawColor(renderer, 255, 225, 255, 255);
         SDL_RenderClear(renderer);
 
-        int32_t cvwidth = spew3d_window_CanvasWidth();
-        int32_t cvheight = spew3d_window_CanvasHeight();
+        int32_t cvwidth = spew3d_window_CanvasDrawWidth();
+        int32_t cvheight = spew3d_window_CanvasDrawHeight();
         int32_t imagewidth = spew3d_texinfo(spritetex)->width;
         int32_t imageheight = spew3d_texinfo(spritetex)->height;
         spew3d_texture_Draw(

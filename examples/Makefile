@@ -5,8 +5,15 @@ BINEXT:=.exe
 else
 BINEXT:=.bin
 endif
+TESTPROG=$(sort $(patsubst %.c, %$(BINEXT), $(wildcard ./example_*.c)))
 
-build:
+build: assemble $(TESTPROG)
+
+assemble:
 	cd ../ && $(MAKE)
-	gcc -g -Og -o example_cube$(BINEXT) ./example_cube.c -I../ -lm -lSDL2
-	gcc -g -Og -o example_sprite$(BINEXT) ./example_sprite.c -I../ -lm -lSDL2
+
+example_%$(BINEXT): example_%.c
+	gcc -g -Og -o $@ $(patsubst %$(BINEXT),%.c, $@) -I../ -lm -lSDL2
+
+clean:
+	rm -rf $(TESTPROG)

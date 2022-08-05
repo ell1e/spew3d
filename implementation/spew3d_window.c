@@ -36,25 +36,66 @@ extern SDL_Window *_internal_spew3d_outputwindow;
 extern SDL_Renderer *_internal_spew3d_outputrenderer;
 
 
-int32_t spew3d_window_CanvasWidth() {
+spew3d_point spew3d_window_EventPointToCanvasDrawPoint(
+        int x, int y
+        ) {
+    spew3d_point result;
+    result.x = x;
+    result.y = y;
+    if (!_internal_spew3d_outputrenderer)
+        return result;
+    int w, h;
+    SDL_RenderGetLogicalSize(
+        _internal_spew3d_outputrenderer, &w, &h
+    );
+    if (w != 0 || h != 0)
+        return result;  // handled by the renderer itself
+    int ww, wh;
+    SDL_GetWindowSize(_internal_spew3d_outputwindow,
+        &ww, &wh
+    );
+    if (!SDL_GetRendererOutputSize(
+            _internal_spew3d_outputrenderer,
+            &w, &h))
+        return result;
+    double newx = ((double)x) * ((double)w/(double)ww);
+    double newy = ((double)y) * ((double)h/(double)wh);
+    result.x = round(newx);
+    result.y = round(newy);
+    return result;
+}
+
+
+int32_t spew3d_window_CanvasDrawWidth() {
     if (!_internal_spew3d_outputrenderer)
         return 1;
     int w, h;
-    if (!SDL_GetRendererOutputSize(_internal_spew3d_outputrenderer,
-            &w, &h))
-        return 1;
+    SDL_RenderGetLogicalSize(
+        _internal_spew3d_outputrenderer, &w, &h
+    );
+    if (w == 0 && h == 0)
+        if (!SDL_GetRendererOutputSize(
+                _internal_spew3d_outputrenderer,
+                &w, &h))
+            return 1;
     if (w < 1)
         return w;
     return w;
 }
 
-int32_t spew3d_window_CanvasHeight() {
+
+int32_t spew3d_window_CanvasDrawHeight() {
     if (!_internal_spew3d_outputrenderer)
         return 1;
     int w, h;
-    if (!SDL_GetRendererOutputSize(_internal_spew3d_outputrenderer,
-            &w, &h))
-        return 1;
+    SDL_RenderGetLogicalSize(
+        _internal_spew3d_outputrenderer, &w, &h
+    );
+    if (w == 0 && h == 0)
+        if (!SDL_GetRendererOutputSize(
+                _internal_spew3d_outputrenderer,
+                &w, &h))
+            return 1;
     if (h < 1)
         return h;
     return h;

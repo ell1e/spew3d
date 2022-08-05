@@ -29,8 +29,35 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include <stdint.h>
 #include <SDL2/SDL.h>
 
-int32_t spew3d_window_CanvasWidth();
 
-int32_t spew3d_window_CanvasHeight();
+typedef struct spew3d_point spew3d_point;
+
+/// Convert coordinates from a mouse event supplied
+/// by SDL2 into the 2d canvas draw units.
+/// The resulting coordinates match what you'd supply to
+/// something like SDL_RenderCopy, SDL_RenderFillRect, or
+/// spew3d_texture_Draw to draw at the clicked spot.
+/// This conversion is needed e.g. with a High-DPI window.
+spew3d_point spew3d_window_EventPointToCanvasDrawPoint(
+    int x, int y
+);
+
+
+/// Helper function for how wide the 2d canvas is (that may
+/// or may not correspond to screen pixels) for the output
+/// window. This unit is also used for SDL_RenderCopy,
+/// SDL_RenderFillRect, or spew3d_texture_Draw.
+/// This might differ from SDL_GetWindowSize e.g. for a
+/// High-DPI window.
+int32_t spew3d_window_CanvasDrawWidth();
+
+
+/// Helper function for how tall the 2d canvas is (that may
+/// or may not correspond to screen pixels) for the output
+/// window. This unit is also used for SDL_RenderCopy,
+/// SDL_RenderFillRect, or spew3d_texture_Draw.
+/// This might differ from SDL_GetWindowSize e.g. for a
+/// High-DPI window.
+int32_t spew3d_window_CanvasDrawHeight();
 
 #endif  // SPEW3D_WINDOW_H_
