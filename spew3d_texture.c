@@ -30,9 +30,6 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include <string.h>
 #include <SDL2/SDL.h>
 #include <unistd.h>
-#define STBI_NO_STDIO
-#define STB_IMAGE_IMPLEMENTATION
-#include <stb/stb_image.h>
 
 static inline uint16_t spew3d_simplehash(const char *k);
 
@@ -96,6 +93,8 @@ static int _internal_spewd_ForceLoadTexture(spew3d_texture_t tid) {
     if (tinfo->loaded || (!tinfo->correspondstofile &&
             !tinfo->diskpath))
         return 1;
+
+    
 }
 
 static int _unregister_texid_from_hashmap(
