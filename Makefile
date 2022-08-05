@@ -12,4 +12,4 @@ all:
 	cat $(HEADERS) $(SOURCES) > spew3d.h
 test:
 	cd examples && $(MAKE)
-	valgrind ./examples/example_cube.bin
+	cd examples && valgrind ./example_cube.bin
