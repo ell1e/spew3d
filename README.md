@@ -7,7 +7,7 @@ You've found **Spew3D**, a one-header file **retro 3d toolkit for C.**
 
 - potato low poly-count graphics,
 - simple API,
-- 3d, sound, and more,
+- 2d and 3d graphics, image loading, sound, and more,
 - good for procedural textures or geometry,
 - retro-style like PlayStation 1 or Nintendo64,
 - wide platform support thanks to [SDL2](https://libsdl.org).
