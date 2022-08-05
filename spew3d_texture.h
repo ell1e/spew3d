@@ -45,7 +45,7 @@ spew3d_texture_t spew3d_texture_FromFile(
     const char *path
 );
 
-void spew3d_texture_info *spew3d_texinfo(
+spew3d_texture_info *spew3d_texinfo(
     spew3d_texture_t id
 );
 
