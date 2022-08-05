@@ -36,6 +36,8 @@ typedef struct spew3d_texture_info {
     uint8_t loaded, correspondstofile;
     uint32_t w, h;
     char *pixels;
+
+    void *_internal;
 } spew3d_texture_info;
 
 extern uint64_t _internal_spew3d_texlist_count;
@@ -48,8 +50,7 @@ spew3d_texture_t spew3d_texture_NewFromFile(
 static inline spew3d_texture_info *spew3d_texinfo(
         spew3d_texture_t id
         ) {
-    if (id <= 0)
-        return NULL;
+    assert(id > 0 && id <= _internal_spew3d_texlist_count);
     return &_internal_spew3d_texlist[id - 1];
 }
 
@@ -62,6 +63,14 @@ spew3d_texture_t spew3d_texture_NewWritableFromFile(
 );
 
 void spew3d_texture_Destroy(spew3d_texture_t tid);
+
+int spew3d_texture_Draw(
+    spew3d_texture_t tid,
+    int32_t x, int32_t y, double scale, double angle,
+    double tint_red, double tint_white, double tint_blue,
+    double transparency,
+    int withalphachannel
+);
 
 #endif  // SPEW3D_TEXTURE_H_
 

@@ -33,9 +33,13 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 static inline uint16_t spew3d_simplehash(const char *k);
 
+// Some global variables:
 uint64_t _internal_spew3d_texlist_count;
 spew3d_texture_info *_internal_spew3d_texlist;
+extern SDL_Window *_internal_spew3d_outputwindow;
+extern SDL_Renderer *_internal_spew3d_outputrenderer;
 
+// Global hash map:
 #define SPEW3D_TEXLIST_IDHASHMAP_SIZE 2048
 typedef struct spew3d_texlist_idhashmap_bucket
     spew3d_texlist_idhashmap_bucket;
@@ -45,6 +49,12 @@ typedef struct spew3d_texlist_idhashmap_bucket {
 } spew3d_texlist_idhashmap_bucket;
 spew3d_texlist_idhashmap_bucket
     **_internal_spew3d_texlist_hashmap = NULL;
+
+// Extra info struct:
+typedef struct spew3d_texture_extrainfo {
+    spew3d_texture_info *parent;
+    SDL_Texture *sdltexture_alpha, *sdltexture_noalpha;
+} spew3d_texture_extrainfo;
 
 
 static void __attribute__((constructor)) _internal_spew3d_ensure_texhash() {
@@ -87,15 +97,90 @@ static int _spew3d_check_texidstring_used(
 }
 
 
-static int _internal_spewd_ForceLoadTexture(spew3d_texture_t tid) {
+static int _internal_spew3d_ForceLoadTexture(spew3d_texture_t tid) {
     spew3d_texture_info *tinfo = spew3d_texinfo(tid);
     assert(tinfo != NULL && tinfo->idstring != NULL);
     if (tinfo->loaded || (!tinfo->correspondstofile &&
             !tinfo->diskpath))
         return 1;
 
-    
+    assert(!tinfo->loaded);
+    assert(tinfo->diskpath != NULL);
+    char *imgcompressed = NULL;
+    uint64_t imgcompressedlen = 0;
+    if (!spew3d_vfs_FileToBytes(
+            tinfo->diskpath, &imgcompressed,
+            &imgcompressedlen)) {
+        return 0;
+    }
+
+    int w = 0;
+    int h = 0;
+    int n = 0;
+    unsigned char *data32 = stbi_load_from_memory(
+        (unsigned char *)imgcompressed,
+        imgcompressedlen, &w, &h, &n, 4
+    );
+    if (!data32) {
+        return 0;
+    }
+    tinfo->pixels = data32;
+    tinfo->loaded = 1;
+    return 1;
 }
+
+
+static int _internal_spew3d_TextureToGPU(
+        spew3d_texture_t tid, int alpha,
+        SDL_Texture **out_tex
+        ) {
+    if (!_internal_spew3d_ForceLoadTexture(tid))
+        return 0;
+    spew3d_texture_info *tinfo = spew3d_texinfo(tid);
+    assert(tinfo != NULL && tinfo->idstring != NULL);
+    assert(tinfo->loaded && tinfo->pixels != NULL);
+    spew3d_texture_extrainfo *extrainfo = (
+        (spew3d_texture_extrainfo *)tinfo->_internal
+    );
+    if (alpha && extrainfo->sdltexture_alpha) {
+        *out_tex = extrainfo->sdltexture_alpha;
+        return 1;
+    } else if (!alpha && extrainfo->sdltexture_noalpha) {
+        *out_tex = extrainfo->sdltexture_noalpha;
+        return 1;
+    }
+
+    SDL_Renderer *renderer = (
+        _internal_spew3d_outputrenderer
+    ); 
+    SDL_Surface *s = SDL_CreateRGBSurfaceFrom(
+        tinfo->pixels, tinfo->w, tinfo->h,
+        32, tinfo->w * 4, 0x000000ff,
+        0x0000ff00, 0x00ff0000,
+        (alpha ? 0xff000000 : 0));
+    if (!s)
+        return 0;
+    SDL_SetHintWithPriority(SDL_HINT_RENDER_SCALE_QUALITY, "0",
+        SDL_HINT_OVERRIDE); 
+    if (alpha) {
+        extrainfo->sdltexture_alpha = SDL_CreateTextureFromSurface(
+            renderer, s
+        );
+        if (!extrainfo->sdltexture_alpha)
+            return 0;
+        *out_tex = extrainfo->sdltexture_alpha;
+        return 1;
+    } else {
+        extrainfo->sdltexture_noalpha = SDL_CreateTextureFromSurface(
+            renderer, s
+        );
+        if (!extrainfo->sdltexture_noalpha)
+            return 0;
+        *out_tex = extrainfo->sdltexture_noalpha;
+        return 1;
+    }
+}
+
 
 static int _unregister_texid_from_hashmap(
         const char *id, int wascorrespondstofile
@@ -279,14 +364,26 @@ spew3d_texture_t _internal_spew3d_texture_NewEx(
         free(iddup);
         return 0;
     }
+    spew3d_texture_extrainfo *extrainfo = malloc(
+        sizeof(*extrainfo)
+    );
+    if (!extrainfo) {
+        free(pathdup);
+        free(newbucket);
+        free(iddup);
+        return 0;
+    }
+    memset(extrainfo, 0, sizeof(*extrainfo));
     spew3d_texture_info *newinfo = &_internal_spew3d_texlist[
         _internal_spew3d_texlist_count
     ];
     memset(newinfo, 0, sizeof(*newinfo));
+    extrainfo->parent = newinfo;
     newinfo->idstring = iddup;
     newinfo->diskpath = pathdup;
     newinfo->correspondstofile = (fromfile != 0);
     newinfo->loaded = 0;
+    newinfo->_internal = extrainfo;
 
     // Place new entry in hash map and list:
     _internal_spew3d_texlist_hashmap[idhash %
@@ -296,6 +393,58 @@ spew3d_texture_t _internal_spew3d_texture_NewEx(
     _internal_spew3d_texlist_count += 1;
     assert(_spew3d_check_texidstring_used(iddup));
     return _internal_spew3d_texlist_count;
+}
+
+
+int spew3d_texture_Draw(
+        spew3d_texture_t tid,
+        int32_t x, int32_t y, double scale, double angle,
+        double tint_red, double tint_green, double tint_blue,
+        double transparency,
+        int withalphachannel
+        ) {
+    spew3d_texture_info *tinfo = spew3d_texinfo(tid);
+    assert(_internal_spew3d_outputwindow != NULL);
+    assert(_internal_spew3d_outputrenderer != NULL);
+
+    SDL_Renderer *renderer = _internal_spew3d_outputrenderer;
+    SDL_Texture *tex = NULL;
+    if (!_internal_spew3d_TextureToGPU(
+            tid, withalphachannel, &tex
+            ))
+        return 0;
+
+    if (transparency < (1.0 / 256.0) * 0.5)
+        return 0;
+
+    uint8_t old_r, old_g, old_b, old_a;
+    if (!SDL_GetRenderDrawColor(renderer,
+            &old_r, &old_g, &old_b, &old_a))
+        return 0;
+    uint8_t draw_r = fmax(0, fmin(255, tint_red * 256.0));
+    uint8_t draw_g = fmax(0, fmin(255, tint_green * 255.0));
+    uint8_t draw_b = fmax(0, fmin(255, tint_blue * 255.0));
+    uint8_t draw_a = fmax(0, fmin(255, transparency * 255.0));
+    if (draw_a <= 0)
+        return 0;
+    if (!SDL_SetRenderDrawColor(renderer,
+            draw_r, draw_g, draw_b, draw_a) ||
+            SDL_SetRenderDrawBlendMode(renderer,
+            SDL_BLENDMODE_BLEND)) {
+        return 0;
+    }
+    SDL_Rect r = {0};
+    r.x = x;
+    r.y = y;
+    r.w = tinfo->w;
+    r.h = tinfo->h;
+    if (!SDL_RenderCopyEx(renderer, tex, NULL, &r,
+            angle, NULL, SDL_FLIP_NONE))
+        return 0;
+    if (!SDL_SetRenderDrawColor(renderer,
+            old_r, old_g, old_b, old_a))
+        return 0;
+    return 1;
 }
 
 
@@ -316,7 +465,9 @@ spew3d_texture_t spew3d_texture_NewWritable(
     );
     if (tex == 0)
         return 0;
-    spew3d_texture_info *tinfo = spew3d_texinfo(tex);
+    spew3d_texture_info *tinfo = (
+        spew3d_texinfo(tex)
+    );
     assert(tinfo != NULL); 
     assert(!tinfo->correspondstofile);
     assert(tinfo->idstring != NULL);
@@ -337,6 +488,7 @@ spew3d_texture_t spew3d_texture_NewWritable(
             _internal_spew3d_texlist_count--;
             return 0;
         }
+        memset(tinfo->pixels, 0, 4 * pixelcount);
         tinfo->loaded = 1;
     }
     return tex;
@@ -357,6 +509,15 @@ void spew3d_texture_Destroy(spew3d_texture_t tid) {
         _unregister_texid_from_hashmap(tinfo->idstring, 0)
     );
     assert(uregcount == 1);
+    spew3d_texture_extrainfo *extrainfo = (
+        (spew3d_texture_extrainfo *)tinfo->_internal
+    );
+    if (extrainfo) {
+        if (extrainfo->sdltexture_alpha)
+            SDL_DestroyTexture(extrainfo->sdltexture_alpha);
+        if (extrainfo->sdltexture_noalpha)
+            SDL_DestroyTexture(extrainfo->sdltexture_noalpha);
+    }
     free(tinfo->pixels);
     free(tinfo->idstring);
     free(tinfo->diskpath);

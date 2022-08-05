@@ -23,40 +23,19 @@ OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
-#ifndef SPEW3D_FS_H_
-#define SPEW3D_FS_H_
+
+#ifndef SPEW3D_VFS_H_
+#define SPEW3D_VFS_H_
 
 #include <stdint.h>
-#include <stdio.h>
-
-enum {
-    FSERR_SUCCESS = 0,
-    FSERR_NOPERMISSION = -1,
-    FSERR_TARGETNOTADIRECTORY = -2,
-    FSERR_TARGETNOTAFILE = -3,
-    FSERR_NOSUCHTARGET = -4,
-    FSERR_OUTOFMEMORY = -5,
-    FSERR_TARGETALREADYEXISTS = -6,
-    FSERR_INVALIDNAME = -7,
-    FSERR_OUTOFFDS = -8,
-    FSERR_PARENTSDONTEXIST = -9,
-    FSERR_DIRISBUSY = -10,
-    FSERR_NONEMPTYDIRECTORY = -11,
-    FSERR_SYMLINKSWEREEXCLUDED = -12,
-    FSERR_IOERROR = -13,
-    FSERR_UNSUPPORTEDPLATFORM = -14,
-    FSERR_OTHERERROR = -15
-};
 
 
-FILE *spew3d_fs_OpenFromPath(
-    const char *path, const char *mode, int *err
+int spew3d_vfs_FileToBytes(
+    const char *path,
+    char **out_bytes,
+    uint64_t *out_bytes_len
 );
 
 
-int spew3d_fs_GetSize(
-    const char *path, uint64_t *size, int *err
-);
-
-#endif  // SPEW3D_FS_H_
+#endif  // SPEW3D_VFS_H_
 

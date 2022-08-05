@@ -30,6 +30,19 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include <SDL2/SDL.h>
 
 
-int spew3d_Init(SDL_Window *window, SDL_Renderer *renderer);
+enum {
+    SPEW3D_INITFLAG_FULLSCREEN = 1,
+    SPEW3D_INITFLAG_FORCE_OPENGL = 2,
+    SPEW3D_INITFLAG_FORCE_SOFTWARE_RENDERED = 3
+};
+
+int spew3d_Init(
+    const char *title, int initflags,
+    SDL_Window **out_window, SDL_Renderer **out_renderer
+);
+
+int spew3d_InitFromManualSDLInit(
+    SDL_Window *window, SDL_Renderer *renderer
+);
 
 #endif  // SPEW3D_INIT_H_

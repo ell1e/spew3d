@@ -36,7 +36,9 @@ SDL_Window *_internal_spew3d_outputwindow = NULL;
 SDL_Renderer *_internal_spew3d_outputrenderer = NULL;
 
 
-int spew3d_Init(SDL_Window *window, SDL_Renderer *renderer) {
+int spew3d_InitFromManualSDLInit(
+        SDL_Window *window, SDL_Renderer *renderer
+        ) {
     assert(_internal_spew3d_outputwindow == NULL);
     assert(_internal_spew3d_outputrenderer == NULL);
     if (_internal_spew3d_outputwindow != NULL ||
@@ -47,6 +49,68 @@ int spew3d_Init(SDL_Window *window, SDL_Renderer *renderer) {
         return 0;
     _internal_spew3d_outputwindow = window;
     _internal_spew3d_outputrenderer = renderer;
+    return 1;
+}
+
+int spew3d_Init(
+        const char *title, int initflags,
+        SDL_Window **out_window, SDL_Renderer **out_renderer
+        ) {
+    SDL_Window *window = SDL_CreateWindow(
+        title, SDL_WINDOWPOS_UNDEFINED,
+        SDL_WINDOWPOS_UNDEFINED, 800, 500,
+        SDL_WINDOW_RESIZABLE|
+        (((initflags & SPEW3D_INITFLAG_FULLSCREEN) != 0) ?
+            SDL_WINDOW_FULLSCREEN:0)|
+        (((initflags & SPEW3D_INITFLAG_FORCE_SOFTWARE_RENDERED) == 0) ?
+            SDL_WINDOW_OPENGL:0)|
+        SDL_WINDOW_ALLOW_HIGHDPI);
+    if (!window && (((initflags & SPEW3D_INITFLAG_FORCE_OPENGL) != 0)))
+        return 0;
+    SDL_Renderer *renderer = NULL;
+    if (window) {
+        renderer = SDL_CreateRenderer(window, -1,
+            SDL_RENDERER_PRESENTVSYNC|
+            (((initflags & SPEW3D_INITFLAG_FORCE_SOFTWARE_RENDERED) == 0) ?
+                SDL_RENDERER_ACCELERATED:SDL_RENDERER_SOFTWARE));
+        if (!renderer) {
+            SDL_DestroyWindow(window);
+            window = NULL;
+            if ((initflags & SPEW3D_INITFLAG_FORCE_OPENGL) != 0)
+                return 0;
+        } else {
+            *out_window = window;
+            *out_renderer = renderer;
+            return 1;
+        }
+    }
+    window = SDL_CreateWindow(
+        title, SDL_WINDOWPOS_UNDEFINED,
+        SDL_WINDOWPOS_UNDEFINED, 800, 500,
+        SDL_WINDOW_RESIZABLE|
+        (((initflags & SPEW3D_INITFLAG_FULLSCREEN) != 0) ?
+            SDL_WINDOW_FULLSCREEN:0)|
+        SDL_WINDOW_ALLOW_HIGHDPI);
+    if (!window)
+        return 0;
+    renderer = SDL_CreateRenderer(window, -1,
+        SDL_RENDERER_PRESENTVSYNC|SDL_RENDERER_SOFTWARE);
+    if (!renderer) {
+        SDL_DestroyWindow(window);
+        window = NULL;
+        return 0;
+    }
+
+    if (!spew3d_InitFromManualSDLInit(window, renderer)) {
+        SDL_DestroyWindow(window);
+        window = NULL;
+        SDL_DestroyRenderer(renderer);
+        renderer = NULL;
+        return 1;
+    }
+
+    *out_window = window;
+    *out_renderer = renderer;
     return 1;
 }
 

@@ -6,31 +6,19 @@
 
 
 int main(int argc, const char **argv) {
-    printf("Initializing SDL\n");
+    printf("Initializing SDL2\n");
     int result = SDL_Init(SDL_INIT_EVERYTHING);
     if (result != 0) {
         fprintf(stderr, "SDL_Init() failed\n");
         return 1;
     }
 
-    printf("Creating window\n");
-    SDL_Window *window = SDL_CreateWindow(
-        "Spew 3D Cube Example", SDL_WINDOWPOS_UNDEFINED,
-        SDL_WINDOWPOS_UNDEFINED, 800, 500,
-        SDL_WINDOW_RESIZABLE|SDL_WINDOW_OPENGL|
-        SDL_WINDOW_ALLOW_HIGHDPI);
-    SDL_Renderer *renderer = NULL;
-    if (window != NULL) {
-        renderer = SDL_CreateRenderer(window, -1,
-            SDL_RENDERER_PRESENTVSYNC|SDL_RENDERER_ACCELERATED);
-    }
-    if (!window || !renderer) {
-        fprintf(stderr, "Window or renderer creation failed\n");
-        return 1;
-    }
-
-    printf("Initializing Spew3D\n");
-    if (!spew3d_Init(window, renderer)) {
+    printf("Initializing Spew3D with window and renderer\n");
+    SDL_Window *window = NULL;
+    SDL_Renderer * renderer = NULL;
+    if (!spew3d_Init(
+            "Spew 3D Cube Example", 0,
+            &window, &renderer)) {
         fprintf(stderr, "Spew3D initialization failed\n");
         return 1;
     }

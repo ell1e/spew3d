@@ -120,7 +120,7 @@ h64filehandle spew3d_fs_OpenFromPathAsOSHandleEx(
         const char *path, const char *mode, int flags, int *err
         ) {
     if (spew3d_fs_IsObviouslyInvalidPath(path)) {
-        #if defined(DEBUG_FS)
+        #if defined(DEBUG_SPEW3D_FS)
         fprintf(stderr,
             "spew3d_filesystem.c: debug: "
             "spew3d_fs_OpenFromPathAsOSHandleEx "
@@ -144,7 +144,7 @@ h64filehandle spew3d_fs_OpenFromPathAsOSHandleEx(
         strstr(mode, "w") || strstr(mode, "a") || strstr(mode, "r+")
     );
     int mode_append = strstr(mode, "r+") || strstr(mode, "a");
-    #if defined(DEBUG_FS)
+    #if defined(DEBUG_SPEW3D_FS)
     fprintf(stderr,
         "spew3d_filesystem.c: debug: "
         "spew3d_fs_OpenFromPathAsOSHandleEx(\"%s\", "
@@ -164,7 +164,7 @@ h64filehandle spew3d_fs_OpenFromPathAsOSHandleEx(
     HANDLE fhandle = INVALID_HANDLE_VALUE;
     if (!mode_write && !mode_append &&
             (flags & _WIN32_OPEN_DIR) != 0) {
-        #if defined(DEBUG_FS)
+        #if defined(DEBUG_SPEW3D_FS)
         fprintf(stderr,
             "spew3d_filesystem.c: debug: "
             "spew3d_spew3d_fs_OpenFromPathAsOSHandleEx "
@@ -200,7 +200,7 @@ h64filehandle spew3d_fs_OpenFromPathAsOSHandleEx(
         }
     }
     if (fhandle == INVALID_HANDLE_VALUE) {
-        #if defined(DEBUG_FS)
+        #if defined(DEBUG_SPEW3D_FS)
         fprintf(stderr,
             "spew3d_filesystem.c: debug: "
             "spew3d_fs_OpenFromPathAsOSHandleEx "
@@ -223,7 +223,7 @@ h64filehandle spew3d_fs_OpenFromPathAsOSHandleEx(
     pathw = NULL;
     if (fhandle == INVALID_HANDLE_VALUE) {
         uint32_t werror = GetLastError();
-        #if defined(DEBUG_FS)
+        #if defined(DEBUG_SPEW3D_FS)
         fprintf(stderr,
             "spew3d_filesystem.c: debug: "
             "spew3d_fs_OpenFromPathAsOSHandleEx "
@@ -250,7 +250,7 @@ h64filehandle spew3d_fs_OpenFromPathAsOSHandleEx(
     }
     if ((flags & OPEN_ONLY_IF_NOT_LINK) != 0) {
         if (_check_if_symlink_or_junction(fhandle)) {
-            #if defined(DEBUG_FS)
+            #if defined(DEBUG_SPEW3D_FS)
             fprintf(stderr,
                 "spew3d_filesystem.h: debug: "
                 "spew3d_fs_OpenFromPathAsOSHandleEx "
@@ -260,7 +260,7 @@ h64filehandle spew3d_fs_OpenFromPathAsOSHandleEx(
             return H64_NOFILE;
         }
     }
-    #if defined(DEBUG_FS)
+    #if defined(DEBUG_SPEW3D_FS)
     fprintf(stderr,
         "spew3d_filesystem.c: debug: "
         "spew3d_fs_OpenFromPathAsOSHandleEx "
@@ -309,7 +309,7 @@ FILE *spew3d_fs_OpenFromPath(
     }
 
     int innererr = 0;
-    #if defined(DEBUG_FS)
+    #if defined(DEBUG_SPEW3D_FS)
     fprintf(stderr,
         "spew3d_filesystem.c: spew3d_fs_OpenFromPath(\"%s\", "
         "\"%s\", %p) -> spew3d_fs_OpenFromPathAsOSHandleEx\n",
@@ -319,7 +319,7 @@ FILE *spew3d_fs_OpenFromPath(
         path, mode, 0, &innererr
     );
     if (os_f == H64_NOFILE) {
-        #if defined(DEBUG_FS)
+        #if defined(DEBUG_SPEW3D_FS)
         fprintf(stderr,
             "spew3d_filesystem.c: debug: "
             "spew3d_fs_OpenFromPathAsOSHandleEx "
@@ -337,7 +337,7 @@ FILE *spew3d_fs_OpenFromPath(
         strstr(mode, "w") || strstr(mode, "a") || strstr(mode, "r+")
     );
     int mode_append = strstr(mode, "r+") || strstr(mode, "a");
-    #if defined(DEBUG_FS)
+    #if defined(DEBUG_SPEW3D_FS)
     fprintf(stderr,
         "spew3d_filesystem.c: debug: using _open_osfhandle with "
         "mode_read=%d, mode_write=%d, mode_append=%d\n",
@@ -351,7 +351,7 @@ FILE *spew3d_fs_OpenFromPath(
         (mode_append ? _O_APPEND : 0)
     );
     if (filedescr < 0) {
-        #if defined(DEBUG_FS)
+        #if defined(DEBUG_SPEW3D_FS)
         fprintf(stderr,
             "spew3d_filesystem.c: debug: _open_osfhandle failed\n");
         #endif
@@ -361,7 +361,7 @@ FILE *spew3d_fs_OpenFromPath(
     }
     os_f = NULL;  // now owned by 'filedescr'
     errno = 0;
-    #if defined(DEBUG_FS)
+    #if defined(DEBUG_SPEW3D_FS)
     fprintf(stderr,
         "spew3d_filesystem.c: debug: using _fdopen with mode=%s\n",
         mode);
@@ -374,7 +374,7 @@ FILE *spew3d_fs_OpenFromPath(
     }
     return fresult;
     #else
-    #if defined(DEBUG_FS)
+    #if defined(DEBUG_SPEW3D_FS)
     fprintf(stderr,
         "spew3d_filesystem.c: debug: using fdopen64 with mode=%s\n",
         mode);
@@ -394,5 +394,55 @@ FILE *spew3d_fs_OpenFromPath(
     #endif
 }
 
+
+
+int spew3d_fs_GetSize(const char *path, uint64_t *size, int *err) {
+    #if defined(ANDROID) || defined(__ANDROID__) || \
+        defined(__unix__) || defined(__linux__) || \
+        defined(__APPLE__) || defined(__OSX__)
+    struct stat64 statbuf;
+
+    if (stat64(path, &statbuf) == -1) {
+        *err = FSERR_OTHERERROR;
+        if (errno == ENOENT)
+            *err = FSERR_NOSUCHTARGET;
+        else if (errno == EACCES || errno == EPERM)
+            *err = FSERR_NOPERMISSION;
+        return 0;
+    }
+    if (!S_ISREG(statbuf.st_mode)) {
+        *err = FSERR_TARGETNOTAFILE;
+        return 0;
+    }
+    *size = (uint64_t)statbuf.st_size;
+    return 1;
+    #else
+    wchar_t *wpath = AS_U16(path);
+    if (!wpath)
+        return 0;
+    WIN32_FILE_ATTRIBUTE_DATA fad;
+    if (!GetFileAttributesExW(wpath, GetFileExInfoStandard, &fad)) {
+        free(wpath);
+        uint32_t werror = GetLastError();
+        *err = FSERR_OTHERERROR;
+        if (werror == ERROR_ACCESS_DENIED ||
+                werror == ERROR_SHARING_VIOLATION) {
+            *err = FSERR_NOPERMISSION;
+        } else if (werror == ERROR_PATH_NOT_FOUND ||
+                werror == ERROR_FILE_NOT_FOUND ||
+                werror == ERROR_INVALID_NAME ||
+                werror == ERROR_INVALID_DRIVE) {
+            *err = FSERR_NOSUCHTARGET;
+        }
+        return 0;
+    }
+    free(wpath);
+    LARGE_INTEGER v;
+    v.HighPart = fad.nFileSizeHigh;
+    v.LowPart = fad.nFileSizeLow;
+    *size = (uint64_t)v.QuadPart;
+    return 1;
+    #endif
+}
 
 #endif  // SPEW3D_IMPLEMENTATION
