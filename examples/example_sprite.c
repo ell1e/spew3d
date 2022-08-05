@@ -28,7 +28,7 @@ int main(int argc, const char **argv) {
 
     printf("Loading sprite texture\n");
     spew3d_texture_t spritetex = spew3d_texture_FromFile(
-        "helloworld.png"
+        "./hello_world.png"
     );
     if (!spritetex) {
         fprintf(stderr, "Failed to load sprite\n");

@@ -33,7 +33,7 @@ typedef uint64_t spew3d_texture_t;
 
 typedef struct spew3d_texture_info {
     char *idstring, *diskpath;
-    uint8_t loaded, correspondstofile;
+    uint8_t loaded, loadingfailed, correspondstofile;
     uint32_t width, height;
     char *pixels;
 

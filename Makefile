@@ -12,7 +12,7 @@ all:
 	cat spew3d_prefixed.h vendor/miniz/include/miniz/miniz.h vendor/stb/stb_image.h $(HEADERS) $(SOURCES) > spew3d.h
 
 test:
-	cd examples && $(MAKE)
+	cd examples && $(MAKE) clean && $(MAKE)
 	cd examples && valgrind ./example_sprite.bin
 
 update-vendor:

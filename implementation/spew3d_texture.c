@@ -119,6 +119,8 @@ static int _internal_spew3d_ForceLoadTexture(spew3d_texture_t tid) {
     if (tinfo->loaded || (!tinfo->correspondstofile &&
             !tinfo->diskpath))
         return 1;
+    if (tinfo->loadingfailed)
+        return 0;
 
     assert(!tinfo->loaded);
     assert(tinfo->diskpath != NULL);
@@ -127,8 +129,24 @@ static int _internal_spew3d_ForceLoadTexture(spew3d_texture_t tid) {
     if (!spew3d_vfs_FileToBytes(
             tinfo->diskpath, &imgcompressed,
             &imgcompressedlen)) {
+        #if defined(DEBUG_SPEW3D_TEXTURE)
+        fprintf(stderr,
+            "spew3d_texture.c: debug: "
+            "_internal_spew3d_texture_ForceLoadTexture "
+            "failed to read disk data for "
+            "texture: \"%s\"\n",
+            tinfo->diskpath);
+        #endif
+        tinfo->loadingfailed = 1;
         return 0;
     }
+    #if defined(DEBUG_SPEW3D_TEXTURE)
+    fprintf(stderr,
+        "spew3d_texture.c: debug: "
+        "_internal_spew3d_texture_ForceLoadTexture "
+        "decoding this texture: %s\n",
+        tinfo->diskpath);
+    #endif
 
     int w = 0;
     int h = 0;
@@ -138,12 +156,28 @@ static int _internal_spew3d_ForceLoadTexture(spew3d_texture_t tid) {
         imgcompressedlen, &w, &h, &n, 4
     );
     if (!data32) {
+        #if defined(DEBUG_SPEW3D_TEXTURE)
+        fprintf(stderr,
+            "spew3d_texture.c: debug: "
+            "_internal_spew3d_texture_ForceLoadTexture "
+            "failed to decode or allocate image "
+            "for texture: \"%s\"\n",
+            tinfo->diskpath);
+        #endif
+        tinfo->loadingfailed = 1;
         return 0;
     }
     tinfo->width = w;
     tinfo->height = h;
     tinfo->pixels = data32;
     tinfo->loaded = 1;
+    #if defined(DEBUG_SPEW3D_TEXTURE)
+    fprintf(stderr,
+        "spew3d_texture.c: debug: "
+        "_internal_spew3d_texture_ForceLoadTexture "
+        "suceeded for texture: \"%s\"\n",
+        tinfo->diskpath);
+    #endif
     return 1;
 }
 
@@ -155,6 +189,8 @@ static int _internal_spew3d_TextureToGPU(
     if (!_internal_spew3d_ForceLoadTexture(tid))
         return 0;
     spew3d_texture_info *tinfo = _fast_spew3d_texinfo(tid);
+    if (tinfo->loadingfailed)
+        return 0;
     assert(tinfo != NULL && tinfo->idstring != NULL);
     assert(tinfo->loaded && tinfo->pixels != NULL);
     spew3d_texture_extrainfo *extrainfo = (
@@ -427,10 +463,21 @@ int spew3d_texture_Draw(
 
     SDL_Renderer *renderer = _internal_spew3d_outputrenderer;
     SDL_Texture *tex = NULL;
+    if (tinfo->loadingfailed)
+        return 0;
     if (!_internal_spew3d_TextureToGPU(
             tid, withalphachannel, &tex
-            ))
+            )) {
+        tinfo->loadingfailed = 1;
+        #if defined(DEBUG_SPEW3D_TEXTURE)
+        fprintf(stderr,
+            "spew3d_texture.c: debug: "
+            "spew3d_texture_Draw "
+            "failed to load, decode, or "
+            "GPU upload texture\n");
+        #endif
         return 0;
+    }
 
     if (transparency < (1.0 / 256.0) * 0.5)
         return 0;
