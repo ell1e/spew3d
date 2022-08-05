@@ -77,6 +77,22 @@ static void __attribute__((constructor)) _internal_spew3d_ensure_texhash() {
 }
 
 
+static inline spew3d_texture_info *_fast_spew3d_texinfo(
+        spew3d_texture_t id
+        ) {
+    assert(id > 0 && id <= _internal_spew3d_texlist_count);
+    return &_internal_spew3d_texlist[id - 1];
+}
+
+
+voidspew3d_texture_info *spew3d_texinfo(
+        spew3d_texture_t id
+        ) {
+    assert(id > 0 && id <= _internal_spew3d_texlist_count);
+    return &_internal_spew3d_texlist[id - 1];
+}
+
+
 static int _spew3d_check_texidstring_used(
         const char *id) {
     uint16_t hash = spew3d_simplehash(id);
@@ -98,7 +114,7 @@ static int _spew3d_check_texidstring_used(
 
 
 static int _internal_spew3d_ForceLoadTexture(spew3d_texture_t tid) {
-    spew3d_texture_info *tinfo = spew3d_texinfo(tid);
+    spew3d_texture_info *tinfo = _fast_spew3d_texinfo(tid);
     assert(tinfo != NULL && tinfo->idstring != NULL);
     if (tinfo->loaded || (!tinfo->correspondstofile &&
             !tinfo->diskpath))
@@ -138,7 +154,7 @@ static int _internal_spew3d_TextureToGPU(
         ) {
     if (!_internal_spew3d_ForceLoadTexture(tid))
         return 0;
-    spew3d_texture_info *tinfo = spew3d_texinfo(tid);
+    spew3d_texture_info *tinfo = _fast_spew3d_texinfo(tid);
     assert(tinfo != NULL && tinfo->idstring != NULL);
     assert(tinfo->loaded && tinfo->pixels != NULL);
     spew3d_texture_extrainfo *extrainfo = (
@@ -405,7 +421,7 @@ int spew3d_texture_Draw(
         double transparency,
         int withalphachannel
         ) {
-    spew3d_texture_info *tinfo = spew3d_texinfo(tid);
+    spew3d_texture_info *tinfo = _fast_spew3d_texinfo(tid);
     assert(_internal_spew3d_outputwindow != NULL);
     assert(_internal_spew3d_outputrenderer != NULL);
 
@@ -468,7 +484,7 @@ spew3d_texture_t spew3d_texture_NewWritable(
     if (tex == 0)
         return 0;
     spew3d_texture_info *tinfo = (
-        spew3d_texinfo(tex)
+        _fast_spew3d_texinfo(tex)
     );
     assert(tinfo != NULL); 
     assert(!tinfo->correspondstofile);
@@ -501,7 +517,7 @@ void spew3d_texture_Destroy(spew3d_texture_t tid) {
     assert(tid >= 0 && tid < _internal_spew3d_texlist_count);
     if (tid == 0)
         return;
-    spew3d_texture_info *tinfo = spew3d_texinfo(tid);
+    spew3d_texture_info *tinfo = _fast_spew3d_texinfo(tid);
     assert(tinfo != NULL);
     assert(!tinfo->correspondstofile);
     assert(tinfo->idstring != NULL);
