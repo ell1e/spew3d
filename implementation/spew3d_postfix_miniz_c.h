@@ -1,0 +1,3 @@
+
+#endif  // SPEW3D_IMPLEMENTATION
+

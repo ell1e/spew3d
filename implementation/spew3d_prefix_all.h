@@ -37,10 +37,25 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #define _LARGEFILE64_SOURCE
 #endif
 #define _LARGEFILE_SOURCE
+#include <stdio.h>
+#if defined(_WIN32) || defined(_WIN64)
+#define fseek64 _fseeki64
+#define ftell64 _ftelli64
+#else
+#define fdopen64 fdopen
+#ifndef fseek64
+#define fseek64 fseeko64
+#endif
+#ifndef ftell64
+#define ftell64 ftello64
+#endif
+#endif
 
 // For <stb/stb_image.h>:
 #define STBI_NO_STDIO
+#ifdef SPEW3D_IMPLEMENTATION
 #define STB_IMAGE_IMPLEMENTATION
+#endif
 
 // For <miniz/miniz.h>:
 #define MINIZ_NO_ZLIB_APIS

@@ -32,6 +32,10 @@ struct spew3d_point {
 };
 
 
+#ifndef M_PI
+#define M_PI (3.14159265358979323846)
+#endif
+
 static inline void spew3d_math2d_rotate(
         spew3d_point *p, double degree
         ) {

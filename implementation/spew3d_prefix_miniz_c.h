@@ -1,0 +1,4 @@
+
+#ifdef SPEW3D_IMPLEMENTATION
+
+
