@@ -1,9 +1,9 @@
 
-#include <math.h>
-#include <SDL2/SDL.h>
 #define SPEW3D_IMPLEMENTATION
 #include <spew3d.h>
 #undef SPEW3D_IMPLEMENTATION
+#include <math.h>
+#include <SDL2/SDL.h>
 #include <stdio.h>
 #include <stdint.h>
 

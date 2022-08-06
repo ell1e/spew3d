@@ -28,12 +28,21 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 // XXX: Header-guard intentionally missing!
 
+// Try to ensure 64bit file handling:
+#define _FILE_OFFSET_BITS 64
+#ifndef __USE_LARGEFILE64
+#define __USE_LARGEFILE64 1
+#endif
+#ifndef _LARGEFILE64_SOURCE
+#define _LARGEFILE64_SOURCE
+#endif
+#define _LARGEFILE_SOURCE
+
 // For <stb/stb_image.h>:
 #define STBI_NO_STDIO
 #define STB_IMAGE_IMPLEMENTATION
 
 // For <miniz/miniz.h>:
-#define MINIZ_NO_STDIO
 #define MINIZ_NO_ZLIB_APIS
 #define MINIZ_NO_ZLIB_COMPATIBLE_NAMES
 

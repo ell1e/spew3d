@@ -24,19 +24,13 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
 
-#ifndef SPEW3D_WIDECHAR_H_
-#define SPEW3D_WIDECHAR_H_
+#ifndef SPEW3D_SECRANDOM_H_
+#define SPEW3D_SECRANDOM_H_
+
+#include <stdlib.h>  // for size_t
+
+int spew3d_secrandom_GetBytes(char *ptr, size_t amount);
 
 
-int starts_with_valid_utf8_char(
-    const unsigned char *p, int size
-);
+#endif  // SPEW3D_SECRANDOM_H_
 
-int utf8_char_len(const unsigned char *p);
-
-int get_utf8_codepoint(
-    const unsigned char *p, int size,
-    uint64_t *out, int *cpbyteslen
-);
-
-#endif  // SPEW3D_WIDECHAR_H_

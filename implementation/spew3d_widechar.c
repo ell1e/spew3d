@@ -220,7 +220,7 @@ int get_utf8_codepoint(
 }
 
 
-int is_valid_utf8_char(
+int starts_with_valid_utf8_char(
         const unsigned char *p, int size
         ) {
     if (!get_utf8_codepoint(p, size, NULL, NULL))
