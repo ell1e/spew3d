@@ -504,7 +504,7 @@ int _spew3d_archive_AddSingleDirEntry(
 }
 
 
-int spew3darchive_AddDir(spew3darchive *a, const char *dirname) {
+int spew3d_archive_AddDir(spew3darchive *a, const char *dirname) {
     if (!a)
         return SPEW3DARCHIVE_ADDERROR_OUTOFMEMORY;
     if (!_spew3d_archive_EnableWriting(a)) {
@@ -725,7 +725,7 @@ void spew3d_archive_Close(spew3darchive *a) {
 }
 
 
-static size_t miniz_read_spew3d_archive(
+static size_t miniz_read_spew3darchive(
         void *pOpaque, mz_uint64 file_ofs, void *pBuf, size_t n
         ) {
     spew3darchive *a = (spew3darchive *)pOpaque;
@@ -737,7 +737,7 @@ static size_t miniz_read_spew3d_archive(
 }
 
 
-static size_t miniz_write_spew3d_archive(
+static size_t miniz_write_spew3darchive(
         void *pOpaque, mz_uint64 file_ofs, const void *pBuf, size_t n
         ) {
     spew3darchive *a = (spew3darchive *)pOpaque;

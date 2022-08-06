@@ -4,7 +4,7 @@ BINEXT:=.exe
 else
 BINEXT:=.bin
 endif
-HEADERS=$(sort $(filter-out ./spew3d.h ./spew3d_prefixed.h,$(wildcard ./*.h)))
+HEADERS=$(sort $(filter-out ./spew3d.h ./spew3d_prefixed.h,$(wildcard ./*.h) $(wildcard ./implementation/*.h)))
 SOURCES=$(sort $(wildcard ./implementation/*.c))
 TESTPROG=$(sort $(patsubst %.c, %$(BINEXT), $(wildcard ./examples/example_*.c)))
 

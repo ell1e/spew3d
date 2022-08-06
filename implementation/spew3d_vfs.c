@@ -1,9 +1,532 @@
+/* Spew3D is Copyright 2022 ell1e et al.
 
+Permission is hereby granted, free of charge, to any person
+obtaining a copy of this software and associated documentation
+files (the "Software"), to deal in the Software without
+restriction, including without limitation the rights to use,
+copy, modify, merge, publish, distribute, sublicense, and/or
+sell copies of the Software, and to permit persons to whom
+the Software is furnished to do so, subject to the following
+conditions:
+
+The above copyright notice and this permission notice shall
+be included in all copies or substantial portions of the
+Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY
+KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE
+WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR
+PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS
+OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR
+OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
+OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+*/
 
 #ifdef SPEW3D_IMPLEMENTATION
 
+#define _FILE_OFFSET_BITS 64
+#ifndef __USE_LARGEFILE64
+#define __USE_LARGEFILE64 1
+#endif
+#ifndef _LARGEFILE64_SOURCE
+#define _LARGEFILE64_SOURCE
+#endif
+#define _LARGEFILE_SOURCE
+#include <stdio.h>
+#if defined(_WIN32) || defined(_WIN64)
+#define fseek64 _fseeki64
+#define ftell64 _ftelli64
+#else
+#define fdopen64 fdopen
+#ifndef fseek64
+#define fseek64 fseeko64
+#endif
+#ifndef ftell64
+#define ftell64 ftello64
+#endif
+#endif
+
+#include <assert.h>
+#include <errno.h>
 #include <stdint.h>
 #include <stdio.h>
+
+
+typedef struct spew3darchive spew3darchive;
+typedef struct spew3d_vfs_mount spew3d_vfs_mount;
+
+typedef struct spew3d_vfs_mount {
+    char *archivediskpath;
+    spew3darchive *archive;
+    spew3d_vfs_mount *next;
+} spew3d_vfs_mount;
+
+spew3d_vfs_mount *_spew3d_global_mount_list = NULL;
+
+typedef struct SPEW3DVFS_FILE {
+    uint8_t via_mount, is_limited;
+    union {
+        struct {
+            spew3d_vfs_mount *src_mount;
+            uint64_t src_entry;
+        };
+        FILE *diskhandle;
+    };
+    int64_t size;
+    uint64_t offset;
+    uint64_t limit_start, limit_len;
+    char *mode, *path;
+} SPEW3DVFS_FILE;
+
+
+void spew3d_vfs_fclose(SPEW3DVFS_FILE *f) {
+    if (!f)
+        return;
+    if (!f->via_mount) {
+        if (f->diskhandle)
+            fclose(f->diskhandle);
+    }
+    free(f->mode);
+    free(f->path);
+    free(f);
+}
+
+
+int spew3d_vfs_fgetc(SPEW3DVFS_FILE *f) {
+    unsigned char buf[1];
+    size_t result = spew3d_vfs_fread((char *)buf, 1, 1, f);
+    if (result == 1)
+        return (int)buf[0];
+    return -1;
+}
+
+
+int64_t spew3d_vfs_ftell(SPEW3DVFS_FILE *f) {
+    int64_t result = -1;
+    if (!f->via_mount) {
+        result = ftell64(f->diskhandle);
+        if (result >= 0)
+            f->offset = result;
+    } else {
+        result = f->offset;
+    }
+    if (result >= 0 && f->is_limited) {
+        result -= f->limit_start;
+        if (result < 0 || result > (int64_t)f->limit_len)
+            result = -1;
+    }
+    return result;
+}
+
+
+int spew3d_vfs_peakc(SPEW3DVFS_FILE *f) {
+    int64_t byteoffset = 0;
+    if (!f->via_mount)
+        byteoffset = ftell(f->diskhandle);
+    else
+        byteoffset = f->offset;
+    if (byteoffset < 0 || spew3d_vfs_feof(f) ||
+            (f->via_mount && byteoffset >= f->size))
+        return -1;
+    unsigned char buf[1];
+    size_t result = spew3d_vfs_fread((char *)buf, 1, 1, f);
+    if (!f->via_mount)
+        fseek(f->diskhandle, byteoffset, SEEK_SET);
+    else
+        f->offset = byteoffset;
+    if (result == 1)
+        return (int)buf[0];
+    return -1;
+}
+
+
+size_t spew3d_vfs_fwrite(
+        const char *buffer, int bytes,
+        int numn, SPEW3DVFS_FILE *f
+        ) {
+    if (f->via_mount || (strstr(f->mode, "a") == NULL &&
+            strstr(f->mode, "w") == NULL &&
+            strstr(f->mode, "+") == NULL))
+        return 0;
+    return fwrite(buffer, bytes, numn, f->diskhandle);
+}
+
+
+int spew3d_vfs_feof(SPEW3DVFS_FILE *f) {
+    if (f->is_limited &&
+            (uint64_t)f->offset - f->limit_start >=
+            (uint64_t)f->limit_len)
+        return 1;
+    if (!f->via_mount)
+        return feof(f->diskhandle);
+    if (f->size < 0)
+        return 0;
+    return ((uint64_t)f->offset >= (uint64_t)f->size);
+}
+
+
+int spew3d_vfs_fseek(SPEW3DVFS_FILE *f, uint64_t offset) {
+    uint64_t startoffset = 0;
+    if (f->is_limited) {
+        startoffset = f->limit_start;
+        if (offset > f->limit_len)
+            return -1;
+    }
+    if (!f->via_mount) {
+        if (fseek64(f->diskhandle,
+                offset + startoffset, SEEK_SET) == 0) {
+            f->offset = offset + startoffset;
+            return 0;
+        }
+        return -1;
+    }
+    f->offset = offset + startoffset;
+    return -1;
+}
+
+
+SPEW3DVFS_FILE *spew3d_vfs_fdup(SPEW3DVFS_FILE *f) {
+    SPEW3DVFS_FILE *fnew = malloc(sizeof(*fnew));
+    if (!fnew)
+        return NULL;
+    memcpy(fnew, f, sizeof(*f));
+    fnew->mode = strdup(f->mode);
+    if (!fnew->mode) {
+        free(fnew);
+        return NULL;
+    }
+    fnew->path = NULL;
+    if (!fnew->via_mount) {
+        fnew->diskhandle = _dupfhandle(fnew->diskhandle, f->mode);
+        if (!fnew->diskhandle) {
+            free(fnew->mode);
+            free(fnew);
+            return NULL;
+        }
+    } else {
+        assert(fnew->src_mount != NULL);
+        fnew->path = strdup(f->path);
+        if (!fnew->path) {
+            free(fnew->mode);
+            free(fnew);
+            return NULL;
+        }
+    }
+    return fnew;
+}
+
+
+int spew3d_vfs_fseektoend(SPEW3DVFS_FILE *f) {
+    if (f->is_limited)
+        return (spew3d_vfs_fseek(f, f->limit_len) == 0);
+    if (!f->via_mount) {
+        if (fseek64(f->diskhandle, 0, SEEK_END) == 0) {
+            int64_t tellpos = ftell64(f->diskhandle);
+            if (tellpos >= 0) {
+                f->offset = tellpos;
+                return 1;
+            }
+            // Otherwise, try to revert:
+            fseek64(f->diskhandle, f->offset, SEEK_SET);
+            return 0;
+        }
+        return 0;
+    }
+    if (f->size < 0)
+        return 0;
+    f->offset = f->size;
+    return 1;
+}
+
+
+size_t spew3d_vfs_fread(
+        char *buffer, int bytes, int numn,
+        SPEW3DVFS_FILE *f
+        ) {
+    if (bytes <= 0 || numn <= 0)
+        return 0;
+
+    if (f->is_limited) {
+        if (bytes > 1) {
+            // Arbitrary chunks regular path:
+            while (numn > 0 &&
+                    f->offset + (int64_t)(bytes * numn) >
+                    f->limit_start + f->limit_len) {
+                if (bytes == 1) {
+                    numn = ((f->limit_len + f->limit_start) -
+                        f->offset);
+                    break;
+                }
+                numn--;
+            }
+        } else {
+            // Fast-path for bytes=1 numn=X:
+            if ((f->offset - f->limit_start) +
+                    (int64_t)numn > f->limit_len) {
+                numn = (int64_t)(f->limit_len -
+                    (f->offset - f->limit_start));
+            }
+        }
+        if (numn <= 0)
+            return 0;
+    }
+
+    if (!f->via_mount) {
+        errno = 0;
+        size_t result = fread(buffer, bytes, numn, f->diskhandle);
+        if (result > 0) {
+            f->offset += result;
+        } else {
+            if (!feof(f->diskhandle)) {
+                errno = EIO;
+            }
+        }
+        return result;
+    }
+
+    if (f->offset >= f->size || f->size < 0)
+        return 0;
+    if (bytes > 1) {
+        // Arbitrary chunks regular path:
+        while (numn > 0 && f->size >= 0 &&
+                f->offset + (int64_t)(bytes * numn) > f->size)
+            numn--;
+        if (numn <= 0)
+            return 0;
+
+        int numn_read = 0;
+        while (numn > 0) {
+            assert(f->offset + (int64_t)bytes <= f->size);
+            int result = spew3d_archive_ReadFileByteSlice(
+                f->src_mount->archive, f->src_entry,
+                f->offset, buffer, bytes);
+            if (result != bytes) {
+                errno = EIO;
+                return 0;
+            }
+            f->offset += bytes;
+            buffer += bytes;
+            numn_read++;
+        }
+        return numn_read;
+    } else {
+        // Fast-path for bytes=1 numn=X:
+        assert(bytes == 1);
+        if (f->offset + (int64_t)numn > f->size)
+            numn = (int64_t)(f->size - f->offset);
+        if (numn <= 0)
+            return 0;
+        int result = spew3d_archive_ReadFileByteSlice(
+            f->src_mount->archive, f->src_entry,
+            f->offset, buffer, numn);
+        if (result <= 0) {
+            errno = EIO;
+            return 0;
+        }
+        f->offset += result;
+        return result;
+    }
+}
+
+
+int spew3d_vfs_flimitslice(
+        SPEW3DVFS_FILE *f, uint64_t fileoffset,
+        uint64_t maxlen
+        ) {
+    if (!f)
+        return 0;
+
+    // Get the old position to revert to if stuff goes wrong:
+    int64_t pos = (
+        (!f->via_mount) ? (int64_t)ftell64(f->diskhandle) :
+        (int64_t)f->offset
+    );
+    if (pos < 0)
+        return 0;
+
+    // Get the file's current true size:
+    int64_t size = -1;
+    if (!f->via_mount) {
+        if (fseek64(f->diskhandle, 0, SEEK_END) != 0) {
+            // at least TRY to seek back:
+            fseek64(f->diskhandle, pos, SEEK_SET);
+            return 0;
+        }
+        size = ftell64(f->diskhandle);
+        if (fseek64(f->diskhandle, pos, SEEK_SET) != 0) {  // revert back
+            // ... nothing we can do?
+            return 0;
+        }
+    } else {
+        size = spew3d_archive_GetEntrySize(
+            f->src_mount->archive, f->src_entry);
+    }
+    if (size < 0) {
+        return 0;
+    }
+    f->size = size;
+
+    // Make sure the window applied is sane:
+    if (fileoffset + maxlen > (uint64_t)size)
+        return 0;
+    int64_t newpos = pos;
+    if ((uint64_t)newpos < fileoffset)
+        newpos = fileoffset;
+    if ((uint64_t)newpos > fileoffset + maxlen)
+        newpos = fileoffset + maxlen;
+
+    if (newpos != pos && !f->via_mount) {
+        // Now, try to seek to the new position that
+        // is now inside the window:
+        if (fseek64(f->diskhandle, newpos, SEEK_SET) < 0) {
+            // At least TRY to seek back
+            fseek64(f->diskhandle, pos, SEEK_SET);
+            return 0;
+        }
+    }
+    // Apply the new window:
+    f->limit_start = fileoffset;
+    f->limit_len = maxlen;
+    f->offset = newpos;
+    f->is_limited = 1;
+    return 1;
+}
+
+
+SPEW3DVFS_FILE *spew3d_vfs_fopen(
+        const char *path,
+        const char *mode, int flags) {
+    SPEW3DVFS_FILE *vfile = malloc(sizeof(*vfile));
+    if (!vfile) {
+        errno = ENOMEM;
+        return 0;
+    }
+    memset(vfile, 0, sizeof(*vfile));
+    vfile->mode = strdup(mode);
+    if (!vfile->mode) {
+        errno = ENOMEM;
+        free(vfile);
+        return 0;
+    }
+    vfile->size = -1;
+
+    if ((flags & VFSFLAG_NO_VIRTUALPAK_ACCESS) == 0 &&
+            !spew3d_fs_IsObviouslyInvalidPath(path) &&
+            !spew3d_fs_IsAbsolutePath(path)) {
+        char *pathfixed = spew3d_vfs_NormalizePath(path);
+        if (!pathfixed) {
+            errno = ENOMEM;
+            free(vfile->mode);
+            free(vfile);
+            return 0;
+        }
+        spew3d_vfs_mount *mount = _spew3d_global_mount_list;
+        while (mount) {
+            int foundasfolder = 0;
+            int64_t foundidx = -1;
+            if (spew3d_archive_GetEntryIndex(
+                    mount->archive, pathfixed, &foundidx,
+                    &foundasfolder
+                    )) {
+                int64_t _size = (
+                    spew3d_archive_GetEntrySize(
+                        mount->archive, foundidx)
+                );;
+                if (_size < 0) {
+                    errno = EIO;
+                    free(pathfixed);
+                    free(vfile->mode);
+                    free(vfile);
+                    return 0;
+                }
+                vfile->size = _size;
+                vfile->via_mount = 1;
+                vfile->path = pathfixed;
+                vfile->src_mount = mount;
+                vfile->src_entry = foundidx;
+                return vfile;
+            }
+            mount = mount->next;
+        }
+        free(pathfixed);
+    }
+    if ((flags & VFSFLAG_NO_REALDISK_ACCESS) == 0) {
+        vfile->via_mount = 0;
+        errno = 0;
+        int innererr = 0;
+        vfile->diskhandle = spew3d_fs_OpenFromPath(
+            path, mode, &innererr
+        );
+        if (!vfile->diskhandle) {
+            errno = EIO;
+            if (innererr == FSERR_NOSUCHTARGET)
+                errno = ENOMEM;
+            free(vfile->mode);
+            free(vfile);
+            return 0;
+        }
+        return vfile;
+    }
+
+    free(vfile->mode);
+    free(vfile);
+    errno = ENOENT;
+    return 0;
+}
+
+
+SPEW3DVFS_FILE *spew3d_vfs_OwnThisFD(
+        FILE *f, const char *reopenmode
+        ) {
+    SPEW3DVFS_FILE *vfile = malloc(sizeof(*vfile));
+    if (!vfile)
+        return NULL;
+    memset(vfile, 0, sizeof(*vfile));
+    vfile->mode = strdup(reopenmode);
+    if (!vfile->mode) {
+        free(vfile);
+        return NULL;
+    }
+    vfile->size = -1;
+    vfile->via_mount = 0;
+    vfile->diskhandle = f;
+    int64_t i = ftell64(vfile->diskhandle);
+    if (i < 0) {
+        free(vfile->mode);
+        free(vfile);
+        return NULL;
+    }
+    vfile->offset = i;
+    return vfile;
+}
+
+
+void spew3d_vfs_DetachFD(SPEW3DVFS_FILE *f) {
+    assert(f->via_mount == 0);
+    f->diskhandle = NULL;
+}
+
+
+char *spew3d_vfs_NormalizePath(const char *path) {
+    char *p = strdup(path);
+    if (!p)
+        return NULL;
+    char *pnew = spew3d_fs_Normalize(p);
+    free(p);
+    if (!pnew)
+        return NULL;
+    p = pnew;
+    #if defined(_WIN32) || defined(_WIN64)
+    unsigned int k = 0;
+    while (k < strlen(p)) {
+        if (p[k] == '\\')
+            p[k] = '/';
+        k++;
+    }
+    #endif
+    return p;
+}
 
 
 int spew3d_vfs_FileToBytes(

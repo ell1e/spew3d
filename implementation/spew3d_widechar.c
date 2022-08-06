@@ -24,7 +24,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
 
-#ifdef SPEW3D_IMPLEMENTATIO
+#ifdef SPEW3D_IMPLEMENTATION
 
 #include <assert.h>
 #include <stdint.h>

@@ -30,12 +30,57 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include <stdint.h>
 
 
+#define VFSFLAG_NO_REALDISK_ACCESS 1
+#define VFSFLAG_NO_VIRTUALPAK_ACCESS 2
+
+char *spew3d_vfs_NormalizePath(const char *path);
+
 int spew3d_vfs_FileToBytes(
     const char *path,
     char **out_bytes,
     uint64_t *out_bytes_len
 );
 
+typedef struct SPEW3DVFS_FILE SPEW3DVFS_FILE;
+
+SPEW3DVFS_FILE *spew3d_vfs_fopen(
+    const char *path, const char *mode, int flags
+);
+
+SPEW3DVFS_FILE *spew3d_vfs_OwnThisFD(
+    FILE *f, const char *reopenmode
+);
+
+void spew3d_vfs_DetachFD(SPEW3DVFS_FILE *f);
+
+int spew3d_vfs_feof(SPEW3DVFS_FILE *f);
+
+size_t spew3d_vfs_fread(
+    char *buffer, int bytes, int numn, SPEW3DVFS_FILE *f
+);   // sets errno = 0 on eof, errno = EIO on other error.
+
+int64_t spew3d_vfs_ftell(SPEW3DVFS_FILE *f);
+
+void spew3d_vfs_fclose(SPEW3DVFS_FILE *f);
+
+int spew3d_vfs_fseek(SPEW3DVFS_FILE *f, uint64_t offset);
+
+int spew3d_vfs_fseektoend(SPEW3DVFS_FILE *f);
+
+int spew3d_vfs_fgetc(SPEW3DVFS_FILE *f);
+
+int spew3d_vfs_peakc(SPEW3DVFS_FILE *f);
+
+size_t spew3d_vfs_fwrite(
+    const char *buffer, int bytes, int numn,
+    SPEW3DVFS_FILE *f
+);
+
+SPEW3DVFS_FILE *spew3d_vfs_fdup(SPEW3DVFS_FILE *f);
+
+int spew3d_vfs_flimitslice(
+    SPEW3DVFS_FILE *f, uint64_t fileoffset, uint64_t maxlen
+);
 
 #endif  // SPEW3D_VFS_H_
 
