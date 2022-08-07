@@ -595,7 +595,7 @@ int spew3d_texture_Draw(
     r.w = round(extrainfo->width * scale);
     r.h = round(extrainfo->height * scale);
     if (SDL_RenderCopyEx(renderer, tex, NULL, &r,
-            angle, NULL, SDL_FLIP_NONE) != 0)
+            -angle, NULL, SDL_FLIP_NONE) != 0)
         return 0;
     if (SDL_SetRenderDrawColor(renderer,
             old_r, old_g, old_b, old_a) != 0)

@@ -57,11 +57,13 @@ typedef struct spew3darchive spew3darchive;
 typedef struct spew3d_vfs_mount spew3d_vfs_mount;
 
 typedef struct spew3d_vfs_mount {
+    int64_t mountid;
     char *archivediskpath;
     spew3darchive *archive;
     spew3d_vfs_mount *next;
 } spew3d_vfs_mount;
 
+int64_t _spew3d_lastusedmountid = 0;
 spew3d_vfs_mount *_spew3d_global_mount_list = NULL;
 
 typedef struct SPEW3DVFS_FILE {
@@ -78,6 +80,36 @@ typedef struct SPEW3DVFS_FILE {
     uint64_t limit_start, limit_len;
     char *mode, *path;
 } SPEW3DVFS_FILE;
+
+
+int64_t spew3d_vfs_MountArchiveFromDisk(const char *path) {
+    char *pathcleaned = spew3d_vfs_NormalizePath(path);
+    if (!pathcleaned)
+        return -1;
+    spew3darchive *archive = spew3d_archive_FromFilePath(
+        path, 0,
+        VFSFLAG_NO_VIRTUALPAK_ACCESS,
+        SPEW3DARCHIVE_TYPE_AUTODETECT
+    );
+    if (!archive) {
+        free(pathcleaned);
+        return -1;
+    }
+    spew3d_vfs_mount *newmount = malloc(sizeof(*newmount));
+    if (!newmount) {
+        free(pathcleaned);
+        spew3d_archive_Close(archive);
+        return -1;
+    }
+    memset(newmount, 0, sizeof(*newmount));
+    _spew3d_lastusedmountid++;
+    newmount->mountid = _spew3d_lastusedmountid;
+    newmount->archivediskpath = pathcleaned;
+    newmount->archive = archive;
+    newmount->next = _spew3d_global_mount_list;
+    _spew3d_global_mount_list = newmount;
+    return newmount->mountid;
+}
 
 
 void spew3d_vfs_fclose(SPEW3DVFS_FILE *f) {

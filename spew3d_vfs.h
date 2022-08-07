@@ -33,6 +33,13 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #define VFSFLAG_NO_REALDISK_ACCESS 1
 #define VFSFLAG_NO_VIRTUALPAK_ACCESS 2
 
+// Mount an archive at the given path into the VFS space.
+// Returns a positive numeric id for the mount on success,
+// returns -1 on error.
+int64_t spew3d_vfs_MountArchiveFromDisk(
+    const char *path
+);
+
 char *spew3d_vfs_NormalizePath(const char *path);
 
 int spew3d_vfs_FileToBytes(

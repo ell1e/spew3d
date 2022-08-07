@@ -66,7 +66,7 @@ int main(int argc, const char **argv) {
             spritetex,
             cvwidth / 2, cvheight / 2,
             1, scale,
-            90, 1.0, 1.0, 1.0, 1.0, 1
+            45, 1.0, 1.0, 1.0, 1.0, 1
         );
 
         SDL_RenderPresent(renderer);
