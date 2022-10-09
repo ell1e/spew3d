@@ -1,7 +1,8 @@
 
 # Spew3D
 
-You've found **Spew3D**, a one-header file **retro 3d toolkit for C.**
+You've found **Spew3D**, a one-header file **retro 3d toolkit
+for C.**
 
 **Features:**
 
@@ -54,13 +55,20 @@ and the `examples` folder for documentation.
 
 ### Common Compilation Problems
 
-**Question: I am getting missing definitions for `fseeko64` or `ftello64` on Linux, what's up with that?**
+**Question: I am getting missing definitions for `fseeko64` or
+`ftello64` on Linux, what's up with that?**
 
-*Answer: You're likely including `spew3d.h` after something that already included the `stdio.h` header but without the flag for 64bit file support which Spew3D needs. To solve this, either add `-D_FILE_OFFSET_BITS=64 -D_LARGEFILE64_SOURCE` to your gcc or clang compiler flags for your project, or include `spew3d.h` before whatever other header that pulls in `stdio.h`.*
+*Answer: You're likely including `spew3d.h` after something
+that already included the `stdio.h` header but without the
+flag for 64bit file support which Spew3D needs. To solve this,
+either add `-D_FILE_OFFSET_BITS=64 -D_LARGEFILE64_SOURCE` to
+your gcc or clang compiler flags for your project, or include
+`spew3d.h` before whatever other header that pulls in `stdio.h`.*
 
 
 ## License
 
 Spew3D is licensed under the MIT license, [see here](LICENSE.md).
-It includes other projects baked in, see `vendor` folder in the repository.
+It includes other projects baked in, see `vendor` folder in the
+repository.
 
