@@ -9,7 +9,7 @@ for C.**
 - simple API,
 - 2d and 3d graphics, image loading, sound, and more,
 - retro-style like PlayStation 1 or Nintendo64,
-- filesystem, multi-byte, etc. wrapped cross-platform,
+- filesystem, multi-byte strings, etc. wrapped cross-platform,
 - wide platform support thanks to [SDL2](https://libsdl.org).
 
 **Do not use if** it disturbs you that Spew3D:
