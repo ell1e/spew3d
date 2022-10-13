@@ -36,7 +36,7 @@ license, see accompanied LICENSE.md.
 
 //#define _SPEW3D_GLOBDEBUG
 
-S3DEXP int spew3d_wildcardmatchbuf(
+S3DEXP int spew3d_wildcard_MatchBuf(
         const uint8_t *pattern, size_t patternlen,
         const uint8_t *value, size_t valuelen,
         int doublestar_for_paths, int backslash_paths,
@@ -64,7 +64,7 @@ S3DEXP int spew3d_wildcardmatchbuf(
         }
         _valuestrbuf[i] = '\0';
         printf("spew3d_wildcard.c: debug: "
-            "spew3d_wildcardmatchbuf(\"%s\", %d, "
+            "spew3d_wildcard_MatchBuf(\"%s\", %d, "
             "\"%s\", %d, ...) called\n",
             _patternstrbuf, (int)patternlen,
             _valuestrbuf, (int)valuelen);
@@ -94,7 +94,7 @@ S3DEXP int spew3d_wildcardmatchbuf(
     if (globcount > SPEW3D_MAX_ASTERISKS) {
         #ifdef _SPEW3D_GLOBDEBUG
         printf("spew3d_wildcard.c: debug: "
-            "spew3d_wildcardmatchbuf() mismatch, "
+            "spew3d_wildcard_MatchBuf() mismatch, "
             "pattern exceeds asterisk limit\n");
         #endif
         return 0;
@@ -107,7 +107,7 @@ S3DEXP int spew3d_wildcardmatchbuf(
     while (i < patternlen && i2 < valuelen) {
         #ifdef _SPEW3D_GLOBDEBUG
         printf("spew3d_wildcard.c: debug: "
-            "spew3d_wildcardmatchbuf() comparing "
+            "spew3d_wildcard_MatchBuf() comparing "
             "'%c' and '%c'\n",
             pattern[i], value[i2]);
         #endif
@@ -143,7 +143,7 @@ S3DEXP int spew3d_wildcardmatchbuf(
                             (backslash_paths && value[i2] == '\\')) {
                         #ifdef _SPEW3D_GLOBDEBUG
                         printf("spew3d_wildcard.c: debug: "
-                            "spew3d_wildcardmatchbuf() mismatch at "
+                            "spew3d_wildcard_MatchBuf() mismatch at "
                             "pattern position %d\n", (int)i);
                         #endif
                         *result = 0;
@@ -153,12 +153,12 @@ S3DEXP int spew3d_wildcardmatchbuf(
                 }
                 #ifdef _SPEW3D_GLOBDEBUG
                 printf("spew3d_wildcard.c: debug: "
-                    "spew3d_wildcardmatchbuf() matched!\n");
+                    "spew3d_wildcard_MatchBuf() matched!\n");
                 #endif
                 *result = 1;
                 return 1;
             }
-            // We got still some stuff left in our pattern, match it:
+            // We got still stuff left in our pattern, match it:
             remainingpattern = &pattern[i + 1];
             remainingpatternlen = patternlen - (i + 1);
             while (i2 < valuelen) {
@@ -190,7 +190,7 @@ S3DEXP int spew3d_wildcardmatchbuf(
                     }
                     #ifdef _SPEW3D_GLOBDEBUG
                     printf("spew3d_wildcard.c: debug: "
-                        "spew3d_wildcardmatchbuf() mismatch at "
+                        "spew3d_wildcard_MatchBuf() mismatch at "
                         "pattern position %d\n", (int)i);
                     #endif
                     *result = 0;
@@ -198,7 +198,7 @@ S3DEXP int spew3d_wildcardmatchbuf(
                 }
                 // Try to match remaining substring:
                 int innerresult = 0;
-                int validpattern = spew3d_wildcardmatchbuf(
+                int validpattern = spew3d_wildcard_MatchBuf(
                     remainingpattern, remainingpatternlen,
                     &value[i2], valuelen - i2,
                     doublestar_for_paths, backslash_paths,
@@ -208,7 +208,7 @@ S3DEXP int spew3d_wildcardmatchbuf(
                 if (innerresult) {
                     #ifdef _SPEW3D_GLOBDEBUG
                     printf("spew3d_wildcard.c: debug: "
-                        "spew3d_wildcardmatchbuf() matched via "
+                        "spew3d_wildcard_MatchBuf() matched via "
                         "recursion!\n");
                     #endif
                     *result = 1;
@@ -218,7 +218,7 @@ S3DEXP int spew3d_wildcardmatchbuf(
             }
             #ifdef _SPEW3D_GLOBDEBUG
             printf("spew3d_wildcard.c: debug: "
-                "spew3d_wildcardmatchbuf() mismatch at "
+                "spew3d_wildcard_MatchBuf() mismatch at "
                 "pattern position %d\n", (int)i);
             #endif
             *result = 0;
@@ -230,7 +230,7 @@ S3DEXP int spew3d_wildcardmatchbuf(
                 (value[i2] != '/' && value[i2] != '\\'))) {
             #ifdef _SPEW3D_GLOBDEBUG
             printf("spew3d_wildcard.c: debug: "
-                "spew3d_wildcardmatchbuf() mismatch at "
+                "spew3d_wildcard_MatchBuf() mismatch at "
                 "pattern position %d\n", (int)i);
             #endif
             *result = 0;
@@ -240,17 +240,24 @@ S3DEXP int spew3d_wildcardmatchbuf(
         i++;
         i2++;
     }
-    if (i >= patternlen && i2 >= valuelen) {
+    #ifdef _SPEW3D_GLOBDEBUG
+    printf("spew3d_wildcard.c: debug: "
+        "spew3d_wildcard_MatchBuf() is past "
+        "the loop, i=%d, i2=%d\n", (int)i, (int)i2);
+    #endif
+    if (i2 >= valuelen && (i >= patternlen ||
+            (i == patternlen - 1 && !is_escaped &&
+            pattern[i] == '*'))) {
         #ifdef _SPEW3D_GLOBDEBUG
         printf("spew3d_wildcard.c: debug: "
-            "spew3d_wildcardmatchbuf() matched!\n");
+            "spew3d_wildcard_MatchBuf() matched!\n");
         #endif
         *result = 1;
         return 1;
     }
     #ifdef _SPEW3D_GLOBDEBUG
     printf("spew3d_wildcard.c: debug: "
-        "spew3d_wildcardmatchbuf() mismatch at "
+        "spew3d_wildcard_MatchBuf() mismatch at "
         "pattern position %d\n", (int)i);
     #endif
     *result = 0;
@@ -258,12 +265,12 @@ S3DEXP int spew3d_wildcardmatchbuf(
 }
 
 
-S3DEXP int spew3d_wildcardmatch(
+S3DEXP int spew3d_wildcard_Match(
         const char *pattern, const char *value,
         int doublestar_for_paths, int backslash_paths,
         int *result
         ) {
-    return spew3d_wildcardmatchbuf(
+    return spew3d_wildcard_MatchBuf(
         pattern, strlen(pattern),
         value, strlen(value),
         doublestar_for_paths, backslash_paths,

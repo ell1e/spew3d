@@ -38,8 +38,8 @@ license, see accompanied LICENSE.md.
 #define SPEW3D_MAX_ASTERISKS 5
 #endif
 
-/// spew3d_wildcardmatch() matches a glob pattern, like e.g. "abc*" against
-/// "abctest".
+/// spew3d_wildcard_Match() matches a glob pattern, like e.g.
+/// "abc*" against "abctest".
 ///
 /// Special characters:
 /// In the pattern, '*', "**", '^', and '?' have special meanings:
@@ -63,17 +63,17 @@ license, see accompanied LICENSE.md.
 /// If parameter backslash_paths is set to 0, only '/' is treated as
 /// path separator. If set to 1, '/' and '\\' are treated as separators
 /// and will generally compare as being equal.
-S3DEXP int spew3d_wildcardmatch(
+S3DEXP int spew3d_wildcard_Match(
     const char *pattern, const char *value,
     int doublestar_for_paths, int backslash_paths,
     int *result
 );
 
 
-/// Similar as spew3d_wildcardmatch(), but you can specify patterns and
-/// values as byte buffers that may contain null bytes. Null bytes
+/// Similar as spew3d_wildcard_Match(), but you can specify patterns
+/// and values as byte buffers that may contain null bytes. Null bytes
 /// are treated like just any other normal character.
-S3DEXP int spew3d_wildcardmatchbuf(
+S3DEXP int spew3d_wildcard_MatchBuf(
     const uint8_t *pattern, size_t patternlen,
     const uint8_t *value, size_t valuelen,
     int doublestar_for_paths, int backslash_paths,
