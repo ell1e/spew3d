@@ -25,54 +25,46 @@ Alternatively, at your option, this file is offered under the Apache 2
 license, see accompanied LICENSE.md.
 */
 
-// Some stuff that will be put at the start of spew3d.h before
-// all external modules.
+#include <assert.h>
+#include <check.h>
 
-// XXX: Header-guard intentionally missing!
+#define SPEW3D_OPTION_DISABLE_SDL
+#define SPEW3D_IMPLEMENTATION
+#include "spew3d.h"
 
-#if !defined(S3DEXP) && !defined(SPEW3D_OPTION_DISABLE_DLLEXPORT)
-#if (defined(_WIN32) || defined(_WIN64))
-#define S3DEXP __declspec(dllexport)
-#if defined(__MINGW32__) || defined(__MINGW64__)
-#define S3DHID __attribute__ ((visibility ("hidden")))
-#endif
-#else
-#define S3DEXP __attribute__ ((visibility ("default")))
-#define S3DHID __attribute__ ((visibility ("hidden")))
-#endif
-#endif
+#include "testmain.h"
 
-// Try to ensure 64bit file handling:
-#define _FILE_OFFSET_BITS 64
-#ifndef __USE_LARGEFILE64
-#define __USE_LARGEFILE64 1
-#endif
-#ifndef _LARGEFILE64_SOURCE
-#define _LARGEFILE64_SOURCE
-#endif
-#define _LARGEFILE_SOURCE
 
-// For <stb/stb_image.h>:
-#define STBI_NO_STDIO
-#ifdef SPEW3D_IMPLEMENTATION
-#define STB_IMAGE_IMPLEMENTATION
-#endif
+START_TEST (test_bignum)
+{
+    int result;
+    result = spew3d_bignum_CompareStrInts(
+        "0", "0"
+    );
+    assert(result == 0);
+    result = spew3d_bignum_CompareStrInts(
+        "-1", "0"
+    );
+    assert(result == -1);
+    result = spew3d_bignum_CompareStrInts(
+        "0", "-0"
+    );
+    assert(result == 0);
+    result = spew3d_bignum_CompareStrInts(
+        "-0", "-0000"
+    );
+    assert(result == 0);
+    result = spew3d_bignum_CompareStrInts(
+        "12345678123456781234567812345678123456781234567812345678",
+        "12345678123456781234567812345678123456781234567812345679"
+    );
+    assert(result == -1);
+    result = spew3d_bignum_CompareStrInts(
+        "12345678123456781234567812345678123456781234567812345678",
+        "-12345678123456781234567812345678123456781234567812345679"
+    );
+    assert(result == 1);
+}
+END_TEST
 
-// For <miniz/miniz.h>:
-#define MINIZ_NO_ZLIB_APIS
-#define MINIZ_NO_ZLIB_COMPATIBLE_NAMES
-
-// Some debug options:
-#ifdef SPEW3D_DEBUG_OUTPUT
-#define DEBUG_SPEW3D_FS
-#define DEBUG_SPEW3D_VFS
-#define DEBUG_SPEW3D_TEXTURE
-#endif
-
-// Some code is written with this assumption (e.g. spew3d_bigint.h):
-#include <limits.h>
-#include <stdint.h>
-#if UINTPTR_MAX > UINT64_MAX
-  #error "Some Spew3D code cannot handle this pointer size."
-#endif
-
+TESTS_MAIN(test_bignum)
