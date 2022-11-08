@@ -28,6 +28,9 @@ license, see accompanied LICENSE.md.
 #ifndef SPEW3D_WIDECHAR_H_
 #define SPEW3D_WIDECHAR_H_
 
+#include <stdint.h>
+
+typedef uint64_t s3dcodepoint;
 
 int starts_with_valid_utf8_char(
     const unsigned char *p, int size
@@ -37,7 +40,32 @@ int utf8_char_len(const unsigned char *p);
 
 int get_utf8_codepoint(
     const unsigned char *p, int size,
-    uint64_t *out, int *cpbyteslen
+    s3dcodepoint *out, int *cpbyteslen
+);
+
+char *AS_U8_FROM_U16(const uint16_t *s);
+
+uint16_t *AS_U16(const char *s);
+
+size_t strlen16(const uint16_t *s);
+
+int write_codepoint_as_utf8(
+    s3dcodepoint codepoint, int surrogateunescape,
+    int questionmarkescape,
+    char *out, int outbuflen, int *outlen
+);
+
+int utf8_to_utf16(
+    const uint8_t *input, int64_t input_len,
+    uint16_t *outbuf, int64_t outbuflen,
+    int64_t *out_len, int surrogateunescape,
+    int surrogateescape
+);
+
+int utf16_to_utf8(
+    const uint16_t *input, int64_t input_len,
+    char *outbuf, int64_t outbuflen,
+    int64_t *out_len, int surrogateescape
 );
 
 #endif  // SPEW3D_WIDECHAR_H_

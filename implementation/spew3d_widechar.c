@@ -35,8 +35,167 @@ license, see accompanied LICENSE.md.
 #include <windows.h>
 #endif
 
+int utf8_to_utf16(
+        const uint8_t *input, int64_t input_len,
+        uint16_t *outbuf, int64_t outbuflen,
+        int64_t *out_len, int surrogateunescape,
+        int surrogateescape
+        ) {
+    const uint8_t *p = input;
+    uint64_t totallen = 0;
+    int64_t i = 0;
+    while (i < input_len) {
+        if (outbuflen < 1)
+            return 0;
+
+        s3dcodepoint value = 0;
+        int cpbyteslen = 0;
+        int result = get_utf8_codepoint(
+            p, input_len, &value, &cpbyteslen
+        );
+        if (!result) {
+            if (surrogateescape) {
+                value = 0xFFFDULL;
+            } else {
+                value = 0xD800ULL + value;
+            }
+            cpbyteslen = 1;
+        } else if (value >= 0xD800ULL &&
+                value < 0xE000ULL) {
+            value = 0xFFFDULL;
+            if (value <= 0xD800ULL + 255 &&
+                    surrogateunescape) {
+                s3dcodepoint value2 = 0;
+                int cpbyteslen2 = 0;
+                int result2 = get_utf8_codepoint(
+                    p + cpbyteslen, input_len - cpbyteslen,
+                    &value, &cpbyteslen2
+                );
+                if (result2 && value2 >= 0xD800ULL &&
+                        value2 <= 0xD800ULL + 255) {
+                    uint16_t origval;
+                    uint8_t decoded1 = value - 0xD800ULL;
+                    uint8_t decoded2 = value2 - 0xD800ULL;
+                    memcpy(
+                        &origval, &decoded1, sizeof(decoded1)
+                    );
+                    memcpy(
+                        ((char*)&origval) + sizeof(decoded1),
+                        &decoded2, sizeof(decoded2)
+                    );
+                    cpbyteslen += cpbyteslen2;
+                    value = origval;
+                }
+            }
+        }
+
+        if ((int64_t)totallen + 1 > outbuflen)
+            return 0;
+
+        outbuf[totallen] = value;
+        totallen++;
+        p += cpbyteslen;
+        i += cpbyteslen;
+    }
+    if (out_len) *out_len = (int64_t)totallen;
+    return 1;
+}
+
+
+int utf16_to_utf8(
+        const uint16_t *input, int64_t input_len,
+        char *outbuf, int64_t outbuflen,
+        int64_t *out_len, int surrogateescape
+        ) {
+    const uint16_t *p = input;
+    uint64_t totallen = 0;
+    int64_t i = 0;
+    while (i < input_len) {
+        if (outbuflen < 1)
+            return 0;
+        uint64_t value = *((uint16_t*)p);
+        int is_valid_surrogate_pair = 0;
+        if (value >= 0xD800 && value < 0xE000 &&
+                i + 1 < input_len &&
+                p[1] >= 0xD800 && p[1] < 0xE000) {
+            // Possibly valid regular UTF-16 surrogates.
+            uint64_t sg1 = value & 0x3FF;
+            sg1 = sg1 << 10;
+            uint64_t sg2 = p[1] & 0x3FF;
+            uint64_t fullvalue = sg1 + sg2;
+            if ((fullvalue < 0xD800 || fullvalue >= 0xE000) &&
+                    fullvalue < 0x200000ULL) {
+                value = fullvalue;
+                is_valid_surrogate_pair = 1;
+            }
+        } else if (value >= 0xD800 && value < 0xE000) {
+            if (surrogateescape) {
+                // Special case: encode junk here with surrogates.
+                // Write the 16-bit value out as two surrogate
+                // escapes for each 8-bit part:
+                uint8_t invalid_value[2];
+                memcpy(invalid_value, &value, sizeof(uint16_t));
+                value = 0xDC80ULL + invalid_value[0];
+                int inneroutlen = 0;
+                if (!write_codepoint_as_utf8(
+                        (uint64_t)value, 0, 0,
+                        outbuf, outbuflen, &inneroutlen
+                        )) {
+                    return 0;
+                }
+                assert(inneroutlen > 0);
+                outbuflen -= inneroutlen;
+                outbuf += inneroutlen;
+                totallen += inneroutlen;
+                value = 0xDC80ULL + invalid_value[1];
+                inneroutlen = 0;
+                if (!write_codepoint_as_utf8(
+                        (uint64_t)value, 0, 0,
+                        outbuf, outbuflen, &inneroutlen
+                        )) {
+                    return 0;
+                }
+                assert(inneroutlen > 0);
+                outbuflen -= inneroutlen;
+                outbuf += inneroutlen;
+                totallen += inneroutlen;
+                i++;
+                p++;
+                continue;
+            } else {
+                value = 0xFFFDULL;
+            }
+        }
+        int inneroutlen = 0;
+        if (!write_codepoint_as_utf8(
+                (uint64_t)value, 0, 0,
+                outbuf, outbuflen, &inneroutlen
+                )) {
+            return 0;
+        }
+        assert(inneroutlen > 0);
+        p += (is_valid_surrogate_pair ? 2 : 1);
+        outbuflen -= inneroutlen;
+        outbuf += inneroutlen;
+        totallen += inneroutlen;
+        i += (is_valid_surrogate_pair ? 2 : 1);
+    }
+    if (out_len) *out_len = (int64_t)totallen;
+    return 1;
+}
+
+
+size_t strlen16(const uint16_t *s) {
+    const uint16_t *orig_s = s;
+    while (*s != '\0')
+        s++;
+    return s - orig_s;
+}
+
+
 char *AS_U8_FROM_U16(const uint16_t *s) {
-    #if defined(_WIN32) || defined(_WIN64)
+    #if (defined(_WIN32) || defined(_WIN64)) && \
+        defined(USE_WINAPI_WIDECHAR)
     assert(sizeof(wchar_t) == sizeof(uint16_t));
     if (wcslen(s) == 0) {
         uint8_t *result = malloc(sizeof(*result));
@@ -62,13 +221,26 @@ char *AS_U8_FROM_U16(const uint16_t *s) {
     result[cvresult] = '\0';
     return (char *)result;
     #else
-    return NULL;
+    size_t slen = strlen16(s);
+    char *s8 = malloc(slen * 4 + 1);
+    if (!s8)
+        return NULL;
+    int64_t written = 0;
+    if (!utf16_to_utf8(
+            s, slen, s8, slen * 4 + 1,
+            &written, 1
+            )) {
+        free(s8);
+        return NULL;
+    }
+    return s8;
     #endif
 }
 
 
 uint16_t *AS_U16(const char *s) {
-    #if defined(_WIN32) || defined(_WIN64)
+    #if (defined(_WIN32) || defined(_WIN64)) && \
+        defined(USE_WINAPI_WIDECHAR)
     if (strlen(s) == 0) {
         uint16_t *result = malloc(sizeof(*result));
         if (result) result[0] = '\0';
@@ -92,7 +264,20 @@ uint16_t *AS_U16(const char *s) {
     result[cvresult] = '\0';
     return result;
     #else
-    return NULL;
+    size_t slen = strlen(s);
+    uint16_t *s16 = malloc(slen * 2 + 2);
+    if (!s16)
+        return NULL;
+    int64_t written = 0;
+    if (!utf8_to_utf16(
+            s, slen, s16, slen * 2 + 2,
+            &written, 1, 0
+            )) {
+        free(s16);
+        return NULL;
+    }
+    s16[written] = '\0';
+    return s16;
     #endif
 }
 
@@ -122,7 +307,7 @@ int utf8_char_len(const unsigned char *p) {
 
 int get_utf8_codepoint(
         const unsigned char *p, int size,
-        uint64_t *out, int *cpbyteslen
+        s3dcodepoint *out, int *cpbyteslen
         ) {
     if (size < 1)
         return 0;
@@ -227,6 +412,79 @@ int starts_with_valid_utf8_char(
     if (!get_utf8_codepoint(p, size, NULL, NULL))
         return 0;
     return 1;
+}
+
+
+int write_codepoint_as_utf8(
+        s3dcodepoint codepoint, int surrogateunescape,
+        int questionmarkescape,
+        char *out, int outbuflen, int *outlen
+        ) {
+    if (surrogateunescape &&
+            codepoint >= 0xDC80ULL + 0 &&
+            codepoint <= 0xDC80ULL + 255) {
+        if (outbuflen < 1) return 0;
+        ((uint8_t *)out)[0] = (int)(codepoint - 0xDC80ULL);
+        if (outbuflen >= 2)
+            out[1] = '\0';
+        if (outlen) *outlen = 1;
+        return 1;
+    }
+    if (codepoint < 0x80ULL) {
+        if (outbuflen < 1) return 0;
+        ((uint8_t *)out)[0] = (int)codepoint;
+        if (outbuflen >= 2)
+            out[1] = '\0';
+        if (outlen) *outlen = 1;
+        return 1;
+    } else if (codepoint < 0x800ULL) {
+        uint64_t byte2val = (codepoint & 0x3FULL);
+        uint64_t byte1val = (codepoint & 0x7C0ULL) >> 6;
+        if (outbuflen < 2) return 0;
+        ((uint8_t *)out)[0] = (int)(byte1val | 0xC0);
+        ((uint8_t *)out)[1] = (int)(byte2val | 0x80);
+        if (outbuflen >= 3)
+            out[2] = '\0';
+        if (outlen) *outlen = 2;
+        return 1;
+    } else if (codepoint < 0x10000ULL) {
+        uint64_t byte3val = (codepoint & 0x3FULL);
+        uint64_t byte2val = (codepoint & 0xFC0ULL) >> 6;
+        uint64_t byte1val = (codepoint & 0xF000ULL) >> 12;
+        if (outbuflen < 3) return 0;
+        ((uint8_t *)out)[0] = (int)(byte1val | 0xE0);
+        ((uint8_t *)out)[1] = (int)(byte2val | 0x80);
+        ((uint8_t *)out)[2] = (int)(byte3val | 0x80);
+        if (outbuflen >= 4)
+            out[3] = '\0';
+        if (outlen) *outlen = 3;
+        return 1;
+    } else if (codepoint < 0x200000ULL) {
+        uint64_t byte4val = (codepoint & 0x3FULL);
+        uint64_t byte3val = (codepoint & 0xFC0ULL) >> 6;
+        uint64_t byte2val = (codepoint & 0x3F000ULL) >> 12;
+        uint64_t byte1val = (codepoint & 0x1C0000ULL) >> 18;
+        if (outbuflen < 4) return 0;
+        ((uint8_t *)out)[0] = (int)(byte1val | 0xF0);
+        ((uint8_t *)out)[1] = (int)(byte2val | 0x80);
+        ((uint8_t *)out)[2] = (int)(byte3val | 0x80);
+        ((uint8_t *)out)[3] = (int)(byte4val | 0x80);
+        if (outbuflen >= 5)
+            out[4] = '\0';
+        if (outlen) *outlen = 4;
+        return 1;
+    } else if (questionmarkescape) {
+        if (outbuflen < 3) return 0;
+        ((uint8_t *)out)[0] = (int)0xEF;
+        ((uint8_t *)out)[1] = (int)0xBF;
+        ((uint8_t *)out)[2] = (int)0xBD;
+        if (outbuflen >= 4)
+            out[3] = '\0';
+        if (outlen) *outlen = 3;
+        return 1;
+    } else {
+        return 0;
+    }
 }
 
 #endif  // SPEW3D_IMPLEMENTATION
