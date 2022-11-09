@@ -12,7 +12,7 @@ TESTPROG=$(sort $(patsubst %.c, %$(BINEXT), $(wildcard ./examples/example_*.c ./
 
 all: amalgamate build-tests
 
-amalgamate:
+amalgamate: update-vendor
 	echo -e "#ifdef SPEW3D_IMPLEMENTATION\n" > .spew3d_ifdef
 	echo -e "#endif  // SPEW3D_IMPLEMENTATION\n" > .spew3d_ifndef
 	cat implementation/spew3d_prefix_all.h .spew3d_ifdef vendor/siphash.c .spew3d_ifndef vendor/miniz/include/miniz/miniz.h implementation/spew3d_prefix_miniz_c.h vendor/miniz/include/miniz/miniz.c implementation/spew3d_postfix_miniz_c.h vendor/stb/stb_image.h $(HEADERS) $(SOURCES) > include/spew3d.h
