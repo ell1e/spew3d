@@ -12,7 +12,7 @@ TESTPROG=$(sort $(patsubst %.c, %$(BINEXT), $(wildcard ./examples/example_*.c ./
 
 all: amalgamate build-tests
 
-amalgamate: update-vendor
+amalgamate: update-vendor-if-needed
 	echo -e "#ifdef SPEW3D_IMPLEMENTATION\n" > .spew3d_ifdef
 	echo -e "#endif  // SPEW3D_IMPLEMENTATION\n" > .spew3d_ifndef
 	cat implementation/spew3d_prefix_all.h .spew3d_ifdef vendor/siphash.c .spew3d_ifndef vendor/miniz/include/miniz/miniz.h implementation/spew3d_prefix_miniz_c.h vendor/miniz/include/miniz/miniz.c implementation/spew3d_postfix_miniz_c.h vendor/stb/stb_image.h $(HEADERS) $(SOURCES) > include/spew3d.h
@@ -24,6 +24,9 @@ build-tests:
 
 test: amalgamate build-tests unittests
 	cd examples && ./example_sprite.bin
+
+update-vendor-if-needed:
+	@if [ ! -e "vendor/miniz/include/miniz/miniz.h" ]; then $(MAKE) update-vendor; fi
 
 update-vendor:
 	@if [ -e "vendor/miniz/miniz.h" ]; then cd vendor/miniz && git reset --hard; fi
