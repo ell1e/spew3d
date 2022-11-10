@@ -9,22 +9,17 @@
 
 
 int main(int argc, const char **argv) {
-    printf("Initializing SDL2\n");
-    int result = SDL_Init(SDL_INIT_EVERYTHING);
-    if (result != 0) {
-        fprintf(stderr, "SDL_Init() failed\n");
-        return 1;
-    }
-
     printf("Initializing Spew3D with window and renderer\n");
     SDL_Window *window = NULL;
     SDL_Renderer * renderer = NULL;
-    if (!spew3d_Init(
-            "Spew 3D Cube Example", 0,
-            &window, &renderer)) {
+    spew3d_ctx *ctx = spew3d_CreateSDLWindowForMe(
+        "Spew 3D Cube Example", 0
+    );
+    if (!ctx) {
         fprintf(stderr, "Spew3D initialization failed\n");
         return 1;
     }
+    spew3d_ctx_GetSDLWindowAndRenderer(ctx, &window, &renderer);
 
     printf("Creating a cube\n");
     spew3d_geometry *cube = spew3d_geometry_Create();

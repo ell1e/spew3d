@@ -38,8 +38,6 @@ static inline uint16_t spew3d_simplehash(const char *k);
 // Some global variables:
 uint64_t _internal_spew3d_texlist_count;
 spew3d_texture_info *_internal_spew3d_texlist;
-extern SDL_Window *_internal_spew3d_outputwindow;
-extern SDL_Renderer *_internal_spew3d_outputrenderer;
 
 // Global hash map:
 #define SPEW3D_TEXLIST_IDHASHMAP_SIZE 2048
@@ -61,7 +59,9 @@ typedef struct spew3d_texture_extrainfo {
     char *pixels;
     uint32_t width, height;
 
+    #ifndef SPEW3D_OPTION_DISABLE_SDL
     SDL_Texture *sdltexture_alpha, *sdltexture_noalpha;
+    #endif
 } spew3d_texture_extrainfo;
 
 static void __attribute__((constructor)) _internal_spew3d_ensure_texhash() {
@@ -171,7 +171,9 @@ static int _internal_spew3d_ForceLoadTexture(spew3d_texture_t tid) {
     return 1;
 }
 
+#ifndef SPEW3D_OPTION_DISABLE_SDL
 static int _internal_spew3d_TextureToGPU(
+        spew3d_ctx *ctx,
         spew3d_texture_t tid, int alpha,
         SDL_Texture **out_tex
         ) {
@@ -186,6 +188,13 @@ static int _internal_spew3d_TextureToGPU(
         spew3d_extrainfo(tid)
     );
     assert(extrainfo != NULL && extrainfo->pixels != NULL);
+    if (extrainfo->loadingjob != NULL)
+        return -1;
+
+    SDL_Renderer *renderer = NULL;
+    spew3d_ctx_GetSDLWindowAndRenderer(
+        ctx, NULL, &renderer
+    );
     if (alpha && extrainfo->sdltexture_alpha) {
         *out_tex = extrainfo->sdltexture_alpha;
         return 1;
@@ -194,9 +203,6 @@ static int _internal_spew3d_TextureToGPU(
         return 1;
     }
 
-    SDL_Renderer *renderer = (
-        _internal_spew3d_outputrenderer
-    ); 
     SDL_Surface *s = SDL_CreateRGBSurfaceFrom(
         extrainfo->pixels, extrainfo->width,
         extrainfo->height,
@@ -225,6 +231,7 @@ static int _internal_spew3d_TextureToGPU(
         return 1;
     }
 }
+#endif  // #ifndef SPEW3D_OPTION_DISABLE_SDL
 
 const char *spew3d_texture_GetReadonlyPixels(
         spew3d_texture_t tid
@@ -259,6 +266,7 @@ void spew3d_texture_LockPixelsToFinishEdit(
     assert(!einfo->editlocked);
     #endif
     einfo->editlocked = 0;
+    #ifndef SPEW3D_OPTION_DISABLE_SDL
     if (einfo->sdltexture_alpha) {
         SDL_DestroyTexture(einfo->sdltexture_alpha);
         einfo->sdltexture_alpha = NULL;
@@ -267,6 +275,7 @@ void spew3d_texture_LockPixelsToFinishEdit(
         SDL_DestroyTexture(einfo->sdltexture_noalpha);
         einfo->sdltexture_noalpha = NULL;
     }
+    #endif
 }
 
 int spew3d_texture_GetSize(
@@ -523,6 +532,7 @@ spew3d_texture_t _internal_spew3d_texture_NewEx(
 }
 
 int spew3d_texture_Draw(
+        spew3d_ctx *ctx,
         spew3d_texture_t tid,
         int32_t x, int32_t y, int centered,
         double scale, double angle,
@@ -534,25 +544,34 @@ int spew3d_texture_Draw(
     spew3d_texture_extrainfo *extrainfo = (
         spew3d_extrainfo(tid)
     );
-    assert(_internal_spew3d_outputwindow != NULL);
-    assert(_internal_spew3d_outputrenderer != NULL);
 
-    SDL_Renderer *renderer = _internal_spew3d_outputrenderer;
+    #ifdef SPEW3D_OPTION_DISABLE_SDL
+    return 0;
+    #else
+    SDL_Renderer *renderer = NULL;
+    spew3d_ctx_GetSDLWindowAndRenderer(
+        ctx, NULL, &renderer
+    );
     SDL_Texture *tex = NULL;
     if (tinfo->loadingfailed)
         return 0;
-    if (!_internal_spew3d_TextureToGPU(
-            tid, withalphachannel, &tex
-            )) {
+    int gpuupload = _internal_spew3d_TextureToGPU(
+        ctx, tid, withalphachannel, &tex
+    );
+    if (gpuupload == 0) {
         tinfo->loadingfailed = 1;
         #if defined(DEBUG_SPEW3D_TEXTURE)
         fprintf(stderr,
             "spew3d_texture.c: debug: "
             "spew3d_texture_Draw "
-            "failed to load, decode, or "
+            "failed to load, gpuupload, or "
             "GPU upload texture\n");
         #endif
         return 0;
+    }
+    if (gpuupload == -1) {
+        // Simply not done yet.
+        return 1;
     }
 
     if (transparency < (1.0 / 256.0) * 0.5)
@@ -588,6 +607,7 @@ int spew3d_texture_Draw(
             old_r, old_g, old_b, old_a) != 0)
         return 0;
     return 1;
+    #endif  // #ifndef SPEW3D_OPTION_DISABLE_SDL
 }
 
 spew3d_texture_t spew3d_texture_FromFile(
@@ -658,10 +678,12 @@ void spew3d_texture_Destroy(spew3d_texture_t tid) {
     );
     if (extrainfo) {
         free(extrainfo->pixels);
+        #ifndef SPEW3D_OPTION_DISABLE_SDL
         if (extrainfo->sdltexture_alpha)
             SDL_DestroyTexture(extrainfo->sdltexture_alpha);
         if (extrainfo->sdltexture_noalpha)
             SDL_DestroyTexture(extrainfo->sdltexture_noalpha);
+        #endif  // #ifndef SPEW3D_OPTION_DISABLE_SDL
         free(extrainfo);
     }
     free(tinfo->idstring);

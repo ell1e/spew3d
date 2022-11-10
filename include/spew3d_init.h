@@ -28,8 +28,10 @@ license, see accompanied LICENSE.md.
 #ifndef SPEW3D_INIT_H_
 #define SPEW3D_INIT_H_
 
-#include <stdint.h>
+#ifndef SPEW3D_OPTION_DISABLE_SDL
 #include <SDL2/SDL.h>
+#endif
+#include <stdint.h>
 
 
 enum {
@@ -38,13 +40,15 @@ enum {
     SPEW3D_INITFLAG_FORCE_SOFTWARE_RENDERED = 3
 };
 
-int spew3d_Init(
-    const char *title, int initflags,
-    SDL_Window **out_window, SDL_Renderer **out_renderer
+#ifndef SPEW3D_OPTION_DISABLE_SDL
+/** This is a helper function if you don't want to do SDL_Init(),
+ *  SDL_CreateWindow(), and SDL_CreateRenderer() manually. It will do
+ *  those things for you in one go, then return a spew3d_ctx pointer
+ *  which can be used for all Spew3D drawing and to return the
+ *  underlying SDL2 window and renderer. */
+spew3d_ctx *spew3d_init_CreateSDLWindowForMe(
+    const char *window_title, int initflags
 );
-
-int spew3d_InitFromManualSDLInit(
-    SDL_Window *window, SDL_Renderer *renderer
-);
+#endif  // #ifndef SPEW3D_OPTION_DISABLE_SDL
 
 #endif  // SPEW3D_INIT_H_

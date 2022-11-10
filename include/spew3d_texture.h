@@ -32,6 +32,7 @@ license, see accompanied LICENSE.md.
 #include <SDL2/SDL.h>
 
 typedef uint64_t spew3d_texture_t;
+typedef struct spew3d_ctx spew3d_ctx;
 
 typedef struct spew3d_texture_info {
     char *idstring, *diskpath;
@@ -62,6 +63,7 @@ spew3d_texture_t spew3d_texture_NewWritableFromFile(
 void spew3d_texture_Destroy(spew3d_texture_t tid);
 
 int spew3d_texture_Draw(
+    spew3d_ctx *ctx,
     spew3d_texture_t tid,
     int32_t x, int32_t y, int centered, double scale, double angle,
     double tint_red, double tint_white, double tint_blue,

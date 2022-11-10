@@ -25,40 +25,36 @@ Alternatively, at your option, this file is offered under the Apache 2
 license, see accompanied LICENSE.md.
 */
 
-#ifndef SPEW3D_WINDOW_H_
-#define SPEW3D_WINDOW_H_
+#ifndef SPEW3D_CONTEXT_H_
+#define SPEW3D_CONTEXT_H_
 
-#include <stdint.h>
+#ifndef SPEW3D_OPTION_DISABLE_SDL
 #include <SDL2/SDL.h>
+#endif
+#include <stdint.h>
 
-
-typedef struct spew3d_point spew3d_point;
 typedef struct spew3d_ctx spew3d_ctx;
 
-/// Convert coordinates from a mouse event supplied
-/// by SDL2 into the 2d canvas draw units.
-/// The resulting coordinates match what you'd supply to
-/// something like SDL_RenderCopy, SDL_RenderFillRect, or
-/// spew3d_texture_Draw to draw at the clicked spot.
-/// This conversion is needed e.g. with a High-DPI window.
-spew3d_point spew3d_window_EventPointToCanvasDrawPoint(
-    spew3d_ctx *ctx, int x, int y
+spew3d_ctx *spew3d_ctx_New();
+
+#ifndef SPEW3D_OPTION_DISABLE_SDL
+void spew3d_ctx_SetSDLWindowAndRenderer(
+    spew3d_ctx *ctx, SDL_Window *w, SDL_Renderer *r
 );
+#endif
 
-/// Helper function for how wide the 2d canvas is (that may
-/// or may not correspond to screen pixels) for the output
-/// window. This unit is also used for SDL_RenderCopy,
-/// SDL_RenderFillRect, or spew3d_texture_Draw.
-/// This might differ from SDL_GetWindowSize e.g. for a
-/// High-DPI window.
-int32_t spew3d_window_CanvasDrawWidth(spew3d_ctx *ctx);
+#ifndef SPEW3D_OPTION_DISABLE_SDL
+spew3d_ctx *spew3d_ctx_NewFromSDLRenderer(
+    SDL_Window *w, SDL_Renderer *r
+);
+#endif
 
-/// Helper function for how tall the 2d canvas is (that may
-/// or may not correspond to screen pixels) for the output
-/// window. This unit is also used for SDL_RenderCopy,
-/// SDL_RenderFillRect, or spew3d_texture_Draw.
-/// This might differ from SDL_GetWindowSize e.g. for a
-/// High-DPI window.
-int32_t spew3d_window_CanvasDrawHeight(spew3d_ctx *ctx);
+#ifndef SPEW3D_OPTION_DISABLE_SDL
+void spew3d_ctx_GetSDLWindowAndRenderer(
+    spew3d_ctx *ctx, SDL_Window **out_w,
+    SDL_Renderer **out_r
+);
+#endif
 
-#endif  // SPEW3D_WINDOW_H_
+#endif  // SPEW3D_CONTEXT_H_
+
