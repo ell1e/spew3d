@@ -53,7 +53,7 @@ spew3d_point spew3d_window_EventPointToCanvasDrawPoint(
     result.x = x;
     result.y = y;
     #ifdef SPEW3D_OPTION_DISABLE_SDL
-    return result
+    return result;
     #else
     int w, h;
     SDL_RenderGetLogicalSize(renderer, &w, &h);
