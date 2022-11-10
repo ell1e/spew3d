@@ -80,30 +80,22 @@ s3d_threadinfo *thread_Spawn(
 #define THREAD_PRIO_NORMAL 2
 #define THREAD_PRIO_HIGH 3
 
-
 s3d_threadinfo *thread_SpawnWithPriority(
     int priority,
     void (*func)(void* userdata), void *userdata
 );
 
-
 s3d_tevent *threadevent_Create();
-
 
 void threadevent_Free(s3d_tevent *e);
 
-
 void thread_Detach(s3d_threadinfo *t);
-
 
 void thread_Join(s3d_threadinfo *t);
 
-
 int thread_InMainThread();
 
-
 void threadevent_Wait(s3d_tevent *e);
-
 
 void threadevent_Set(s3d_tevent *e);
 
