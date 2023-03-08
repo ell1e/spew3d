@@ -99,8 +99,8 @@ static int spew3d_imgload_ProcessJob() {
             "spew3d_imgload.c: debug: "
             "_internal_spew3d_texture_ForceLoadTexture "
             "failed to read disk data for "
-            "texture: \"%s\"\n",
-            job->path);
+            "texture: \"%s\" [job %p]\n",
+            job->path, job);
         #endif
 
         mutex_Lock(spew3d_imgload_mutex);
@@ -119,8 +119,8 @@ static int spew3d_imgload_ProcessJob() {
     fprintf(stderr,
         "spew3d_imgload.c: debug: "
         "_internal_spew3d_texture_ForceLoadTexture "
-        "decoding this texture: %s\n",
-        job->path);
+        "decoding this texture: %s [job %p]\n",
+        job->path, job);
     #endif
 
     int w = 0;
@@ -143,8 +143,8 @@ static int spew3d_imgload_ProcessJob() {
             "spew3d_imgload.c: debug: "
             "_internal_spew3d_texture_ForceLoadTexture "
             "failed to decode or allocate image "
-            "for texture: \"%s\"\n",
-            job->path);
+            "for texture: \"%s\" [job %p]\n",
+            job->path, job);
         #endif
         job->hasfinished = 1;
         assert(!job->pixels);
@@ -161,8 +161,9 @@ static int spew3d_imgload_ProcessJob() {
         "spew3d_imgload.c: debug: "
         "_internal_spew3d_texture_ForceLoadTexture "
         "succeeded for texture: \"%s\" (size: "
-        "%d,%d)\n",
-        job->path, (int)job->w, (int)job->h);
+        "%d,%d) [job %p]\n",
+        job->path, (int)job->w, (int)job->h,
+        job);
     #endif
     mutex_Release(spew3d_imgload_mutex);
     return 1;
@@ -276,7 +277,7 @@ int spew3d_imgload_GetResult(
         ) {
     mutex_Lock(spew3d_imgload_mutex);
     assert(!job->markeddeleted);
-    assert(!job->hasfinished);
+    assert(job->hasfinished);
     if (job->fserror != FSERR_SUCCESS) {
         assert(!job->pixels);
         if (out_fserr)
