@@ -631,12 +631,10 @@ SPEW3DVFS_FILE *spew3d_vfs_OwnThisFD(
     return vfile;
 }
 
-
 void spew3d_vfs_DetachFD(SPEW3DVFS_FILE *f) {
     assert(f->via_mount == 0);
     f->diskhandle = NULL;
 }
-
 
 char *spew3d_vfs_NormalizePath(const char *path) {
     char *p = strdup(path);
@@ -658,7 +656,6 @@ char *spew3d_vfs_NormalizePath(const char *path) {
     return p;
 }
 
-
 int spew3d_vfs_FileToBytes(
         const char *path, int vfsflags,
         int *out_fserr,
@@ -667,8 +664,9 @@ int spew3d_vfs_FileToBytes(
         ) {
     #if defined(DEBUG_SPEW3D_VFS)
     fprintf(stderr, "spew3d_vfs.c: debug: "
-        "spew3d_vfs_FileToBytes on: \"%s\"\n",
-        path);
+        "spew3d_vfs_FileToBytes on: \"%s\" "
+        "vfsflags:%d\n",
+        path, vfsflags);
     #endif
 
     // Try to open via VFS first:
