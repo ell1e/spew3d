@@ -372,16 +372,23 @@ spew3d_texture_t _internal_spew3d_texture_NewEx(
         const char *name, const char *path, int vfsflags,
         int fromfile
         ) {
+    #if defined(DEBUG_SPEW3D_TEXTURE)
+    fprintf(stderr,
+        "spew3d_texture.c: debug: "
+        "_internal_spew3d_texture_NewEx called -> "
+        "(\"%s\", \"%s\", %d, %d)\n",
+        name, path, vfsflags, fromfile);
+    #endif
     char *normpath = (fromfile ? spew3d_vfs_NormalizePath(path) : NULL);
     if (!normpath)
         return 0;
-    uint32_t idlen = (fromfile ? strlen(normpath) + 2 : strlen(name));
+    uint32_t idlen = (fromfile ? strlen(normpath) + 2 : strlen(name) + 2);
     char *id = malloc(idlen + 1);
     if (!id) {
         free(normpath);
         return 0;
     }
-    memcpy(id + (fromfile ? 2 : 0), (fromfile ? normpath : name),
+    memcpy(id + 2, (fromfile ? normpath : name),
         (fromfile ? strlen(normpath) + 1 : strlen(name) + 1));
     free(normpath);
     normpath = NULL;
@@ -403,7 +410,14 @@ spew3d_texture_t _internal_spew3d_texture_NewEx(
         id[1] = ':';
         vfsflags |= VFSFLAG_NO_VIRTUALPAK_ACCESS;
     }
-        
+    #if defined(DEBUG_SPEW3D_TEXTURE)
+    fprintf(stderr,
+        "spew3d_texture.c: debug: "
+        "_internal_spew3d_texture_NewEx id:\"%s\", "
+        "path:\"%s\", name: \"%s\", vfsflags:%d\n",
+        id, path, name, vfsflags);
+    #endif
+
     if (idlen >= _internal_tex_get_buf_size) {
         uint32_t newsize = (
             idlen + 20
@@ -419,7 +433,9 @@ spew3d_texture_t _internal_spew3d_texture_NewEx(
             _internal_tex_get_buf_new;
         _internal_tex_get_buf_size = newsize;
     }
-    memcpy(_internal_tex_get_buf, id, idlen + 1);
+    assert(idlen >= 2);
+    assert(id[idlen] == '\0');
+    memcpy(_internal_tex_get_buf, id + 2, (idlen - 2) + 1);
     free(id);
     id = NULL;
     if (strlen(_internal_tex_get_buf) == 0) {
@@ -491,8 +507,7 @@ spew3d_texture_t _internal_spew3d_texture_NewEx(
         free(newbucket);
         return 0;
     }
-    char *pathdup = (fromfile ? strdup(_internal_tex_get_buf) :
-        (path != NULL ? strdup(path) : NULL));
+    char *pathdup = strdup(_internal_tex_get_buf);
     if ((fromfile || path != NULL) && !pathdup) {
         free(newbucket);
         free(iddup);
