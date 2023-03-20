@@ -144,10 +144,20 @@ static int _internal_spew3d_ForceLoadTexture(spew3d_texture_t tid) {
                 )) {
             assert(extrainfo->pixels == NULL);
             tinfo->loadingfailed = 1;
+            spew3d_imgload_DestroyJob(extrainfo->loadingjob);
+            extrainfo->loadingjob = NULL;
             return 0;
         }
         assert(extrainfo->pixels != NULL);
+        #if defined(DEBUG_SPEW3D_TEXTURE)
+        fprintf(stderr,
+            "spew3d_texture.c: debug: "
+            "_internal_spew3d_texture_ForceLoadTexture(): "
+            "loading done\n");
+        #endif
         tinfo->loaded = 1;
+        spew3d_imgload_DestroyJob(extrainfo->loadingjob);
+        extrainfo->loadingjob = NULL;
         return 1;
     }
 
@@ -155,7 +165,7 @@ static int _internal_spew3d_ForceLoadTexture(spew3d_texture_t tid) {
         #if defined(DEBUG_SPEW3D_TEXTURE)
         fprintf(stderr,
             "spew3d_texture.c: debug: "
-            "_internal_spew3d_texture_ForceLoadTexture "
+            "_internal_spew3d_texture_ForceLoadTexture(): "
             "now creating a job.\n");
         #endif
         extrainfo->loadingjob = spew3d_imgload_NewJob(
@@ -167,7 +177,7 @@ static int _internal_spew3d_ForceLoadTexture(spew3d_texture_t tid) {
         }
     }
 
-    return 1;
+    return 0;
 }
 
 #ifndef SPEW3D_OPTION_DISABLE_SDL
@@ -188,7 +198,7 @@ static int _internal_spew3d_TextureToGPU(
     );
     assert(extrainfo != NULL && extrainfo->pixels != NULL);
     if (extrainfo->loadingjob != NULL)
-        return -1;
+        return 0;
 
     SDL_Renderer *renderer = NULL;
     spew3d_ctx_GetSDLWindowAndRenderer(
@@ -282,16 +292,11 @@ int spew3d_texture_GetSize(
         int32_t *out_height
         ) {
     if (!_internal_spew3d_ForceLoadTexture(tid)) {
-        *out_width = 0;
-        *out_height = 0;
-        return 1;
+        return 0;
     }
     spew3d_texture_extrainfo *extrainfo = (
         spew3d_extrainfo(tid)
     );
-    if (!extrainfo->loadingjob) {
-        return 0;
-    }
     *out_width = extrainfo->width;
     *out_height = extrainfo->height;
     return 1;
@@ -558,6 +563,8 @@ int spew3d_texture_Draw(
     spew3d_texture_extrainfo *extrainfo = (
         spew3d_extrainfo(tid)
     );
+    if (!_internal_spew3d_ForceLoadTexture(tid))
+        return 0;
 
     #ifdef SPEW3D_OPTION_DISABLE_SDL
     return 0;
@@ -567,8 +574,7 @@ int spew3d_texture_Draw(
         ctx, NULL, &renderer
     );
     SDL_Texture *tex = NULL;
-    if (tinfo->loadingfailed)
-        return 0;
+    assert(!tinfo->loadingfailed);
     int gpuupload = _internal_spew3d_TextureToGPU(
         ctx, tid, withalphachannel, &tex
     );
@@ -577,8 +583,8 @@ int spew3d_texture_Draw(
         #if defined(DEBUG_SPEW3D_TEXTURE)
         fprintf(stderr,
             "spew3d_texture.c: debug: "
-            "spew3d_texture_Draw "
-            "failed to load, gpuupload, or "
+            "spew3d_texture_Draw(): "
+            "failed to access, decode, or "
             "GPU upload texture\n");
         #endif
         return 0;
@@ -589,7 +595,7 @@ int spew3d_texture_Draw(
     }
 
     if (transparency < (1.0 / 256.0) * 0.5)
-        return 0;
+        return 1;
 
     uint8_t old_r, old_g, old_b, old_a;
     if (SDL_GetRenderDrawColor(renderer,
@@ -600,7 +606,7 @@ int spew3d_texture_Draw(
     uint8_t draw_b = fmax(0, fmin(255, tint_blue * 255.0));
     uint8_t draw_a = fmax(0, fmin(255, transparency * 255.0));
     if (draw_a <= 0)
-        return 0;
+        return 1;
     if (SDL_SetRenderDrawColor(renderer,
             draw_r, draw_g, draw_b, draw_a) != 0 ||
             SDL_SetRenderDrawBlendMode(renderer,
@@ -691,6 +697,7 @@ void spew3d_texture_Destroy(spew3d_texture_t tid) {
         spew3d_extrainfo(tid)
     );
     if (extrainfo) {
+        assert(extrainfo->loadingjob == NULL);
         free(extrainfo->pixels);
         #ifndef SPEW3D_OPTION_DISABLE_SDL
         if (extrainfo->sdltexture_alpha)

@@ -55,15 +55,17 @@ int main(int argc, const char **argv) {
         if (spew3d_texture_GetSize(
                 spritetex, &imagewidth, &imageheight
                 )) {
+            assert(imagewidth != 0 && imageheight != 0);
             double scale = (
                 fmin((double)cvwidth, (double)cvheight) /
                     (double)imagewidth);
-            spew3d_texture_Draw(
+            int result = spew3d_texture_Draw(
                 ctx, spritetex,
                 cvwidth / 2, cvheight / 2,
                 1, scale,
                 45, 1.0, 1.0, 1.0, 1.0, 1
             );
+            assert(result != 0);
         }
         SDL_RenderPresent(renderer);
     }
