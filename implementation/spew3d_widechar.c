@@ -1,4 +1,4 @@
-/* Copyright (c) 2020-2022, ellie/@ell1e & Spew3D Team (see AUTHORS.md).
+/* Copyright (c) 2020-2023, ellie/@ell1e & Spew3D Team (see AUTHORS.md).
 
 Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions are met:
@@ -101,7 +101,6 @@ int utf8_to_utf16(
     return 1;
 }
 
-
 int utf16_to_utf8(
         const uint16_t *input, int64_t input_len,
         char *outbuf, int64_t outbuflen,
@@ -184,14 +183,12 @@ int utf16_to_utf8(
     return 1;
 }
 
-
 size_t strlen16(const uint16_t *s) {
     const uint16_t *orig_s = s;
     while (*s != '\0')
         s++;
     return s - orig_s;
 }
-
 
 char *AS_U8_FROM_U16(const uint16_t *s) {
     #if (defined(_WIN32) || defined(_WIN64)) && \
@@ -237,7 +234,6 @@ char *AS_U8_FROM_U16(const uint16_t *s) {
     #endif
 }
 
-
 uint16_t *AS_U16(const char *s) {
     #if (defined(_WIN32) || defined(_WIN64)) && \
         defined(USE_WINAPI_WIDECHAR)
@@ -281,7 +277,6 @@ uint16_t *AS_U16(const char *s) {
     #endif
 }
 
-
 static int is_utf8_start(uint8_t c) {
     if ((int)(c & 0xE0) == (int)0xC0) {  // 110xxxxx
         return 1;
@@ -293,7 +288,6 @@ static int is_utf8_start(uint8_t c) {
     return 0;
 }
 
-
 int utf8_char_len(const unsigned char *p) {
     if ((int)((*p) & 0xE0) == (int)0xC0)
         return 2;
@@ -303,7 +297,6 @@ int utf8_char_len(const unsigned char *p) {
         return 4;
     return 1;
 }
-
 
 int get_utf8_codepoint(
         const unsigned char *p, int size,
@@ -405,7 +398,6 @@ int get_utf8_codepoint(
     return 0;
 }
 
-
 int starts_with_valid_utf8_char(
         const unsigned char *p, int size
         ) {
@@ -413,7 +405,6 @@ int starts_with_valid_utf8_char(
         return 0;
     return 1;
 }
-
 
 int write_codepoint_as_utf8(
         s3dcodepoint codepoint, int surrogateunescape,
