@@ -1,4 +1,4 @@
-/* Copyright (c) 2020-2022, ellie/@ell1e & Spew3D Team (see AUTHORS.md).
+/* Copyright (c) 2020-2023, ellie/@ell1e & Spew3D Team (see AUTHORS.md).
 
 Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions are met:
@@ -35,10 +35,8 @@ license, see accompanied LICENSE.md.
 #endif
 #include <unistd.h>
 
-#ifndef SPEW3D_OPTION_DISABLE_SDL
-spew3d_ctx *spew3d_CreateSDLWindowForMe(
-        const char *window_title, int initflags
-        ) {
+S3DHID int _internal_spew3d_InitGraphics() {
+    #ifndef SPEW3D_OPTION_DISABLE_SDL
     SDL_SetHintWithPriority(
         SDL_HINT_FRAMEBUFFER_ACCELERATION, "0",
         SDL_HINT_OVERRIDE);
@@ -49,6 +47,18 @@ spew3d_ctx *spew3d_CreateSDLWindowForMe(
             SDL_INIT_EVENTS) != 0) {
         return 0;
     }
+    return 1;
+    #else
+    return 1;
+    #endif
+}
+
+#ifndef SPEW3D_OPTION_DISABLE_SDL
+S3DEXP spew3d_ctx *spew3d_CreateSDLWindowForMe(
+        const char *window_title, int initflags
+        ) {
+    if (!_internal_spew3d_InitGraphics())
+        return 0;
 
     SDL_Window *window = SDL_CreateWindow(
         window_title, SDL_WINDOWPOS_UNDEFINED,

@@ -1,4 +1,4 @@
-/* Copyright (c) 2020-2022, ellie/@ell1e & Spew3D Team (see AUTHORS.md).
+/* Copyright (c) 2020-2023, ellie/@ell1e & Spew3D Team (see AUTHORS.md).
 
 Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions are met:
@@ -46,9 +46,13 @@ enum {
  *  those things for you in one go, then return a spew3d_ctx pointer
  *  which can be used for all Spew3D drawing and to return the
  *  underlying SDL2 window and renderer. */
-spew3d_ctx *spew3d_init_CreateSDLWindowForMe(
+S3DEXP spew3d_ctx *spew3d_init_CreateSDLWindowForMe(
     const char *window_title, int initflags
 );
 #endif  // #ifndef SPEW3D_OPTION_DISABLE_SDL
+
+/** This helper function ensures the graphics system is initialized.
+ *  You don't need to call this, Spew3D uses this internally itself. */
+S3DHID int _internal_spew3d_InitGraphics();
 
 #endif  // SPEW3D_INIT_H_
