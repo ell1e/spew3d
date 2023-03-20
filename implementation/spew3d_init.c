@@ -42,6 +42,13 @@ spew3d_ctx *spew3d_CreateSDLWindowForMe(
     SDL_SetHintWithPriority(
         SDL_HINT_FRAMEBUFFER_ACCELERATION, "0",
         SDL_HINT_OVERRIDE);
+    SDL_SetHintWithPriority(
+        SDL_HINT_WINDOWS_DPI_SCALING, "1",
+        SDL_HINT_OVERRIDE);
+    if (SDL_Init(SDL_INIT_VIDEO|SDL_INIT_TIMER|
+            SDL_INIT_EVENTS) != 0) {
+        return 0;
+    }
 
     SDL_Window *window = SDL_CreateWindow(
         window_title, SDL_WINDOWPOS_UNDEFINED,
