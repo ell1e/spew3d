@@ -289,7 +289,7 @@ int spew3d_texture_GetSize(
     spew3d_texture_extrainfo *extrainfo = (
         spew3d_extrainfo(tid)
     );
-    if (extrainfo->loadingjob) {
+    if (!extrainfo->loadingjob) {
         return 0;
     }
     *out_width = extrainfo->width;

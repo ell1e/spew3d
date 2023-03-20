@@ -81,6 +81,14 @@ static int spew3d_imgload_ProcessJob() {
             sizeof(*job_queue) * (job_queue_len - 1)
         );
     job_queue_len--;
+    #if defined(DEBUG_SPEW3D_TEXTURE)
+    fprintf(stderr,
+        "spew3d_imgload.c: debug: "
+        "spew3d_imgload_ProcessJob(): "
+        "processing job, remaining jobs in queue: %d "
+        "[job %p]\n",
+        job_queue_len, job);
+    #endif
     assert(!job->hasstarted);
     assert(!job->markeddeleted);
     job->hasstarted = 1;
@@ -97,7 +105,7 @@ static int spew3d_imgload_ProcessJob() {
         #if defined(DEBUG_SPEW3D_TEXTURE)
         fprintf(stderr,
             "spew3d_imgload.c: debug: "
-            "_internal_spew3d_texture_ForceLoadTexture "
+            "spew3d_imgload_ProcessJob(): "
             "failed to read disk data for "
             "texture: \"%s\" [job %p]\n",
             job->path, job);
@@ -118,7 +126,7 @@ static int spew3d_imgload_ProcessJob() {
     #if defined(DEBUG_SPEW3D_TEXTURE)
     fprintf(stderr,
         "spew3d_imgload.c: debug: "
-        "_internal_spew3d_texture_ForceLoadTexture "
+        "spew3d_imgload_ProcessJob(): "
         "decoding this texture: %s [job %p]\n",
         job->path, job);
     #endif
@@ -141,7 +149,7 @@ static int spew3d_imgload_ProcessJob() {
         #if defined(DEBUG_SPEW3D_TEXTURE)
         fprintf(stderr,
             "spew3d_imgload.c: debug: "
-            "_internal_spew3d_texture_ForceLoadTexture "
+            "spew3d_imgload_ProcessJob(): "
             "failed to decode or allocate image "
             "for texture: \"%s\" [job %p]\n",
             job->path, job);
@@ -154,12 +162,13 @@ static int spew3d_imgload_ProcessJob() {
     }
     job->w = w;
     job->h = h;
+    job->fserror = FSERR_SUCCESS;
     job->pixels = data32;
     job->hasfinished = 1;
     #if defined(DEBUG_SPEW3D_TEXTURE)
     fprintf(stderr,
         "spew3d_imgload.c: debug: "
-        "_internal_spew3d_texture_ForceLoadTexture "
+        "spew3d_imgload_ProcessJob(): "
         "succeeded for texture: \"%s\" (size: "
         "%d,%d) [job %p]\n",
         job->path, (int)job->w, (int)job->h,
