@@ -35,7 +35,11 @@ license, see accompanied LICENSE.md.
 #endif
 #include <unistd.h>
 
+int _global_graphics_init_done = 0;
+
 S3DHID int _internal_spew3d_InitGraphics() {
+    if (_global_graphics_init_done)
+        return 1;
     #ifndef SPEW3D_OPTION_DISABLE_SDL
     SDL_SetHintWithPriority(
         SDL_HINT_FRAMEBUFFER_ACCELERATION, "0",
@@ -47,10 +51,9 @@ S3DHID int _internal_spew3d_InitGraphics() {
             SDL_INIT_EVENTS) != 0) {
         return 0;
     }
-    return 1;
-    #else
-    return 1;
     #endif
+    _global_graphics_init_done = 1;
+    return 1;
 }
 
 #ifndef SPEW3D_OPTION_DISABLE_SDL
