@@ -2,7 +2,7 @@
 Spew3D
 ======
 
-You've found **Spew3D**, a one-header file **retro 3d toolkit
+You've found **Spew3D**, a one-header file **retro 3D toolkit
 for C.**
 
 **Features:**
