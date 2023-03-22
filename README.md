@@ -9,9 +9,9 @@ for C.**
 
 - Simple API
 - 2D and 3D graphics, image loading, sound, and more
-- retro-style like PlayStation 1 or Nintendo64
+- Retro-style like PlayStation 1 or Nintendo64
 - Filesystem, multi-byte strings, etc., all unified
-- Wide platform support thanks to [SDL2](https://libsdl.org).
+- Wide platform support thanks to [SDL2](https://libsdl.org)
 
 **Do not use if** it disturbs you that Spew3D:
 
