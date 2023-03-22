@@ -28,10 +28,12 @@ license, see accompanied LICENSE.md.
 #ifndef SPEW3D_STRINGUTIL_H_
 #define SPEW3D_STRINGUTIL_H_
 
+#include <stdint.h>
+
 S3DEXP void spew3d_stringutil_FreeArray(unsigned char **array);
 
 S3DEXP unsigned char **spew3d_stringutil_ArrayFromLines(
-    const char *filepath, int vfsflags
+    const char *filepath, int vfsflags, int64_t *output_len
 );
 
 #endif  // SPEW3D_STRINGUTIL_H_

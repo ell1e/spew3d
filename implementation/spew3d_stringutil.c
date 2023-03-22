@@ -27,9 +27,13 @@ license, see accompanied LICENSE.md.
 
 #ifdef SPEW3D_IMPLEMENTATION
 
+#include <stdint.h>
 #include <stdio.h>
 
+
 S3DEXP void spew3d_stringutil_FreeArray(unsigned char **array) {
+    if (!array)
+        return;
     int i = 0;
     while (array[i]) {
         free(array[i]);
@@ -39,10 +43,10 @@ S3DEXP void spew3d_stringutil_FreeArray(unsigned char **array) {
 }
 
 S3DEXP unsigned char **spew3d_stringutil_ArrayFromLines(
-        const char *filepath, int vfsflags
+        const char *filepath, int vfsflags, int64_t *output_len
         ) {
     unsigned char **result = malloc(sizeof(void*));
-    int resultlen = 0;
+    int64_t resultlen = 0;
     if (!result) {
         return NULL;
     }
@@ -85,6 +89,7 @@ S3DEXP unsigned char **spew3d_stringutil_ArrayFromLines(
         }
     }
     spew3d_vfs_fclose(f);
+    if (output_len) *output_len = resultlen;
     return result;
 }
 
