@@ -68,6 +68,7 @@ S3DEXP unsigned char **spew3d_stringutil_ArrayFromLines(
                 if (!newresult || !linedup) {
                     if (newresult) result = newresult;
                     free(linedup);
+                    result[resultlen] = NULL;
                     spew3d_stringutil_FreeArray(result);
                     spew3d_vfs_fclose(f);
                     return NULL;
@@ -90,6 +91,7 @@ S3DEXP unsigned char **spew3d_stringutil_ArrayFromLines(
     }
     spew3d_vfs_fclose(f);
     if (output_len) *output_len = resultlen;
+    result[resultlen] = NULL;
     return result;
 }
 
