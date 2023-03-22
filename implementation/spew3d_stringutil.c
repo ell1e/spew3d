@@ -64,7 +64,7 @@ S3DEXP unsigned char **spew3d_stringutil_ArrayFromLines(
             if (strlen(linebuf) > 0) {
                 unsigned char *linedup = strdup(linebuf);
                 unsigned char **newresult = realloc(result,
-                    sizeof(void*) * (resultlen + 1));
+                    sizeof(void*) * (resultlen + 2));
                 if (!newresult || !linedup) {
                     if (newresult) result = newresult;
                     free(linedup);
