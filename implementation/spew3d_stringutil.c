@@ -58,8 +58,13 @@ S3DEXP unsigned char **spew3d_stringutil_ArrayFromLines(
         free(result);
         return NULL;
     }
+    int last_was_ascii_r = 0;
     while (1) {
         int c = spew3d_vfs_fgetc(f);
+        if (last_was_ascii_r && c == '\n') {
+            last_was_ascii_r = 0;
+            continue;
+        }
         if (c < 0 || c == '\r' || c == '\n') {
             if (strlen(linebuf) > 0) {
                 unsigned char *linedup = strdup(linebuf);
@@ -81,7 +86,10 @@ S3DEXP unsigned char **spew3d_stringutil_ArrayFromLines(
             if (c < 0) {
                 break;
             }
+            last_was_ascii_r = (c== '\r');
+            continue;
         }
+        last_was_ascii_r = 0;
         if (c == '\0')
             c == ' ';
         if (strlen(linebuf) + 1 < sizeof(linebuf)) {
