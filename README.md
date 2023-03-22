@@ -7,31 +7,31 @@ for C.**
 
 **Features:**
 
-- simple API,
-- 2d and 3d graphics, image loading, sound, and more,
-- retro-style like PlayStation 1 or Nintendo64,
-- filesystem, multi-byte strings, etc. wrapped cross-platform,
-- wide platform support thanks to [SDL2](https://libsdl.org).
+- Simple API
+- 2D and 3D graphics, image loading, sound, and more
+- retro-style like PlayStation 1 or Nintendo64
+- Filesystem, multi-byte strings, etc., all unified
+- Wide platform support thanks to [SDL2](https://libsdl.org).
 
 **Do not use if** it disturbs you that Spew3D:
 
-- can't do modern shader effects,
-- can't do modern realtime shadows,
-- can't handle modern higher poly counts.
+- Can't do modern shader effects
+- Can't do modern realtime shadows
+- Can't handle modern higher poly counts
 
 Compiling / Usage
 -----------------
 
 *(Get `spew3d.h` [from here](https://codeberg.org/ell1e/spew3d/releases).)*
 
-**Step 1:** add `spew3d.h` into your project's code folder, and
+**Step 1:** Add `spew3d.h` into your project's code folder, and
 put this in all your files where you want to use it from:
 
 ```
 #include <spew3d.h>
 ```
 
-**Step 2:** in only a single object file, add this define which
+**Step 2:** In only a single object file, add this define which
 will make it contain the actual implementation code and not just its API:
 
 ```
@@ -46,8 +46,8 @@ https://libsdl.org) to your linked libraries.
 Documentation
 -------------
 
-For now, please refer to the header files themselves like
-[spew3d_init.h](./include/spew3d_init.h),
+For now, please refer to the [header files](./include/) themselves
+like [spew3d_init.h](./include/spew3d_init.h),
 [spew3d_texture.h](./include/spew3d_texture.h), etc.
 and the ['examples' folder](./examples/) for documentation.
 
@@ -56,7 +56,7 @@ Common Compilation Problems
 
 **Question: Where is `spew3d.h`?**
 
-*Answer: it's generated and not
+*Answer: It's generated and not
 directly in the repository, [see here](#compiling-usage).
 If you want to get it from the repository,
 check the [section on running tests](#run-tests).*
