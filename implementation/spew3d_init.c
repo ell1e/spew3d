@@ -36,6 +36,7 @@ license, see accompanied LICENSE.md.
 #include <unistd.h>
 
 int _global_graphics_init_done = 0;
+int _global_audio_init_done = 0;
 
 S3DHID int _internal_spew3d_InitGraphics() {
     if (_global_graphics_init_done)
@@ -53,6 +54,19 @@ S3DHID int _internal_spew3d_InitGraphics() {
     }
     #endif
     _global_graphics_init_done = 1;
+    return 1;
+}
+
+S3DHID int _internal_spew3d_InitAudio() {
+    if (_global_audio_init_done)
+        return 1;
+    #ifndef SPEW3D_OPTION_DISABLE_SDL
+    if (SDL_Init(SDL_INIT_AUDIO|SDL_INIT_TIMER|
+            SDL_INIT_EVENTS) != 0) {
+        return 0;
+    }
+    #endif
+    _global_audio_init_done = 1;
     return 1;
 }
 

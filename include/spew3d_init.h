@@ -55,4 +55,8 @@ S3DEXP spew3d_ctx *spew3d_init_CreateSDLWindowForMe(
  *  You don't need to call this, Spew3D uses this internally itself. */
 S3DHID int _internal_spew3d_InitGraphics();
 
+/** This helper function ensures the audio system is initialized.
+ *  You don't need to call this, Spew3D uses this internally itself. */
+S3DHID int _internal_spew3d_InitAudio();
+
 #endif  // SPEW3D_INIT_H_

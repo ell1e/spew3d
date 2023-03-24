@@ -96,6 +96,8 @@ typedef int64_t s3dnum_t;
 
 // Audio settings:
 typedef int32_t s3d_asample_t;
+#define S3D_ASAMPLE_MAX INT32_MAX
+#define S3D_ASAMPLE_MIN INT32_MIN
 #ifndef SPEW3D_SINK_AUDIOBUF_SAMPLES
 #define SPEW3D_SINK_AUDIOBUF_SAMPLES 512
 #endif
