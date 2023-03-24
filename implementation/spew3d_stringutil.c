@@ -45,12 +45,18 @@ S3DEXP void spew3d_stringutil_FreeArray(unsigned char **array) {
 S3DEXP unsigned char **spew3d_stringutil_ArrayFromLines(
         const char *filepath, int vfsflags, int64_t *output_len
         ) {
+    // Helper variables to hold result array and current line:
     unsigned char **result = malloc(sizeof(void*));
     int64_t resultlen = 0;
     if (!result) {
         return NULL;
     }
-    unsigned char linebuf[256] = "";
+    unsigned char _linebufshort[256] = "";
+    unsigned char *linebuf = _linebufshort;
+    int linebufalloc = 256;
+    int linebufonheap = 0;
+
+    // Open the target file:
     SPEW3DVFS_FILE *f = spew3d_vfs_fopen(
         filepath, "rb", vfsflags
     );
@@ -58,22 +64,34 @@ S3DEXP unsigned char **spew3d_stringutil_ArrayFromLines(
         free(result);
         return NULL;
     }
+
+    // Loop through file line by line:
     int last_was_ascii_r = 0;
     while (1) {
         int c = spew3d_vfs_fgetc(f);
+
+        // Skip over the second byte of any \r\n windows line break:
         if (last_was_ascii_r && c == '\n') {
             last_was_ascii_r = 0;
             continue;
         }
+
+        // See if we are at a point that completes a line:
         if (c < 0 || c == '\r' || c == '\n') {
-            if (strlen(linebuf) > 0) {
+            if (strlen(linebuf) > 0) {  // We got a non-empty line:
                 unsigned char *linedup = strdup(linebuf);
                 unsigned char **newresult = realloc(result,
                     sizeof(void*) * (resultlen + 2));
                 if (!newresult || !linedup) {
-                    if (newresult) result = newresult;
+                    if (newresult)
+                        result = newresult;
                     free(linedup);
                     result[resultlen] = NULL;
+
+                    // Generic error bail code path:
+                    errorquit: ;
+                    if (linebufonheap)
+                        free(linebuf);
                     spew3d_stringutil_FreeArray(result);
                     spew3d_vfs_fclose(f);
                     return NULL;
@@ -89,17 +107,40 @@ S3DEXP unsigned char **spew3d_stringutil_ArrayFromLines(
             last_was_ascii_r = (c== '\r');
             continue;
         }
+
+        // If we arrive here, this extends the current line by one.
         last_was_ascii_r = 0;
-        if (c == '\0')
+        if (c == '\0')  // Don't allow null bytes.
             c == ' ';
-        if (strlen(linebuf) + 1 < sizeof(linebuf)) {
-            linebuf[strlen(linebuf) + 1] = '\0';
-            linebuf[strlen(linebuf)] = (unsigned char)c;
+
+        // Resize line buffer if it's too small:
+        if (strlen(linebuf) + 1 > linebufalloc) {
+            int newalloc = linebufalloc * 2;
+            char *linebufnew = NULL;
+            if (linebufonheap)
+                linebufnew = realloc(linebuf, newalloc);
+            else
+                linebufnew = malloc(newalloc);
+            if (!linebufnew)
+                goto errorquit;
+            if (!linebufonheap)
+                memcpy(linebufnew, linebuf, linebufalloc);
+            linebuf = linebufnew;
+            linebufalloc = newalloc;
+            linebufonheap = 1;
         }
+        assert(strlen(linebuf) + 1 < linebufalloc);
+        linebuf[strlen(linebuf) + 1] = '\0';
+        linebuf[strlen(linebuf)] = (unsigned char)c;
     }
+
+    // This is the success end case, we made it through.
     spew3d_vfs_fclose(f);
-    if (output_len) *output_len = resultlen;
+    if (output_len)
+        *output_len = resultlen;
     result[resultlen] = NULL;
+    if (linebufonheap)
+        free(linebuf);
     return result;
 }
 
