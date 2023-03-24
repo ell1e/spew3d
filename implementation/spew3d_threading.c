@@ -78,7 +78,6 @@ typedef struct s3d_mutex {
 #endif
 } s3d_mutex;
 
-
 typedef struct s3d_tevent {
 #ifdef WINDOWS
     HANDLE e;
@@ -102,7 +101,6 @@ typedef struct s3d_semaphore {
 #endif
 } s3d_semaphore;
 
-
 typedef struct s3d_threadinfo {
 #ifdef WINDOWS
     HANDLE t;
@@ -123,7 +121,6 @@ __attribute__((constructor)) void __init_semId_synchronize() {
     );
 }
 #endif
-
 
 s3d_semaphore *semaphore_Create(int value) {
     s3d_semaphore *s = malloc(sizeof(*s));
@@ -168,7 +165,6 @@ s3d_semaphore *semaphore_Create(int value) {
     return s;
 }
 
-
 void semaphore_Wait(s3d_semaphore *s) {
 #ifdef WINDOWS
     WaitForSingleObject(s->s, INFINITE);
@@ -181,7 +177,6 @@ void semaphore_Wait(s3d_semaphore *s) {
 #endif
 }
 
-
 void semaphore_Post(s3d_semaphore *s) {
 #ifdef WINDOWS
     ReleaseSemaphore(s->s, 1, NULL);
@@ -193,7 +188,6 @@ void semaphore_Post(s3d_semaphore *s) {
 #endif
 #endif
 }
-
 
 void semaphore_Destroy(s3d_semaphore *s) {
     if (!s) {
@@ -211,7 +205,6 @@ void semaphore_Destroy(s3d_semaphore *s) {
 #endif
     free(s);
 }
-
 
 s3d_mutex *mutex_Create() {
     s3d_mutex* m = malloc(sizeof(*m));
@@ -244,7 +237,6 @@ s3d_mutex *mutex_Create() {
     return m;
 }
 
-
 void mutex_Destroy(s3d_mutex *m) {
     if (!m) {
         return;
@@ -260,7 +252,6 @@ void mutex_Destroy(s3d_mutex *m) {
 #endif
     free(m);
 }
-
 
 void mutex_Lock(s3d_mutex *m) {
 #ifdef WINDOWS
@@ -286,7 +277,6 @@ int mutex_TryLock(s3d_mutex *m) {
 #endif
 }
 
-
 int mutex_TryLockWithTimeout(s3d_mutex *m, int32_t timeoutms) {
     if (timeoutms <= 0)
         return mutex_TryLock(m);
@@ -306,7 +296,6 @@ int mutex_TryLockWithTimeout(s3d_mutex *m, int32_t timeoutms) {
 #endif
 }
 
-
 void mutex_Release(s3d_mutex *m) {
 #ifdef WINDOWS
     ReleaseMutex(m->m);
@@ -322,7 +311,6 @@ void mutex_Release(s3d_mutex *m) {
 #endif
 }
 
-
 void thread_Detach(s3d_threadinfo *t) {
 #ifdef WINDOWS
     CloseHandle(t->t);
@@ -332,12 +320,10 @@ void thread_Detach(s3d_threadinfo *t) {
     free(t);
 }
 
-
 struct spawninfo {
     void (*func)(void* userdata);
     void* userdata;
 };
-
 
 #ifdef WINDOWS
 static unsigned __stdcall spawnthread(void* data) {
@@ -354,7 +340,6 @@ static void* spawnthread(void* data) {
 #endif
 }
 
-
 s3d_threadinfo *thread_Spawn(
         void (*func)(void *userdata),
         void *userdata
@@ -363,7 +348,6 @@ s3d_threadinfo *thread_Spawn(
         THREAD_PRIO_NORMAL, func, userdata
     );
 }
-
 
 s3d_threadinfo *thread_SpawnWithPriority(
         int priority,
@@ -407,13 +391,11 @@ s3d_threadinfo *thread_SpawnWithPriority(
     return t;
 }
 
-
 #ifndef WINDOWS
 static pthread_t mainThread;
 #else
 static DWORD mainThread;
 #endif
-
 
 __attribute__((constructor)) void thread_MarkAsMainThread(void) {
     // mark current thread as main thread
@@ -424,7 +406,6 @@ __attribute__((constructor)) void thread_MarkAsMainThread(void) {
 #endif
 }
 
-
 int thread_InMainThread() {
 #ifndef WINDOWS
     return (pthread_self() == mainThread);
@@ -432,7 +413,6 @@ int thread_InMainThread() {
     return (GetCurrentThreadId() == mainThread);
 #endif
 }
-
 
 void thread_Join(s3d_threadinfo *t) {
 #ifdef WINDOWS
@@ -443,7 +423,6 @@ void thread_Join(s3d_threadinfo *t) {
 #endif
     free(t);
 }
-
 
 s3d_tevent *threadevent_Create() {
     s3d_tevent *e = malloc(sizeof(*e));
@@ -463,7 +442,6 @@ s3d_tevent *threadevent_Create() {
     return e;
 }
 
-
 void threadevent_Free(s3d_tevent *e) {
 #ifdef WINDOWS
     if (e) {
@@ -478,7 +456,6 @@ void threadevent_Free(s3d_tevent *e) {
     free(e);
 }
 
-
 void threadevent_Wait(s3d_tevent *e) {
 #ifdef WINDOWS
     WaitForSingleObject(e->e);
@@ -491,7 +468,6 @@ void threadevent_Wait(s3d_tevent *e) {
     pthread_mutex_unlock(&e->m);
 #endif
 }
-
 
 void threadevent_Set(s3d_tevent *e) {
 #ifdef WINDOWS
