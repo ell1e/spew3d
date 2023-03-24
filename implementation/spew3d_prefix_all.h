@@ -94,3 +94,15 @@ typedef int64_t s3dnum_t;
   #error "Some Spew3D code cannot handle this pointer size."
 #endif
 
+// Audio settings:
+typedef int32_t s3d_asample_t;
+#ifndef SPEW3D_SINK_AUDIOBUF_SAMPLES
+#define SPEW3D_SINK_AUDIOBUF_SAMPLES 512
+#endif
+#ifdef SPEW3D_SINK_AUDIOBUF_BYTES
+#error "SPEW3D_SINK_AUDIOBUF_BYTES already defined"
+#else
+#define SPEW3D_SINK_AUDIOBUF_BYTES (\
+    512 * (int32_t)sizeof(s3d_asample_t))
+#endif
+
