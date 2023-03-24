@@ -32,7 +32,7 @@ license, see accompanied LICENSE.md.
 
 /** Frees any string arrays e.g. created by
  *  spew3d_stringutil_ArrayFromLines(). */
-S3DEXP void spew3d_stringutil_FreeArray(unsigned char **array);
+S3DEXP void spew3d_stringutil_FreeArray(char **array);
 
 /** A helper function to read a file from disk or the integrated VFS
  *  and to split it up into a string array line by line. If null bytes
@@ -42,7 +42,7 @@ S3DEXP void spew3d_stringutil_FreeArray(unsigned char **array);
  *  the array, not counting the last NULL entry. Once you are done
  *  with the array, use spew3d_stringutil_FreeArray() to free it.
  */
-S3DEXP unsigned char **spew3d_stringutil_ArrayFromLines(
+S3DEXP char **spew3d_stringutil_ArrayFromLines(
     const char *filepath, int vfsflags, int64_t *output_len
 );
 

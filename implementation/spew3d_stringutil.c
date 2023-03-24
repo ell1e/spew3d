@@ -31,7 +31,7 @@ license, see accompanied LICENSE.md.
 #include <stdio.h>
 
 
-S3DEXP void spew3d_stringutil_FreeArray(unsigned char **array) {
+S3DEXP void spew3d_stringutil_FreeArray(char **array) {
     if (!array)
         return;
     int i = 0;
@@ -42,17 +42,17 @@ S3DEXP void spew3d_stringutil_FreeArray(unsigned char **array) {
     free(array);
 }
 
-S3DEXP unsigned char **spew3d_stringutil_ArrayFromLines(
+S3DEXP char **spew3d_stringutil_ArrayFromLines(
         const char *filepath, int vfsflags, int64_t *output_len
         ) {
     // Helper variables to hold result array and current line:
-    unsigned char **result = malloc(sizeof(void*));
+    char **result = malloc(sizeof(void*));
     int64_t resultlen = 0;
     if (!result) {
         return NULL;
     }
-    unsigned char _linebufshort[256] = "";
-    unsigned char *linebuf = _linebufshort;
+    char _linebufshort[256] = "";
+    char *linebuf = _linebufshort;
     int linebufalloc = 256;
     int linebufonheap = 0;
 
@@ -79,8 +79,8 @@ S3DEXP unsigned char **spew3d_stringutil_ArrayFromLines(
         // See if we are at a point that completes a line:
         if (c < 0 || c == '\r' || c == '\n') {
             if (strlen(linebuf) > 0) {  // We got a non-empty line:
-                unsigned char *linedup = strdup(linebuf);
-                unsigned char **newresult = realloc(result,
+                char *linedup = strdup(linebuf);
+                char **newresult = realloc(result,
                     sizeof(void*) * (resultlen + 2));
                 if (!newresult || !linedup) {
                     if (newresult)
@@ -131,7 +131,7 @@ S3DEXP unsigned char **spew3d_stringutil_ArrayFromLines(
         }
         assert(strlen(linebuf) + 1 < linebufalloc);
         linebuf[strlen(linebuf) + 1] = '\0';
-        linebuf[strlen(linebuf)] = (unsigned char)c;
+        linebuf[strlen(linebuf)] = c;
     }
 
     // This is the success end case, we made it through.
