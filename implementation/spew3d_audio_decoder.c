@@ -195,6 +195,23 @@ uint32_t _drflac_seek_cb(void *ud,
     }
 }
 
+static void _expand_s16_to_s32(char *buf, uint64_t samples) {
+    char *src = buf + ((samples - 1) * sizeof(int16_t));
+    char *p = buf + ((samples - 1) * sizeof(int32_t));
+    char *pend = buf - sizeof(int32_t);
+    while (p != pend) {
+        int64_t orig_val = *((int16_t *)src);
+        orig_val *= (int64_t)INT32_MAX;
+        orig_val /= (int64_t)INT16_MAX;
+        if (orig_val > (int64_t)INT32_MAX)
+            orig_val = (int64_t)INT32_MAX;
+        else if (orig_val < (int64_t)INT32_MIN)
+            orig_val = (int64_t)INT32_MIN;
+        src -= sizeof(int16_t);
+        p -= sizeof(int32_t);
+    }
+}
+
 static int s3d_audiodecoder_FillDecodeAhead(s3daudiodecoder *d) {
     if (d->decode_endoffile)
         return 1;
@@ -468,6 +485,20 @@ static int s3d_audiodecoder_FillDecodeAhead(s3daudiodecoder *d) {
             (drmp3_int16 *)((char *)d->decodeaheadbuf +
             d->decodeaheadbuf_fillbytes)
         );
+        if (sizeof(DECODEMIXTYPE) == 2) {
+            // 16bit int audio, nothing to do.
+        } else if (sizeof(DECODEMIXTYPE) == 4) {
+            // 32bit int audio, so we have to expand this.
+            _expand_s16_to_s32(
+                ((char *)d->decodeaheadbuf +
+                    d->decodeaheadbuf_fillbytes),
+                read_frames * d->channels
+            );
+        } else {
+            fprintf(stderr,
+                "spew3d_audio_decoder.c: error: "
+                "unsupported DECODEMIXTYPE");
+        }
 
         #if defined(DEBUG_SPEW3D_AUDIODECODE)
         printf(
@@ -489,6 +520,20 @@ static int s3d_audiodecoder_FillDecodeAhead(s3daudiodecoder *d) {
             (drwav_int16 *)((char *)d->decodeaheadbuf +
             d->decodeaheadbuf_fillbytes)
         );
+        if (sizeof(DECODEMIXTYPE) == 2) {
+            // 16bit int audio, nothing to do.
+        } else if (sizeof(DECODEMIXTYPE) == 4) {
+            // 32bit int audio, so we have to expand this.
+            _expand_s16_to_s32(
+                ((char *)d->decodeaheadbuf +
+                    d->decodeaheadbuf_fillbytes),
+                read_frames * d->channels
+            );
+        } else {
+            fprintf(stderr,
+                "spew3d_audio_decoder.c: error: "
+                "unsupported DECODEMIXTYPE");
+        }
 
         #if defined(DEBUG_SPEW3D_AUDIODECODE)
         printf(
@@ -510,6 +555,20 @@ static int s3d_audiodecoder_FillDecodeAhead(s3daudiodecoder *d) {
             (drflac_int16 *)((char *)d->decodeaheadbuf +
             d->decodeaheadbuf_fillbytes)
         );
+        if (sizeof(DECODEMIXTYPE) == 2) {
+            // 16bit int audio, nothing to do.
+        } else if (sizeof(DECODEMIXTYPE) == 4) {
+            // 32bit int audio, so we have to expand this.
+            _expand_s16_to_s32(
+                ((char *)d->decodeaheadbuf +
+                    d->decodeaheadbuf_fillbytes),
+                read_frames * d->channels
+            );
+        } else {
+            fprintf(stderr,
+                "spew3d_audio_decoder.c: error: "
+                "unsupported DECODEMIXTYPE");
+        }
 
         #if defined(DEBUG_SPEW3D_AUDIODECODE)
         printf(
