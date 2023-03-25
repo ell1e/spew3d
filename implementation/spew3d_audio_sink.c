@@ -37,10 +37,6 @@ license, see accompanied LICENSE.md.
 #include <SDL2/SDL.h>
 #endif
 
-#include "spew3d_audio_sink.h"
-#include "spew3d_init.h"
-#include "spew3d_threading.h"
-
 static spew3d_audio_sink **open_sink = NULL;
 static volatile int32_t open_sink_count = 0;
 static s3d_mutex *sink_list_mutex = NULL;

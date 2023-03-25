@@ -1,0 +1,7 @@
+
+#ifdef UNDEF_STRICT_ANSI_LATER
+#undef __STRICT_ANSI__
+#endif
+
+#endif // SPEW3D_IMPLEMENTATION
+

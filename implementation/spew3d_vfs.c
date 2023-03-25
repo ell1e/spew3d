@@ -1,4 +1,4 @@
-/* Copyright (c) 2020-2022, ellie/@ell1e & Spew3D Team (see AUTHORS.md).
+/* Copyright (c) 2020-2023, ellie/@ell1e & Spew3D Team (see AUTHORS.md).
 
 Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions are met:
@@ -92,6 +92,72 @@ __attribute__((constructor)) static void _createVFSMutex() {
             "failed to create spew3d_vfs_mutex\n");
         _exit(1);
     }
+}
+
+int spew3d_vfs_Size(const char *path, int vfsflags,
+        uint64_t *result, int *fserr) {
+    if (spew3d_fs_IsObviouslyInvalidPath(path)) {
+        *result = 0;
+        if (fserr)
+            *fserr = FSERR_NOSUCHTARGET;
+        return 1;
+    }
+    if ((vfsflags & VFSFLAG_NO_VIRTUALPAK_ACCESS) == 0 &&
+            !spew3d_fs_IsAbsolutePath(path)) {
+        mutex_Lock(spew3d_vfs_mutex);
+        char *pathfixed = spew3d_vfs_NormalizePath(path);
+        if (!pathfixed) {
+            if (fserr)
+                *fserr = FSERR_OUTOFMEMORY;
+            mutex_Release(spew3d_vfs_mutex);
+            return 0;
+        }
+        spew3d_vfs_mount *mount = _spew3d_global_mount_list;
+        while (mount) {
+            int foundasfolder = 0;
+            int64_t foundidx = -1;
+            if (spew3d_archive_GetEntryIndex(
+                    mount->archive, pathfixed, &foundidx,
+                    &foundasfolder
+                    )) {
+                if (fserr)
+                    *fserr = FSERR_SUCCESS;
+                free(pathfixed);
+                *result = spew3d_archive_GetEntrySize(
+                    mount->archive, foundidx
+                );
+                mutex_Release(spew3d_vfs_mutex);
+                return 1;
+            }
+            mount = mount->next;
+        }
+        free(pathfixed);
+        mutex_Release(spew3d_vfs_mutex);
+    }
+    if ((vfsflags & VFSFLAG_NO_REALDISK_ACCESS) == 0) {
+        int innerresult = 0;
+        if (!spew3d_fs_TargetExists(path, &innerresult)) {
+            if (fserr)
+                *fserr = FSERR_IOERROR;
+            return 0;
+        }
+        if (innerresult) {
+            if (fserr)
+                *fserr = FSERR_SUCCESS;
+            uint64_t size = 0;
+            if (!spew3d_fs_GetSize(path, &size, fserr)) {
+                if (fserr && *fserr == FSERR_SUCCESS)
+                    *fserr = FSERR_OTHERERROR;
+                return 0;
+            }
+            *result = size;
+            return 1;
+        }
+    }
+    if (fserr)
+        *fserr = FSERR_NOSUCHTARGET;
+    *result = 0;
+    return 1;
 }
 
 int64_t spew3d_vfs_MountArchiveFromDisk(const char *path) {
