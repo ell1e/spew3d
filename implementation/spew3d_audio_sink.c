@@ -42,7 +42,7 @@ static volatile int32_t open_sink_count = 0;
 static s3d_mutex *sink_list_mutex = NULL;
 static char **sink_sdl_soundcards_list = NULL;
 static int64_t sink_sdl_soundcards_refresh_ts = 0;
-static char **_internal_audio_sink_GetSoundcardListOutput(int type);
+static char **_internal_spew3d_audio_sink_GetSoundcardListOutput(int type);
 static void _audiocb_SDL2(void *udata, uint8_t *stream, int len);
 
 static void __attribute__((constructor)) _spew3d_audio_sink_dllinit() {
@@ -59,7 +59,7 @@ static void __attribute__((constructor)) _spew3d_audio_sink_dllinit() {
     }
 }
 
-void _internal_audio_sink_DestroyUnchecked(
+void _internal_spew3d_audio_sink_DestroyUnchecked(
         spew3d_audio_sink *sink
         ) {
     assert(sink != NULL);
@@ -73,7 +73,7 @@ void _internal_audio_sink_DestroyUnchecked(
     free(sink);
 }
 
-void _internal_audio_sink_MarkPermaDestroyedUnchecked(
+void _internal_spew3d_audio_sink_MarkPermaDestroyedUnchecked(
         spew3d_audio_sink *sink
         ) {
     assert(sink != NULL);
@@ -81,7 +81,7 @@ void _internal_audio_sink_MarkPermaDestroyedUnchecked(
     sink->wasclosed = 1;
 }
 
-int _internal_audio_sink_Process(spew3d_audio_sink *sink) {
+int _internal_spew3d_audio_sink_Process(spew3d_audio_sink *sink) {
     // Handle opening the actual audio device for SDL2 output sinks:
     #ifndef SPEW3D_OPTION_DISABLE_SDL
     if (sink->type == AUDIO_SINK_OUTPUT_SDL &&
@@ -141,7 +141,7 @@ int _internal_audio_sink_Process(spew3d_audio_sink *sink) {
 
     // Handle closing the audio sink:
     if (sink->wasclosed) {
-        _internal_audio_sink_DestroyUnchecked(sink);
+        _internal_spew3d_audio_sink_DestroyUnchecked(sink);
         open_sink[open_sink_count - 1] = NULL;
         open_sink_count--;
         return 0;
@@ -150,13 +150,13 @@ int _internal_audio_sink_Process(spew3d_audio_sink *sink) {
     return 1;
 }
 
-void audio_sink_MainThreadUpdate() {
+void spew3d_audio_sink_MainThreadUpdate() {
     _internal_spew3d_InitAudio();
 
     mutex_Lock(sink_list_mutex);
     int i = 0;
     while (i < open_sink_count) {
-        if (!_internal_audio_sink_Process(open_sink[i])) {
+        if (!_internal_spew3d_audio_sink_Process(open_sink[i])) {
             // Audio sink was removed from list, don't advance
             // list index.
             continue;
@@ -169,7 +169,7 @@ void audio_sink_MainThreadUpdate() {
             now != 0) ||
             now + 500 > sink_sdl_soundcards_refresh_ts) {
         char **new_sdl_soundcards_list = (
-            _internal_audio_sink_GetSoundcardListOutput(
+            _internal_spew3d_audio_sink_GetSoundcardListOutput(
                 AUDIO_SINK_OUTPUT_SDL
             ));
         if (sink_sdl_soundcards_list) {
@@ -189,7 +189,7 @@ static void _audiocb_SDL2(void *udata, uint8_t *stream, int len) {
     }
 }
 
-spew3d_audio_sink *audio_sink_CreateOutputEx(
+spew3d_audio_sink *spew3d_audio_sink_CreateOutputEx(
         const char *soundcard_name,
         int wanttype,
         int samplerate,
@@ -249,21 +249,21 @@ spew3d_audio_sink *audio_sink_CreateOutputEx(
     }
 
     failure: ;
-    audio_sink_Close(asink);
-    _internal_audio_sink_DestroyUnchecked(asink);
+    spew3d_audio_sink_Close(asink);
+    _internal_spew3d_audio_sink_DestroyUnchecked(asink);
     open_sink[open_sink_count - 1] = NULL;
     open_sink_count--;
     mutex_Release(sink_list_mutex);
     return NULL;
 }
 
-spew3d_audio_sink *audio_sink_CreateOutput(int samplerate) {
-    return audio_sink_CreateOutputEx(
+spew3d_audio_sink *spew3d_audio_sink_CreateOutput(int samplerate) {
+    return spew3d_audio_sink_CreateOutputEx(
         NULL, AUDIO_SINK_OUTPUT_UNSPECIFIED, samplerate, 4
     );
 }
 
-char **_internal_audio_sink_GetSoundcardListOutput(int type) {
+char **_internal_spew3d_audio_sink_GetSoundcardListOutput(int type) {
     #ifndef SPEW3D_OPTION_DISABLE_SDL
     if (type == AUDIO_SINK_OUTPUT_UNSPECIFIED ||
             type == AUDIO_SINK_OUTPUT_SDL) {
@@ -312,7 +312,7 @@ char **_internal_audio_sink_GetSoundcardListOutput(int type) {
     return NULL;
 }
 
-char **audio_sink_GetSoundcardListOutput(int sinktype) {
+char **spew3d_audio_sink_GetSoundcardListOutput(int sinktype) {
     #ifndef SPEW3D_OPTION_DISABLE_SDL
     if (sinktype == AUDIO_SINK_OUTPUT_UNSPECIFIED ||
             sinktype == AUDIO_SINK_OUTPUT_SDL) {
@@ -331,10 +331,10 @@ char **audio_sink_GetSoundcardListOutput(int sinktype) {
         return result;
     }
     #endif
-    return _internal_audio_sink_GetSoundcardListOutput(sinktype);
+    return _internal_spew3d_audio_sink_GetSoundcardListOutput(sinktype);
 }
 
-void audio_sink_Close(spew3d_audio_sink *sink) {
+void spew3d_audio_sink_Close(spew3d_audio_sink *sink) {
     assert(sink != NULL);
     assert(!sink->wasclosed);
     sink->wasclosed = 1;

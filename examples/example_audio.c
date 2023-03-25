@@ -11,7 +11,7 @@
 
 int main(int argc, const char **argv) {
     printf("Initializing Spew3D audio pipeline\n");
-    spew3d_audio_sink *sink = audio_sink_CreateOutput(48000);
+    spew3d_audio_sink *sink = spew3d_audio_sink_CreateOutput(48000);
     if (!sink) {
         fprintf(stderr, "Failed to crate sink\n");
         return 1;
@@ -20,7 +20,7 @@ int main(int argc, const char **argv) {
     printf("Entering main loop\n");
     int notquit = 1;
     while (notquit) {
-        audio_sink_MainThreadUpdate();
+        spew3d_audio_sink_MainThreadUpdate();
     }
 
     printf("Shutting down\n");

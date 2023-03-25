@@ -63,7 +63,7 @@ typedef struct spew3d_audio_sink {
  *  This function MUST NEVER be called from another thread than the
  *  main thread.
  */
-void audio_sink_MainThreadUpdate();
+void spew3d_audio_sink_MainThreadUpdate();
 
 /** Create a new audio output sink with more extended parameters.
  *  You can call this from any thread, but you must use
@@ -72,7 +72,7 @@ void audio_sink_MainThreadUpdate();
  *  Remember you need to call audio_sink_MainThreadUpdate() on
  *  the main thread continuously for audio to keep working.
  */
-spew3d_audio_sink *audio_sink_CreateOutputEx(
+spew3d_audio_sink *spew3d_audio_sink_CreateOutputEx(
     const char *soundcard_name, int wantsinktype,
     int samplerate, int buffers
 );
@@ -84,22 +84,22 @@ spew3d_audio_sink *audio_sink_CreateOutputEx(
  *  Remember you need to call audio_sink_MainThreadUpdate() on
  *  the main thread continuously for audio to keep working.
  */
-spew3d_audio_sink *audio_sink_CreateOutput(int samplerate);
+spew3d_audio_sink *spew3d_audio_sink_CreateOutput(int samplerate);
 
 /** List the available sound card names for any audio sink to use.
  *  You can call this from any thread. The last string array entry
  *  is NULL. You must free the array, for which you can use
  *  spew3d_stringutil_FreeArray().
  */
-char **audio_sink_GetSoundcardListOutput(int sinktype);
+char **spew3d_audio_sink_GetSoundcardListOutput(int sinktype);
 
 /* Internal function. */
-void _internal_audio_sink_MarkPermaDestroyedUnchecked(
+void _internal_spew3d_audio_sink_MarkPermaDestroyedUnchecked(
     spew3d_audio_sink *sink);
 
 /** Close the audio sink. Make sure no other threads are still using it
  *  before you do that. */
-void audio_sink_Close(spew3d_audio_sink *sink);
+void spew3d_audio_sink_Close(spew3d_audio_sink *sink);
 
 /** For sinks that automatically close after all other things using it
  *  disowned it.
@@ -113,18 +113,18 @@ void audio_sink_Close(spew3d_audio_sink *sink);
  *  operating on sinks after creation you must use some synchronization
  *  if you use it from multiple threads.
  */
-static inline void audio_sink_AddRef(spew3d_audio_sink *sink) {
+static inline void spew3d_audio_sink_AddRef(spew3d_audio_sink *sink) {
     sink->refcount++;
 }
 
 /** For sinks that automatically close once unused/disowned.
  *  Also see audio_sink_AddRef().
  */
-static inline void audio_sink_DelRef(spew3d_audio_sink *sink) {
+static inline void spew3d_audio_sink_DelRef(spew3d_audio_sink *sink) {
     sink->refcount--;
     if (sink->refcount <= 0) {
-        audio_sink_Close(sink);
-        _internal_audio_sink_MarkPermaDestroyedUnchecked(sink);
+        spew3d_audio_sink_Close(sink);
+        _internal_spew3d_audio_sink_MarkPermaDestroyedUnchecked(sink);
     }    
 }
 
