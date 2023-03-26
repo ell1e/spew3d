@@ -196,9 +196,13 @@ uint32_t _drflac_seek_cb(void *ud,
 }
 
 static void _expand_s16_to_s32(char *buf, uint64_t samples) {
-    char *src = buf + ((samples - 1) * sizeof(int16_t));
-    char *p = buf + ((samples - 1) * sizeof(int32_t));
-    char *pend = buf - sizeof(int32_t);
+    __attribute__((__may_alias__)) char *src = (
+        buf + ((samples - 1) * sizeof(int16_t))
+    );
+    __attribute__((__may_alias__)) char *p = (
+        buf + ((samples - 1) * sizeof(int32_t))
+    );
+    __attribute__((__may_alias__)) char *pend = buf - sizeof(int32_t);
     while (p != pend) {
         int64_t orig_val = *((int16_t *)src);
         orig_val *= (int64_t)INT32_MAX;
@@ -207,6 +211,7 @@ static void _expand_s16_to_s32(char *buf, uint64_t samples) {
             orig_val = (int64_t)INT32_MAX;
         else if (orig_val < (int64_t)INT32_MIN)
             orig_val = (int64_t)INT32_MIN;
+        *((int32_t *)p) = orig_val;
         src -= sizeof(int16_t);
         p -= sizeof(int32_t);
     }
