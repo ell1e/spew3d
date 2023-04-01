@@ -239,6 +239,9 @@ S3DHID int _internal_spew3d_audio_sink_Process(spew3d_audio_sink *sink) {
                 sink
             );
             #endif
+            SDL_PauseAudioDevice(
+                SINKIDATA(sink)->output_sdlaudiodevice, 0
+            );
         }
     }
     #endif
@@ -298,6 +301,15 @@ static void _audiocb_SDL2(void *udata, uint8_t *stream, int len) {
     while (copiedbytes < len) {
         int prevplay = SINKIDATA(sink)->ringbufferplaynum;
         if (prevplay == SINKIDATA(sink)->ringbufferfillnum) {
+            if (SINKIDATA(sink)->sinksrc_type != SINKSRC_NONE) {
+                #if defined(DEBUG_SPEW3D_AUDIOSINK)
+                printf(
+                    "spew3d_audio_sink.c: warning: sink "
+                    "addr=%p: ran out of input buffer\n",
+                    sink
+                );
+                #endif
+            }
             memset(stream, 0, len);
             return;
         }
@@ -309,6 +321,10 @@ static void _audiocb_SDL2(void *udata, uint8_t *stream, int len) {
             nextplay * SPEW3D_SINK_AUDIOBUF_BYTES,
             SPEW3D_SINK_AUDIOBUF_BYTES);
         copiedbytes += SPEW3D_SINK_AUDIOBUF_BYTES;
+        SINKIDATA(sink)->ringbufferplaynum = nextplay;
+        //printf("playnum=%d fillnum=%d\n",
+        //    SINKIDATA(sink)->ringbufferplaynum,
+        //    SINKIDATA(sink)->ringbufferfillnum);
     }
 }
 
