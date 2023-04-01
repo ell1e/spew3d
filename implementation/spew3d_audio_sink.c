@@ -114,6 +114,7 @@ S3DHID void _internal_spew3d_audio_sink_ProcessInput(
         ) {
     assert(sink != NULL);
     assert(!SINKIDATA(sink)->wasclosed);
+    int didcopy = 0;
     while (1) {
         int nextnum = SINKIDATA(sink)->ringbufferfillnum + 1;
         nextnum = (nextnum % sink->ringbuffersegmentcount);
@@ -139,9 +140,16 @@ S3DHID void _internal_spew3d_audio_sink_ProcessInput(
                     0,
                     (framecount - result) * (2 * sizeof(s3d_asample_t)));
             SINKIDATA(sink)->ringbufferfillnum = nextnum;
+            didcopy = 1;
         } else {
             break;
         }
+    }
+    if (didcopy) {
+        //printf("[_internal_spew3d_audio_sink_ProcessInput] "
+        //    "playnum=%d fillnum=%d\n",
+        //    SINKIDATA(sink)->ringbufferplaynum,
+        //    SINKIDATA(sink)->ringbufferfillnum);
     }
 }
 
@@ -322,7 +330,7 @@ static void _audiocb_SDL2(void *udata, uint8_t *stream, int len) {
             SPEW3D_SINK_AUDIOBUF_BYTES);
         copiedbytes += SPEW3D_SINK_AUDIOBUF_BYTES;
         SINKIDATA(sink)->ringbufferplaynum = nextplay;
-        //printf("playnum=%d fillnum=%d\n",
+        //printf("[_audiocb_SDL2] playnum=%d fillnum=%d\n",
         //    SINKIDATA(sink)->ringbufferplaynum,
         //    SINKIDATA(sink)->ringbufferfillnum);
     }
@@ -435,7 +443,7 @@ S3DEXP spew3d_audio_sink *spew3d_audio_sink_CreateOutputEx(
 
 spew3d_audio_sink *spew3d_audio_sink_CreateOutput(int samplerate) {
     return spew3d_audio_sink_CreateOutputEx(
-        NULL, AUDIO_SINK_OUTPUT_UNSPECIFIED, samplerate, 4
+        NULL, AUDIO_SINK_OUTPUT_UNSPECIFIED, samplerate, 5
     );
 }
 
