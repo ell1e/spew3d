@@ -45,12 +45,21 @@ static int64_t sink_sdl_soundcards_refresh_ts = 0;
 static char **
     _internal_spew3d_audio_sink_GetSoundcardListOutput(int type);
 static void _audiocb_SDL2(void *udata, uint8_t *stream, int len);
+S3DHID void _internal_spew3d_audio_sink_ProcessInput();
 S3DHID void _internal_spew3d_audio_sink_MarkPermaDestroyedUnchecked(
     spew3d_audio_sink *sink
 );
 
 typedef struct s3d_audio_sink_internal {
     int refcount, wasclosed;
+    int ringbufferplaynum, ringbufferfillnum;
+
+    int sinksrc_type;
+    union {
+        struct {
+            s3daudiodecoder *sinksrc_decoder;
+        };
+    };
 
     union {
         #ifndef SPEW3D_OPTION_DISABLE_SDL
@@ -79,6 +88,60 @@ static void __attribute__((constructor)) _spew3d_audio_sink_dllinit() {
         );
         _exit(1);
         return;
+    }
+}
+
+S3DEXP void spew3d_audio_sink_FeedFromDecoder(
+        spew3d_audio_sink *sink, s3daudiodecoder *decoder
+        ) {
+    assert(sink != NULL);
+    assert(!SINKIDATA(sink)->wasclosed);
+    assert(decoder != NULL);
+    SINKIDATA(sink)->sinksrc_decoder = decoder;
+    SINKIDATA(sink)->sinksrc_type = SINKSRC_DECODER;
+    #if defined(DEBUG_SPEW3D_AUDIOSINK)
+    printf(
+        "spew3d_audio_sink.c: debug: sink "
+        "addr=%p: spew3d_audio_sink_FeedFromDecoder() "
+        "to decoder: addr=%p\n",
+        sink, decoder
+    );
+    #endif
+}
+
+S3DHID void _internal_spew3d_audio_sink_ProcessInput(
+        spew3d_audio_sink *sink
+        ) {
+    assert(sink != NULL);
+    assert(!SINKIDATA(sink)->wasclosed);
+    while (1) {
+        int nextnum = SINKIDATA(sink)->ringbufferfillnum + 1;
+        nextnum = (nextnum % sink->ringbuffersegmentcount);
+        if (nextnum == SINKIDATA(sink)->ringbufferplaynum)
+            break;
+        if (SINKIDATA(sink)->sinksrc_type == SINKSRC_DECODER) {
+            assert(s3d_audiodecoder_GetSourceChannels(
+                SINKIDATA(sink)->sinksrc_decoder) == 2);
+            int framecount = (SPEW3D_SINK_AUDIOBUF_BYTES /
+                (sizeof(s3d_asample_t) * 2));
+            assert(framecount > 0);
+            int haderror = 0;
+            int result = s3d_audiodecoder_Decode(
+                SINKIDATA(sink)->sinksrc_decoder,
+                sink->ringbuffer +
+                nextnum * SPEW3D_SINK_AUDIOBUF_BYTES,
+                framecount, &haderror
+            );
+            if (result < framecount)
+                memset(sink->ringbuffer +
+                    nextnum * SPEW3D_SINK_AUDIOBUF_BYTES +
+                    result * (2 * sizeof(s3d_asample_t)),
+                    0,
+                    (framecount - result) * (2 * sizeof(s3d_asample_t)));
+            SINKIDATA(sink)->ringbufferfillnum = nextnum;
+        } else {
+            break;
+        }
     }
 }
 
@@ -172,6 +235,9 @@ S3DHID int _internal_spew3d_audio_sink_Process(spew3d_audio_sink *sink) {
         return 0;
     }
 
+    // Handle feeding input audio:
+    _internal_spew3d_audio_sink_ProcessInput(sink);
+
     return 1;
 }
 
@@ -208,9 +274,25 @@ S3DEXP void spew3d_audio_sink_MainThreadUpdate() {
 
 static void _audiocb_SDL2(void *udata, uint8_t *stream, int len) {
     spew3d_audio_sink *sink = (spew3d_audio_sink *)udata;
-    if (!sink || 1) {
+    if (!sink) {
         memset(stream, 0, len);
         return;
+    }
+    int copiedbytes = 0;
+    while (copiedbytes < len) {
+        int prevplay = SINKIDATA(sink)->ringbufferplaynum;
+        if (prevplay == SINKIDATA(sink)->ringbufferfillnum) {
+            memset(stream, 0, len);
+            return;
+        }
+        int nextplay = prevplay + 1;
+        nextplay = (nextplay % sink->ringbuffersegmentcount);
+        assert(len >= SPEW3D_SINK_AUDIOBUF_BYTES);
+        assert((len % SPEW3D_SINK_AUDIOBUF_BYTES) == 0);
+        memcpy(stream, sink->ringbuffer +
+            nextplay * SPEW3D_SINK_AUDIOBUF_BYTES,
+            SPEW3D_SINK_AUDIOBUF_BYTES);
+        copiedbytes += SPEW3D_SINK_AUDIOBUF_BYTES;
     }
 }
 
