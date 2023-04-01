@@ -205,13 +205,19 @@ static void _expand_s16_to_s32(char *buf, uint64_t samples) {
     __attribute__((__may_alias__)) char *pend = buf - sizeof(int32_t);
     while (p != pend) {
         int64_t orig_val = *((int16_t *)src);
-        orig_val *= (int64_t)INT32_MAX;
-        orig_val /= (int64_t)INT16_MAX;
-        if (orig_val > (int64_t)INT32_MAX)
-            orig_val = (int64_t)INT32_MAX;
-        else if (orig_val < (int64_t)INT32_MIN)
-            orig_val = (int64_t)INT32_MIN;
-        *((int32_t *)p) = orig_val;
+        int64_t new_val = orig_val * (int64_t)INT32_MAX;
+        new_val /= (int64_t)INT16_MAX;
+        if (new_val > (int64_t)INT32_MAX)
+            new_val = (int64_t)INT32_MAX;
+        else if (new_val < (int64_t)INT32_MIN)
+            new_val = (int64_t)INT32_MIN;
+        *((int32_t *)p) = new_val;
+        //printf("orig_val: %" PRId64
+        //    ", new_val: %" PRId64
+        //    ", orig_val(float): %f, new_val(float): %f\n",
+        //    orig_val, new_val, ((double)orig_val/
+        //    (double)INT16_MAX), ((double)new_val/
+        //    (double)INT32_MAX));
         src -= sizeof(int16_t);
         p -= sizeof(int32_t);
         assert(src > pend);

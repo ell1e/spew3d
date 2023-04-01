@@ -183,6 +183,12 @@ S3DHID int _internal_spew3d_audio_sink_Process(spew3d_audio_sink *sink) {
     if (sink->type == AUDIO_SINK_OUTPUT_SDL &&
             !SINKIDATA(sink)->output_sdlaudiodevice_opened &&
             !SINKIDATA(sink)->output_sdlaudiodevice_failed) {
+        char *wantedcardname = (
+            sink->soundcard_name ? strdup(sink->soundcard_name) :
+            NULL);
+        if (sink->soundcard_name && !wantedcardname)
+            goto errorfailsdlaudioopen;
+
         SDL_AudioSpec wanted;
         memset(&wanted, 0, sizeof(wanted));
         wanted.freq = sink->samplerate;
@@ -190,17 +196,19 @@ S3DHID int _internal_spew3d_audio_sink_Process(spew3d_audio_sink *sink) {
             wanted.format = AUDIO_S32;
         } else if (sizeof(s3d_asample_t) == sizeof(int16_t)) {
             wanted.format = AUDIO_S16;
+        } else {
+            fprintf(stderr, "spew3d_audio_sink.c: error: "
+                "invalid unsupported sample type\n");
+            goto errorfailsdlaudioopen;
         }
         wanted.channels = 2;
         wanted.samples = SPEW3D_SINK_AUDIOBUF_SAMPLES;
         wanted.callback = _audiocb_SDL2;
         wanted.userdata = sink;
 
-        char *soundcard_name = sink->soundcard_name;
-        sink->soundcard_name = NULL;
-        if (soundcard_name && strcmp(soundcard_name, "any") == 0) {
-            free(soundcard_name);
-            soundcard_name = NULL;
+        if (wantedcardname && strcmp(wantedcardname, "any") == 0) {
+            free(wantedcardname);
+            wantedcardname = NULL;
         }
         const char *cardname = NULL;
         int cardindex = -1;
@@ -208,25 +216,28 @@ S3DHID int _internal_spew3d_audio_sink_Process(spew3d_audio_sink *sink) {
         int i = 0;
         while (i < c) {
             const char *name = SDL_GetAudioDeviceName(i, 0);
-            if (name && (soundcard_name == NULL ||
-                    strcasecmp(soundcard_name, name) == 0)) {
+            if (name && (wantedcardname == NULL ||
+                    strcasecmp(wantedcardname, name) == 0)) {
                 cardindex = i;
                 cardname = name;
                 break;
             }
             i++;
         }
-        free(soundcard_name);
+        free(wantedcardname);
+        wantedcardname = NULL;
         if (cardindex < 0)
             goto errorfailsdlaudioopen;
         SDL_AudioDeviceID sdldev = SDL_OpenAudioDevice(
-            soundcard_name, 0, &wanted, NULL, 0
+            cardname, 0, &wanted, NULL, 0
         );
         if (sdldev <= 0)
             goto errorfailsdlaudioopen;
-        sink->soundcard_name = strdup(cardname);
-        if (!sink->soundcard_name) {
+        char *newcardname = strdup(cardname);
+        if (!newcardname) {
             errorfailsdlaudioopen: ;
+            free(wantedcardname);
+            wantedcardname = NULL;
             SINKIDATA(sink)->output_sdlaudiodevice_failed = 1;
             #if defined(DEBUG_SPEW3D_AUDIOSINK)
             printf(
@@ -237,6 +248,8 @@ S3DHID int _internal_spew3d_audio_sink_Process(spew3d_audio_sink *sink) {
             );
             #endif
         } else {
+            free(sink->soundcard_name);
+            sink->soundcard_name = newcardname;
             SINKIDATA(sink)->output_sdlaudiodevice_opened = 1;
             SINKIDATA(sink)->output_sdlaudiodevice = sdldev;
             #if defined(DEBUG_SPEW3D_AUDIOSINK)
