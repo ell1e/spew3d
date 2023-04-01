@@ -470,7 +470,7 @@ static int s3d_audiodecoder_FillDecodeAhead(s3daudiodecoder *d) {
         return 1;
     }
     uint64_t read_frames = 0;
-    if (sizeof(DECODEMIXTYPE) == sizeof(int16_t) && d->_mp3decode) {
+    if (d->_mp3decode) {
         assert(
             (int)want_to_read_bytes +
                 (int)d->decodeaheadbuf_fillbytes <=
@@ -518,8 +518,7 @@ static int s3d_audiodecoder_FillDecodeAhead(s3daudiodecoder *d) {
             d->channels)
         );
         #endif
-    } else if (sizeof(DECODEMIXTYPE) == sizeof(int16_t) &&
-            d->_wavdecode) {
+    } else if (d->_wavdecode) {
         read_frames = drwav_read_pcm_frames_s16(
             d->_wavdecode, want_to_read_frames,
             (drwav_int16 *)((char *)d->decodeaheadbuf +
@@ -553,8 +552,7 @@ static int s3d_audiodecoder_FillDecodeAhead(s3daudiodecoder *d) {
             d->channels)
         );
         #endif
-    } else if (sizeof(DECODEMIXTYPE) == sizeof(int16_t) &&
-            d->_flacdecode) {
+    } else if (d->_flacdecode) {
         read_frames = drflac_read_pcm_frames_s16(
             d->_flacdecode, want_to_read_frames,
             (drflac_int16 *)((char *)d->decodeaheadbuf +
@@ -588,8 +586,7 @@ static int s3d_audiodecoder_FillDecodeAhead(s3daudiodecoder *d) {
             d->channels)
         );
         #endif
-    } else if (sizeof(DECODEMIXTYPE) == sizeof(int16_t) &&
-            d->_vorbisdecode) {
+    } else if (d->_vorbisdecode) {
         read_frames = 0;
         assert(d->channels == 2);  // FIXME: change for mono
         DECODEMIXTYPE *writeto = (DECODEMIXTYPE *)(
@@ -814,7 +811,8 @@ static int s3d_audiodecoder_FillDecodeAhead(s3daudiodecoder *d) {
     } else {
         #if defined(DEBUG_SPEW3D_AUDIODECODE)
         fprintf(stderr, "spew3d_audio_decoder.c: warning: "
-            "unknown decode type");
+            "unknown decode type, failed to determine "
+            "audio format\n");
         #endif
         return 0;
     }
