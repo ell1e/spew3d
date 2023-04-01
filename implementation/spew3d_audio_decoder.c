@@ -214,6 +214,8 @@ static void _expand_s16_to_s32(char *buf, uint64_t samples) {
         *((int32_t *)p) = orig_val;
         src -= sizeof(int16_t);
         p -= sizeof(int32_t);
+        assert(src > pend);
+        assert(p >= pend);
     }
 }
 

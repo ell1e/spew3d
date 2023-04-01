@@ -307,6 +307,7 @@ static void _audiocb_SDL2(void *udata, uint8_t *stream, int len) {
     }
     int copiedbytes = 0;
     while (copiedbytes < len) {
+        assert(copiedbytes + SPEW3D_SINK_AUDIOBUF_BYTES <= len);
         int prevplay = SINKIDATA(sink)->ringbufferplaynum;
         if (prevplay == SINKIDATA(sink)->ringbufferfillnum) {
             if (SINKIDATA(sink)->sinksrc_type != SINKSRC_NONE) {
@@ -334,6 +335,7 @@ static void _audiocb_SDL2(void *udata, uint8_t *stream, int len) {
         //    SINKIDATA(sink)->ringbufferplaynum,
         //    SINKIDATA(sink)->ringbufferfillnum);
     }
+    assert(copiedbytes == len);
 }
 
 S3DEXP void spew3d_audio_sink_AddRef(spew3d_audio_sink *sink) {
