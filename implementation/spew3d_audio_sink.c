@@ -220,9 +220,25 @@ S3DHID int _internal_spew3d_audio_sink_Process(spew3d_audio_sink *sink) {
         if (!sink->soundcard_name) {
             errorfailsdlaudioopen: ;
             SINKIDATA(sink)->output_sdlaudiodevice_failed = 1;
+            #if defined(DEBUG_SPEW3D_AUDIOSINK)
+            printf(
+                "spew3d_audio_sink.c: debug: sink "
+                "addr=%p: opening SDL2 audio device "
+                "failed\n",
+                sink
+            );
+            #endif
         } else {
             SINKIDATA(sink)->output_sdlaudiodevice_opened = 1;
             SINKIDATA(sink)->output_sdlaudiodevice = sdldev;
+            #if defined(DEBUG_SPEW3D_AUDIOSINK)
+            printf(
+                "spew3d_audio_sink.c: debug: sink "
+                "addr=%p: opened SDL2 audio device "
+                "successfully\n",
+                sink
+            );
+            #endif
         }
     }
     #endif
@@ -360,18 +376,34 @@ S3DEXP spew3d_audio_sink *spew3d_audio_sink_CreateOutputEx(
     if (wanttype == AUDIO_SINK_OUTPUT_UNSPECIFIED ||
             wanttype == AUDIO_SINK_OUTPUT_SDL) {
         asink->type = AUDIO_SINK_OUTPUT_SDL;
+        #if defined(DEBUG_SPEW3D_AUDIOSINK)
+        printf(
+            "spew3d_audio_sink.c: debug: sink "
+            "addr=%p: created as AUDIO_SINK_OUTPUT_SDL\n",
+            asink
+        );
+        #endif
+
         if (soundcard_name &&
                 strcmp(soundcard_name, "any") != 0) {
             asink->soundcard_name = strdup(soundcard_name);
             if (!asink->soundcard_name)
                 goto failure;
         }
+        mutex_Release(sink_list_mutex);
         return asink;
     }
     #endif 
     if (wanttype == AUDIO_SINK_OUTPUT_UNSPECIFIED ||
             wanttype == AUDIO_SINK_OUTPUT_VOID) {
         asink->type = AUDIO_SINK_OUTPUT_VOID;
+        #if defined(DEBUG_SPEW3D_AUDIOSINK)
+        printf(
+            "spew3d_audio_sink.c: debug: sink "
+            "addr=%p: created as AUDIO_SINK_OUTPUT_VOID\n",
+            asink
+        );
+        #endif
         mutex_Release(sink_list_mutex);
         return asink;
     }
