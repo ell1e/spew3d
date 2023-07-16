@@ -146,10 +146,15 @@ S3DHID void _internal_spew3d_audio_sink_ProcessInput(
         }
     }
     if (didcopy) {
-        //printf("[_internal_spew3d_audio_sink_ProcessInput] "
-        //    "playnum=%d fillnum=%d\n",
-        //    SINKIDATA(sink)->ringbufferplaynum,
-        //    SINKIDATA(sink)->ringbufferfillnum);
+        #if defined(DEBUG_SPEW3D_AUDIO_SINK_DATA)
+        printf(
+            "spew3d_audio_sink.c: debug: sink addr=%p: "
+            "[_internal_spew3d_audio_sink_ProcessInput] "
+            "playnum=%d fillnum=%d\n",
+            sink,
+            SINKIDATA(sink)->ringbufferplaynum,
+            SINKIDATA(sink)->ringbufferfillnum);
+        #endif
     }
 }
 

@@ -73,6 +73,10 @@ license, see accompanied LICENSE.md.
 #define DEBUG_SPEW3D_FS
 #define DEBUG_SPEW3D_VFS
 #define DEBUG_SPEW3D_TEXTURE
+#define DEBUG_SPEW3D_AUDIOSINK
+//#define DEBUG_SPEW3D_AUDIOSINK_DATA
+#define DEBUG_SPEW3D_AUDIODECODE
+//#define DEBUG_SPEW3D_AUDIODECODE_DATA
 #endif
 
 // Number types:

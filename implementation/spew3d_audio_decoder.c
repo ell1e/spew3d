@@ -513,7 +513,7 @@ static int s3d_audiodecoder_FillDecodeAhead(s3daudiodecoder *d) {
                 "unsupported DECODEMIXTYPE");
         }
 
-        #if defined(DEBUG_SPEW3D_AUDIODECODE)
+        #if defined(DEBUG_SPEW3D_AUDIODECODE_DATA)
         printf(
             "spew3d_audio_decoder.c: debug: decoder "
             "addr=%p mp3: "
@@ -525,6 +525,29 @@ static int s3d_audiodecoder_FillDecodeAhead(s3daudiodecoder *d) {
             (int)(d->input_samplerate * sizeof(DECODEMIXTYPE) *
             d->channels)
         );
+        // Debug print some contents:
+        char *printstart = ((char *)d->decodeaheadbuf +
+            d->decodeaheadbuf_fillbytes);
+        int printlen = (read_frames *
+            sizeof(DECODEMIXTYPE) * d->channels);
+        if (printlen > 32) printlen = 32;
+        printf(
+            "spew3d_audio_decoder.c: debug: decoder "
+            "addr=%p mp3: decoded bytes excerpt: ");
+        int k = 0;
+        while (k < printlen) {
+            uint8_t byte = *(printstart + k);
+            char hexbuf[3];
+            snprintf(hexbuf, sizeof(hexbuf), "%x", (int)byte);
+            if (strlen(hexbuf) < 2) {
+                hexbuf[2] = '\0';
+                hexbuf[1] = hexbuf[0];
+                hexbuf[0] = '0';
+            }
+            printf("%s", hexbuf);
+            k++;
+        }
+        printf("\n");
         #endif
     } else if (d->_wavdecode) {
         read_frames = drwav_read_pcm_frames_s16(
@@ -547,7 +570,7 @@ static int s3d_audiodecoder_FillDecodeAhead(s3daudiodecoder *d) {
                 "unsupported DECODEMIXTYPE");
         }
 
-        #if defined(DEBUG_SPEW3D_AUDIODECODE)
+        #if defined(DEBUG_SPEW3D_AUDIODECODE_DATA)
         printf(
             "spew3d_audio_decoder.c: debug: decoder "
             "addr=%p wav: "
@@ -581,7 +604,7 @@ static int s3d_audiodecoder_FillDecodeAhead(s3daudiodecoder *d) {
                 "unsupported DECODEMIXTYPE");
         }
 
-        #if defined(DEBUG_SPEW3D_AUDIODECODE)
+        #if defined(DEBUG_SPEW3D_AUDIODECODE_DATA)
         printf(
             "spew3d_audio_decoder.c: debug: decoder "
             "addr=%p flac: "
@@ -803,7 +826,7 @@ static int s3d_audiodecoder_FillDecodeAhead(s3daudiodecoder *d) {
         ) && (read_frames == (uint64_t)want_to_read_frames ||
               spew3d_vfs_feof(d->vfshandle)));
 
-        #if defined(DEBUG_SPEW3D_AUDIODECODE)
+        #if defined(DEBUG_SPEW3D_AUDIODECODE_DATA)
         printf(
             "spew3d_audio_decoder.c: debug: "
             "decoder addr=%p ogg: "
