@@ -254,7 +254,7 @@ static int s3d_audiodecoder_FillDecodeAhead(s3daudiodecoder *d) {
                 d->_wavdecode, _drmp3drwavdrflac_read_cb,
                 _drwav_seek_cb, d, NULL
                 )) {
-            #if defined(DEBUG_SPEW3D_AUDIODECODE)
+            #if defined(DEBUG_SPEW3D_AUDIO_DECODE)
             printf(
                 "spew3d_audio_decoder.c: debug: decoder "
                 "addr=%p wav: "
@@ -295,7 +295,7 @@ static int s3d_audiodecoder_FillDecodeAhead(s3daudiodecoder *d) {
                 _drmp3drwavdrflac_read_cb,
                 _drflac_seek_cb, d, NULL
                 )) != NULL) {
-            #if defined(DEBUG_SPEW3D_AUDIODECODE)
+            #if defined(DEBUG_SPEW3D_AUDIO_DECODE)
             printf(
                 "spew3d_audio_decoder.c: debug: decoder "
                 "addr=%p flac: "
@@ -376,7 +376,7 @@ static int s3d_audiodecoder_FillDecodeAhead(s3daudiodecoder *d) {
             }
             d->_vorbisinfo = stb_vorbis_get_info(
                 d->_vorbisdecode);
-            #if defined(DEBUG_SPEW3D_AUDIODECODE)
+            #if defined(DEBUG_SPEW3D_AUDIO_DECODE)
             printf(
                 "spew3d_audio_decoder.c: debug: decoder "
                 "addr=%p ogg: "
@@ -420,7 +420,7 @@ static int s3d_audiodecoder_FillDecodeAhead(s3daudiodecoder *d) {
                 d->_mp3decode, _drmp3drwavdrflac_read_cb,
                 _drmp3_seek_cb, d, NULL
                 )) {
-            #if defined(DEBUG_SPEW3D_AUDIODECODE)
+            #if defined(DEBUG_SPEW3D_AUDIO_DECODE)
             printf(
                 "spew3d_audio_decoder.c: debug: decoder "
                 "addr=%p mp3: "
@@ -513,7 +513,7 @@ static int s3d_audiodecoder_FillDecodeAhead(s3daudiodecoder *d) {
                 "unsupported DECODEMIXTYPE");
         }
 
-        #if defined(DEBUG_SPEW3D_AUDIODECODE_DATA)
+        #if defined(DEBUG_SPEW3D_AUDIO_DECODE_DATA)
         printf(
             "spew3d_audio_decoder.c: debug: decoder "
             "addr=%p mp3: "
@@ -570,7 +570,7 @@ static int s3d_audiodecoder_FillDecodeAhead(s3daudiodecoder *d) {
                 "unsupported DECODEMIXTYPE");
         }
 
-        #if defined(DEBUG_SPEW3D_AUDIODECODE_DATA)
+        #if defined(DEBUG_SPEW3D_AUDIO_DECODE_DATA)
         printf(
             "spew3d_audio_decoder.c: debug: decoder "
             "addr=%p wav: "
@@ -604,7 +604,7 @@ static int s3d_audiodecoder_FillDecodeAhead(s3daudiodecoder *d) {
                 "unsupported DECODEMIXTYPE");
         }
 
-        #if defined(DEBUG_SPEW3D_AUDIODECODE_DATA)
+        #if defined(DEBUG_SPEW3D_AUDIO_DECODE_DATA)
         printf(
             "spew3d_audio_decoder.c: debug: decoder "
             "addr=%p flac: "
@@ -659,7 +659,7 @@ static int s3d_audiodecoder_FillDecodeAhead(s3daudiodecoder *d) {
                 d->decodeaheadbuf_fillbytes == (char *)writeto
             );
             if (input_size > 1024 * 10) {
-                #if defined(DEBUG_SPEW3D_AUDIODECODE)
+                #if defined(DEBUG_SPEW3D_AUDIO_DECODE)
                 printf(
                     "spew3d_audio_decoder.c: warning: decoder "
                     "addr=%p ogg: "
@@ -717,7 +717,7 @@ static int s3d_audiodecoder_FillDecodeAhead(s3daudiodecoder *d) {
             );
             if (bytes_used == 0 && samples_found == 0) {
                 if (pushdata_error != VORBIS_need_more_data) {
-                    #if defined(DEBUG_SPEW3D_AUDIODECODE)
+                    #if defined(DEBUG_SPEW3D_AUDIO_DECODE)
                     printf(
                         "spew3d_audio_decoder.c: warning: decoder "
                         "addr=%p ogg: "
@@ -732,7 +732,7 @@ static int s3d_audiodecoder_FillDecodeAhead(s3daudiodecoder *d) {
                     return 0;
                 }
                 if (result < input_size && spew3d_vfs_feof(d->vfshandle)) {
-                    #if defined(DEBUG_SPEW3D_AUDIODECODE)
+                    #if defined(DEBUG_SPEW3D_AUDIO_DECODE)
                     printf(
                         "spew3d_audio_decoder.c: debug: decoder "
                         "addr=%p ogg: "
@@ -826,7 +826,7 @@ static int s3d_audiodecoder_FillDecodeAhead(s3daudiodecoder *d) {
         ) && (read_frames == (uint64_t)want_to_read_frames ||
               spew3d_vfs_feof(d->vfshandle)));
 
-        #if defined(DEBUG_SPEW3D_AUDIODECODE_DATA)
+        #if defined(DEBUG_SPEW3D_AUDIO_DECODE_DATA)
         printf(
             "spew3d_audio_decoder.c: debug: "
             "decoder addr=%p ogg: "
@@ -840,7 +840,7 @@ static int s3d_audiodecoder_FillDecodeAhead(s3daudiodecoder *d) {
         );
         #endif
     } else {
-        #if defined(DEBUG_SPEW3D_AUDIODECODE)
+        #if defined(DEBUG_SPEW3D_AUDIO_DECODE)
         fprintf(stderr, "spew3d_audio_decoder.c: warning: "
             "unknown decode type, failed to determine "
             "audio format\n");

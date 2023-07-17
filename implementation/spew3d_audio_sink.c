@@ -99,7 +99,7 @@ S3DEXP void spew3d_audio_sink_FeedFromDecoder(
     assert(decoder != NULL);
     SINKIDATA(sink)->sinksrc_decoder = decoder;
     SINKIDATA(sink)->sinksrc_type = SINKSRC_DECODER;
-    #if defined(DEBUG_SPEW3D_AUDIOSINK)
+    #if defined(DEBUG_SPEW3D_AUDIO_SINK)
     printf(
         "spew3d_audio_sink.c: debug: sink "
         "addr=%p: spew3d_audio_sink_FeedFromDecoder() "
@@ -145,6 +145,7 @@ S3DHID void _internal_spew3d_audio_sink_ProcessInput(
             break;
         }
     }
+
     if (didcopy) {
         #if defined(DEBUG_SPEW3D_AUDIO_SINK_DATA)
         printf(
@@ -154,6 +155,13 @@ S3DHID void _internal_spew3d_audio_sink_ProcessInput(
             sink,
             SINKIDATA(sink)->ringbufferplaynum,
             SINKIDATA(sink)->ringbufferfillnum);
+        #endif
+    } else {
+        #if defined(DEBUG_SPEW3D_AUDIO_SINK_DATA)
+        printf(
+            "spew3d_audio_sink.c: debug: sink addr=%p: "
+            "[_internal_spew3d_audio_sink_ProcessInput] "
+            "no copy\n");
         #endif
     }
 }
@@ -244,7 +252,7 @@ S3DHID int _internal_spew3d_audio_sink_Process(spew3d_audio_sink *sink) {
             free(wantedcardname);
             wantedcardname = NULL;
             SINKIDATA(sink)->output_sdlaudiodevice_failed = 1;
-            #if defined(DEBUG_SPEW3D_AUDIOSINK)
+            #if defined(DEBUG_SPEW3D_AUDIO_SINK)
             printf(
                 "spew3d_audio_sink.c: debug: sink "
                 "addr=%p: opening SDL2 audio device "
@@ -257,7 +265,7 @@ S3DHID int _internal_spew3d_audio_sink_Process(spew3d_audio_sink *sink) {
             sink->soundcard_name = newcardname;
             SINKIDATA(sink)->output_sdlaudiodevice_opened = 1;
             SINKIDATA(sink)->output_sdlaudiodevice = sdldev;
-            #if defined(DEBUG_SPEW3D_AUDIOSINK)
+            #if defined(DEBUG_SPEW3D_AUDIO_SINK)
             printf(
                 "spew3d_audio_sink.c: debug: sink "
                 "addr=%p: opened SDL2 audio device "
@@ -329,7 +337,7 @@ static void _audiocb_SDL2(void *udata, uint8_t *stream, int len) {
         int prevplay = SINKIDATA(sink)->ringbufferplaynum;
         if (prevplay == SINKIDATA(sink)->ringbufferfillnum) {
             if (SINKIDATA(sink)->sinksrc_type != SINKSRC_NONE) {
-                #if defined(DEBUG_SPEW3D_AUDIOSINK)
+                #if defined(DEBUG_SPEW3D_AUDIO_SINK)
                 printf(
                     "spew3d_audio_sink.c: warning: sink "
                     "addr=%p: ran out of input buffer\n",
@@ -420,7 +428,7 @@ S3DEXP spew3d_audio_sink *spew3d_audio_sink_CreateOutputEx(
     if (wanttype == AUDIO_SINK_OUTPUT_UNSPECIFIED ||
             wanttype == AUDIO_SINK_OUTPUT_SDL) {
         asink->type = AUDIO_SINK_OUTPUT_SDL;
-        #if defined(DEBUG_SPEW3D_AUDIOSINK)
+        #if defined(DEBUG_SPEW3D_AUDIO_SINK)
         printf(
             "spew3d_audio_sink.c: debug: sink "
             "addr=%p: created as AUDIO_SINK_OUTPUT_SDL\n",
@@ -441,7 +449,7 @@ S3DEXP spew3d_audio_sink *spew3d_audio_sink_CreateOutputEx(
     if (wanttype == AUDIO_SINK_OUTPUT_UNSPECIFIED ||
             wanttype == AUDIO_SINK_OUTPUT_VOID) {
         asink->type = AUDIO_SINK_OUTPUT_VOID;
-        #if defined(DEBUG_SPEW3D_AUDIOSINK)
+        #if defined(DEBUG_SPEW3D_AUDIO_SINK)
         printf(
             "spew3d_audio_sink.c: debug: sink "
             "addr=%p: created as AUDIO_SINK_OUTPUT_VOID\n",
