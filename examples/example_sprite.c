@@ -32,8 +32,9 @@ int main(int argc, const char **argv) {
     }
 
     printf("Entering main loop\n");
+    uint64_t start_ts = spew3d_time_Ticks();
     int notquit = 1;
-    while (notquit) {
+    while (notquit && spew3d_time_Ticks() < start_ts + 5000) {
         SDL_Event e = {0};
         while (SDL_PollEvent(&e)) {
             if (e.type == SDL_QUIT) {

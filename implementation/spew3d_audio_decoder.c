@@ -47,11 +47,11 @@ license, see accompanied LICENSE.md.
 
 typedef struct s3daudiodecoder {
     char *audiopath;
-    int channels, input_samplerate, output_samplerate;
+    int input_channels, input_samplerate,
+        output_samplerate, output_channels;
     int vfsflags;
     SPEW3DVFS_FILE *vfshandle;
     int vfserror;
-    int output_channels;
 
     int decode_endoffile;
     char *decodeaheadbuf;
@@ -78,6 +78,12 @@ static int s3d_audiodecoder_FillDecodeAhead(s3daudiodecoder *d);
 
 
 s3daudiodecoder *audiodecoder_NewFromFile(
+        const char *filepath
+        ) {
+    return audiodecoder_NewFromFileEx(filepath, 0);
+}
+
+s3daudiodecoder *audiodecoder_NewFromFileEx(
         const char *filepath, int vfsflags
         ) {
     int _exists = 0;
@@ -96,7 +102,6 @@ s3daudiodecoder *audiodecoder_NewFromFile(
         return NULL;
     }
     d->vfsflags = vfsflags;
-    d->output_channels = 2;
     return d;
 }
 
@@ -115,10 +120,10 @@ int s3d_audiodecoder_GetSourceSampleRate(
     return d->input_samplerate;
 }
 
-int s3d_audiodecoder_GetSourceChannels(
+int s3d_audiodecoder_GetOutputChannels(
         s3daudiodecoder *d
         ) {
-    if (d->channels == 0 && !d->vfshandle &&
+    if (d->output_channels == 0 && !d->vfshandle &&
             !d->_mp3decode && !d->_wavdecode &&
             !d->_flacdecode &&
             !d->_vorbisdecode && !d->vfserror) {
@@ -127,15 +132,38 @@ int s3d_audiodecoder_GetSourceChannels(
         if (!s3d_audiodecoder_FillDecodeAhead(d))
             return 0;
     }
-    return d->channels;
+    assert(d->output_channels > 0 || d->vfserror);
+    return d->output_channels;
+}
+
+int s3d_audiodecoder_GetSourceChannels(
+        s3daudiodecoder *d
+        ) {
+    if (d->input_channels == 0 && !d->vfshandle &&
+            !d->_mp3decode && !d->_wavdecode &&
+            !d->_flacdecode &&
+            !d->_vorbisdecode && !d->vfserror) {
+        // Probably was never even touched by decoders yet.
+        // Do so, so we get the basic file info:
+        if (!s3d_audiodecoder_FillDecodeAhead(d))
+            return 0;
+    }
+    return d->input_channels;
+}
+
+int s3d_audiodecoder_SetChannelAdjustTo(
+        s3daudiodecoder *d, int channels
+        ) {
+    if (channels < 1 || channels > 10)
+        return 0;
+    d->output_channels = channels;
+    return 1;
 }
 
 int s3d_audiodecoder_SetResampleTo(
         s3daudiodecoder *d, int samplerate
         ) {
     if (samplerate < 10000 || samplerate > 100000)
-        return 0;
-    if (d->vfserror)
         return 0;
     d->output_samplerate = samplerate;
     return 1;
@@ -240,13 +268,16 @@ static int s3d_audiodecoder_FillDecodeAhead(s3daudiodecoder *d) {
     if (!d->_mp3decode && !d->_wavdecode &&
             !d->_flacdecode && !d->_vorbisdecode) {
         d->_wavdecode = malloc(sizeof(*d->_wavdecode));
-        if (!d->_wavdecode)
+        if (!d->_wavdecode) {
+            d->vfserror = 1;
             return 0;
+        }
         memset(d->_wavdecode, 0, sizeof(*d->_wavdecode));
         if (d->vfshandle) {
             if (spew3d_vfs_fseek(d->vfshandle, 0) < 0) {
                 free(d->_wavdecode);
                 d->_wavdecode = NULL;
+                d->vfserror = 1;
                 return 0;
             }
         }
@@ -262,12 +293,11 @@ static int s3d_audiodecoder_FillDecodeAhead(s3daudiodecoder *d) {
                 d, d->audiopath
             );
             #endif
-            if ((int)d->_wavdecode->channels !=
-                    d->output_channels) {
-                // FIXME: mono support
+            if (d->_wavdecode->channels < 1) {
                 drwav_uninit(d->_wavdecode);
                 free(d->_wavdecode);
                 d->_wavdecode = NULL;
+                d->vfserror = 1;
                 return 0;
             }
             d->input_samplerate = d->_wavdecode->sampleRate;
@@ -276,11 +306,14 @@ static int s3d_audiodecoder_FillDecodeAhead(s3daudiodecoder *d) {
                 drwav_uninit(d->_wavdecode);
                 free(d->_wavdecode);
                 d->_wavdecode = NULL;
+                d->vfserror = 1;
                 return 0;
             }
+            if (d->output_channels == 0)
+                d->output_channels = d->_wavdecode->channels;
             if (d->output_samplerate == 0)
                 d->output_samplerate = d->input_samplerate;
-            d->channels = d->_wavdecode->channels;
+            d->input_channels = d->_wavdecode->channels;
         } else {
             free(d->_wavdecode);
             d->_wavdecode = NULL;
@@ -289,8 +322,10 @@ static int s3d_audiodecoder_FillDecodeAhead(s3daudiodecoder *d) {
     if (!d->_mp3decode && !d->_wavdecode &&
             !d->_flacdecode && !d->_vorbisdecode) {
         if (d->vfshandle)
-            if (spew3d_vfs_fseek(d->vfshandle, 0) < 0)
+            if (spew3d_vfs_fseek(d->vfshandle, 0) < 0) {
+                d->vfserror = 1;
                 return 0;
+            }
         if ((d->_flacdecode = drflac_open(
                 _drmp3drwavdrflac_read_cb,
                 _drflac_seek_cb, d, NULL
@@ -303,11 +338,10 @@ static int s3d_audiodecoder_FillDecodeAhead(s3daudiodecoder *d) {
                 d, d->audiopath
             );
             #endif
-            if (d->_flacdecode->channels !=
-                    d->output_channels) {
-                // FIXME: mono support
+            if (d->_flacdecode->channels < 1) {
                 drflac_close(d->_flacdecode);
                 d->_flacdecode = NULL;
+                d->vfserror = 1;
                 return 0;
             }
             d->input_samplerate = d->_flacdecode->sampleRate;
@@ -315,18 +349,23 @@ static int s3d_audiodecoder_FillDecodeAhead(s3daudiodecoder *d) {
                     d->input_samplerate > 100000) {
                 drflac_close(d->_flacdecode);
                 d->_flacdecode = NULL;
+                d->vfserror = 1;
                 return 0;
             }
+            if (d->output_channels == 0)
+                d->output_channels = d->_flacdecode->channels;
             if (d->output_samplerate == 0)
                 d->output_samplerate = d->input_samplerate;
-            d->channels = d->_flacdecode->channels;
+            d->input_channels = d->_flacdecode->channels;
         }
     }
     if (!d->_mp3decode && !d->_wavdecode &&
             !d->_flacdecode && !d->_vorbisdecode) {
         if (d->vfshandle)
-            if (spew3d_vfs_fseek(d->vfshandle, 0) < 0)
+            if (spew3d_vfs_fseek(d->vfshandle, 0) < 0) {
+                d->vfserror = 1;
                 return 0;
+            }
         uint64_t fsize = 0;
         int _fserr = 0;
         if (!spew3d_vfs_Size(d->audiopath, 0, &fsize, &_fserr)) {
@@ -342,8 +381,10 @@ static int s3d_audiodecoder_FillDecodeAhead(s3daudiodecoder *d) {
             if (input_size > fsize)
                 input_size = fsize;
             char *readbuf = malloc(input_size);
-            if (!readbuf)
+            if (!readbuf) {
+                d->vfserror = 1;
                 return 0;
+            }
             if (spew3d_vfs_fseek(d->vfshandle, 0) < 0 ||
                     spew3d_vfs_fread(
                         readbuf, 1, input_size, d->vfshandle
@@ -384,10 +425,10 @@ static int s3d_audiodecoder_FillDecodeAhead(s3daudiodecoder *d) {
                 d, d->audiopath
             );
             #endif
-            if (d->_vorbisinfo.channels != d->output_channels) {
-                // FIXME: mono support
+            if (d->_vorbisinfo.channels < 1) {
                 stb_vorbis_close(d->_vorbisdecode);
                 d->_vorbisdecode = NULL;
+                d->vfserror = 1;
                 return 0;
             }
             d->input_samplerate = d->_vorbisinfo.sample_rate;
@@ -395,24 +436,30 @@ static int s3d_audiodecoder_FillDecodeAhead(s3daudiodecoder *d) {
                     d->input_samplerate > 100000) {
                 stb_vorbis_close(d->_vorbisdecode);
                 d->_vorbisdecode = NULL;
+                d->vfserror = 1;
                 return 0;
             }
+            if (d->output_channels == 0)
+                d->output_channels = d->_vorbisinfo.channels;
             if (d->output_samplerate == 0)
                 d->output_samplerate = d->input_samplerate;
-            d->channels = d->_vorbisinfo.channels;
+            d->input_channels = d->_vorbisinfo.channels;
             break;
         }
     }
     if (!d->_mp3decode && !d->_wavdecode &&
             !d->_flacdecode && !d->_vorbisdecode) {
         d->_mp3decode = malloc(sizeof(*d->_mp3decode));
-        if (!d->_mp3decode)
+        if (!d->_mp3decode) {
+            d->vfserror = 1;
             return 0;
+        }
         memset(d->_mp3decode, 0, sizeof(*d->_mp3decode));
         if (d->vfshandle) {
             if (spew3d_vfs_fseek(d->vfshandle, 0) < 0) {
                 free(d->_mp3decode);
                 d->_mp3decode = NULL;
+                d->vfserror = 1;
                 return 0;
             }
         }
@@ -428,12 +475,11 @@ static int s3d_audiodecoder_FillDecodeAhead(s3daudiodecoder *d) {
                 d, d->audiopath
             );
             #endif
-            if ((int)d->_mp3decode->channels !=
-                    d->output_channels) {
-                // FIXME: mono support
+            if (d->_mp3decode->channels < 1) {
                 drmp3_uninit(d->_mp3decode);
                 free(d->_mp3decode);
                 d->_mp3decode = NULL;
+                d->vfserror = 1;
                 return 0;
             }
             d->input_samplerate = d->_mp3decode->sampleRate;
@@ -442,37 +488,42 @@ static int s3d_audiodecoder_FillDecodeAhead(s3daudiodecoder *d) {
                 drmp3_uninit(d->_mp3decode);
                 free(d->_mp3decode);
                 d->_mp3decode = NULL;
+                d->vfserror = 1;
                 return 0;
             }
+            if (d->output_channels == 0)
+                d->output_channels = d->_mp3decode->channels;
             if (d->output_samplerate == 0)
                 d->output_samplerate = d->input_samplerate;
-            d->channels = d->_mp3decode->channels;
+            d->input_channels = d->_mp3decode->channels;
         } else {
             free(d->_mp3decode);
             d->_mp3decode = NULL;
         }
     }
-    if (!d->_mp3decode && !d->_wavdecode &&
-            !d->_flacdecode && !d->_vorbisdecode) {
+    if (d->vfserror || (!d->_mp3decode && !d->_wavdecode &&
+            !d->_flacdecode && !d->_vorbisdecode)) {
         d->vfserror = 1;
         return 0;
     }
     if (!d->decodeaheadbuf) {
         assert(d->input_samplerate > 0);
-        assert(d->channels > 0);
+        assert(d->input_channels > 0);
         d->decodeaheadbuf = malloc(
-            d->input_samplerate * sizeof(DECODEMIXTYPE) * d->channels
+            d->input_samplerate * sizeof(DECODEMIXTYPE) *
+                d->input_channels
         );
         if (!d->decodeaheadbuf) {
             d->decodeaheadbuf_fillbytes = 0;
+            d->vfserror = 1;
             return 0;
         }
     }
     int want_to_read_bytes = (
-        d->input_samplerate * sizeof(DECODEMIXTYPE) * d->channels
+        d->input_samplerate * sizeof(DECODEMIXTYPE) * d->input_channels
     ) - d->decodeaheadbuf_fillbytes;
     int want_to_read_frames = (
-        want_to_read_bytes / (sizeof(DECODEMIXTYPE) * d->channels)
+        want_to_read_bytes / (sizeof(DECODEMIXTYPE) * d->input_channels)
     );
     if (want_to_read_frames <= 0) {
         return 1;
@@ -483,15 +534,15 @@ static int s3d_audiodecoder_FillDecodeAhead(s3daudiodecoder *d) {
             (int)want_to_read_bytes +
                 (int)d->decodeaheadbuf_fillbytes <=
             (int)d->input_samplerate * (int)sizeof(DECODEMIXTYPE) *
-                (int)d->channels
+                (int)d->input_channels
         );
         assert(want_to_read_frames > 0);
         assert(
             (int)want_to_read_frames * (int)sizeof(DECODEMIXTYPE) *
-                (int)d->channels +
+                (int)d->input_channels +
                 d->decodeaheadbuf_fillbytes <=
             (int)d->input_samplerate * (int)sizeof(DECODEMIXTYPE) *
-                (int)d->channels
+                (int)d->input_channels
         );
         read_frames = drmp3_read_pcm_frames_s16(
             d->_mp3decode, want_to_read_frames,
@@ -505,7 +556,7 @@ static int s3d_audiodecoder_FillDecodeAhead(s3daudiodecoder *d) {
             _expand_s16_to_s32(
                 ((char *)d->decodeaheadbuf +
                     d->decodeaheadbuf_fillbytes),
-                read_frames * d->channels
+                read_frames * d->input_channels
             );
         } else {
             fprintf(stderr,
@@ -519,17 +570,19 @@ static int s3d_audiodecoder_FillDecodeAhead(s3daudiodecoder *d) {
             "addr=%p mp3: "
             "frames=%d(%dB) fillbytes(after)=%d/%d\n",
             d, (int)read_frames,
-            (int)(read_frames * sizeof(DECODEMIXTYPE) * d->channels),
+            (int)(read_frames * sizeof(DECODEMIXTYPE) *
+            d->input_channels),
             (int)(d->decodeaheadbuf_fillbytes +
-            read_frames * sizeof(DECODEMIXTYPE) * d->channels),
+            read_frames * sizeof(DECODEMIXTYPE) *
+            d->input_channels),
             (int)(d->input_samplerate * sizeof(DECODEMIXTYPE) *
-            d->channels)
+            d->input_channels)
         );
         // Debug print some contents:
         char *printstart = ((char *)d->decodeaheadbuf +
             d->decodeaheadbuf_fillbytes);
         int printlen = (read_frames *
-            sizeof(DECODEMIXTYPE) * d->channels);
+            sizeof(DECODEMIXTYPE) * d->input_channels);
         if (printlen > 32) printlen = 32;
         printf(
             "spew3d_audio_decoder.c: debug: decoder "
@@ -562,7 +615,7 @@ static int s3d_audiodecoder_FillDecodeAhead(s3daudiodecoder *d) {
             _expand_s16_to_s32(
                 ((char *)d->decodeaheadbuf +
                     d->decodeaheadbuf_fillbytes),
-                read_frames * d->channels
+                read_frames * d->input_channels
             );
         } else {
             fprintf(stderr,
@@ -576,11 +629,11 @@ static int s3d_audiodecoder_FillDecodeAhead(s3daudiodecoder *d) {
             "addr=%p wav: "
             "frames=%d(%dB) fillbytes(after)=%d/%d\n",
             d, (int)read_frames,
-            (int)(read_frames * sizeof(DECODEMIXTYPE) * d->channels),
+            (int)(read_frames * sizeof(DECODEMIXTYPE) * d->input_channels),
             (int)(d->decodeaheadbuf_fillbytes +
-            read_frames * sizeof(DECODEMIXTYPE) * d->channels),
+            read_frames * sizeof(DECODEMIXTYPE) * d->input_channels),
             (int)(d->input_samplerate * sizeof(DECODEMIXTYPE) *
-            d->channels)
+            d->input_channels)
         );
         #endif
     } else if (d->_flacdecode) {
@@ -596,7 +649,7 @@ static int s3d_audiodecoder_FillDecodeAhead(s3daudiodecoder *d) {
             _expand_s16_to_s32(
                 ((char *)d->decodeaheadbuf +
                     d->decodeaheadbuf_fillbytes),
-                read_frames * d->channels
+                read_frames * d->input_channels
             );
         } else {
             fprintf(stderr,
@@ -610,42 +663,42 @@ static int s3d_audiodecoder_FillDecodeAhead(s3daudiodecoder *d) {
             "addr=%p flac: "
             "frames=%d(%dB) fillbytes(after)=%d/%d\n",
             d, (int)read_frames,
-            (int)(read_frames * sizeof(DECODEMIXTYPE) * d->channels),
+            (int)(read_frames * sizeof(DECODEMIXTYPE) * d->input_channels),
             (int)(d->decodeaheadbuf_fillbytes +
-            read_frames * sizeof(DECODEMIXTYPE) * d->channels),
+            read_frames * sizeof(DECODEMIXTYPE) * d->input_channels),
             (int)(d->input_samplerate * sizeof(DECODEMIXTYPE) *
-            d->channels)
+            d->input_channels)
         );
         #endif
     } else if (d->_vorbisdecode) {
         read_frames = 0;
-        assert(d->channels == 2);  // FIXME: change for mono
         DECODEMIXTYPE *writeto = (DECODEMIXTYPE *)(
             ((char *)d->decodeaheadbuf +
              d->decodeaheadbuf_fillbytes)
         );
         while (read_frames < (uint64_t)want_to_read_frames &&
                 d->_vorbiscachedsamplesbuffill >=
-                (int)sizeof(DECODEMIXTYPE) * (int)d->channels) {
+                (int)sizeof(DECODEMIXTYPE) * (int)d->input_channels) {
             memcpy(
                 writeto, d->_vorbiscachedsamplesbuf,
-                sizeof(DECODEMIXTYPE) * d->channels
+                sizeof(DECODEMIXTYPE) * d->input_channels
             );
-            writeto += d->channels;
+            writeto += d->input_channels;
             d->_vorbiscachedsamplesbuffill -= (
-                sizeof(DECODEMIXTYPE) * d->channels
+                sizeof(DECODEMIXTYPE) * d->input_channels
             );
             if (d->_vorbiscachedsamplesbuffill > 0)
                 memmove(
                     d->_vorbiscachedsamplesbuf,
                     ((char *)d->_vorbiscachedsamplesbuf) +
-                        sizeof(DECODEMIXTYPE) * d->channels,
+                        sizeof(DECODEMIXTYPE) * d->input_channels,
                     d->_vorbiscachedsamplesbuffill
                 );
             read_frames++;
             assert(
                 (char *)d->decodeaheadbuf +
-                read_frames * sizeof(DECODEMIXTYPE) * d->channels +
+                read_frames * sizeof(DECODEMIXTYPE) *
+                d->input_channels +
                 d->decodeaheadbuf_fillbytes == (char *)writeto
             );
         }
@@ -655,7 +708,8 @@ static int s3d_audiodecoder_FillDecodeAhead(s3daudiodecoder *d) {
         while (read_frames < (uint64_t)want_to_read_frames) {
             assert(
                 (char *)d->decodeaheadbuf +
-                read_frames * sizeof(DECODEMIXTYPE) * d->channels +
+                read_frames * sizeof(DECODEMIXTYPE) *
+                d->input_channels +
                 d->decodeaheadbuf_fillbytes == (char *)writeto
             );
             if (input_size > 1024 * 10) {
@@ -674,8 +728,10 @@ static int s3d_audiodecoder_FillDecodeAhead(s3daudiodecoder *d) {
             char *readbuf = d->_vorbisprereadbuf;
             if (!readbuf || d->_vorbisprereadbufsize != input_size) {
                 readbuf = malloc(input_size);
-                if (!readbuf)
+                if (!readbuf) {
+                    d->vfserror = 1;
                     return 0;
+                }
                 if (d->_vorbisprereadbuf)
                     free(d->_vorbisprereadbuf);
                 d->_vorbisprereadbuf = readbuf;
@@ -752,7 +808,7 @@ static int s3d_audiodecoder_FillDecodeAhead(s3daudiodecoder *d) {
             if (spew3d_vfs_fseek(d->vfshandle, offset +
                     (int64_t)bytes_used) < 0)
                 goto vorbisfilefail;
-            if (channels_found != d->channels)
+            if (channels_found != d->input_channels)
                 goto vorbisfilefail;
             DECODEMIXTYPE *channelbuf = alloca(
                 sizeof(*channelbuf) * channels_found
@@ -762,7 +818,7 @@ static int s3d_audiodecoder_FillDecodeAhead(s3daudiodecoder *d) {
             unsigned int i = 0;
             while (i < (unsigned int)samples_found) {
                 unsigned int k = 0;
-                while (k < (unsigned int)d->channels) {
+                while (k < (unsigned int)d->input_channels) {
                     int64_t value = (outputs[k][i] *
                         (((double)S3D_ASAMPLE_MAX) + 1.0));
                     if (value > (int64_t)S3D_ASAMPLE_MAX)
@@ -773,13 +829,13 @@ static int s3d_audiodecoder_FillDecodeAhead(s3daudiodecoder *d) {
                     k++;
                 }
                 k = 0;
-                while (k < (unsigned int)d->channels) {
+                while (k < (unsigned int)d->input_channels) {
                     if (read_frames < (uint64_t)want_to_read_frames) {
                         assert(
                             ((char *)writeto) <
                             (char *)d->decodeaheadbuf +
                             (d->input_samplerate * sizeof(DECODEMIXTYPE) *
-                             d->channels)
+                             d->input_channels)
                         );
                         *writeto = channelbuf[k];
                         writeto++;
@@ -812,7 +868,8 @@ static int s3d_audiodecoder_FillDecodeAhead(s3daudiodecoder *d) {
 
                 assert(
                     (char *)d->decodeaheadbuf +
-                    read_frames * sizeof(DECODEMIXTYPE) * d->channels +
+                    read_frames * sizeof(DECODEMIXTYPE) *
+                    d->input_channels +
                     d->decodeaheadbuf_fillbytes == (char *)writeto
                 );
 
@@ -821,7 +878,8 @@ static int s3d_audiodecoder_FillDecodeAhead(s3daudiodecoder *d) {
         }
         assert((
             (char *)d->decodeaheadbuf +
-            read_frames * sizeof(DECODEMIXTYPE) * d->channels +
+            read_frames * sizeof(DECODEMIXTYPE) *
+            d->input_channels +
             d->decodeaheadbuf_fillbytes == (char *)writeto
         ) && (read_frames == (uint64_t)want_to_read_frames ||
               spew3d_vfs_feof(d->vfshandle)));
@@ -832,11 +890,13 @@ static int s3d_audiodecoder_FillDecodeAhead(s3daudiodecoder *d) {
             "decoder addr=%p ogg: "
             "frames=%d(%dB) fillbytes(after)=%d/%d\n",
             d, (int)read_frames,
-            (int)(read_frames * sizeof(DECODEMIXTYPE) * d->channels),
+            (int)(read_frames * sizeof(DECODEMIXTYPE) *
+            d->input_channels),
             (int)(d->decodeaheadbuf_fillbytes +
-            read_frames * sizeof(DECODEMIXTYPE) * d->channels),
+            read_frames * sizeof(DECODEMIXTYPE) *
+            d->input_channels),
             (int)(d->input_samplerate * sizeof(DECODEMIXTYPE) *
-            d->channels)
+            d->input_channels)
         );
         #endif
     } else {
@@ -865,7 +925,7 @@ static int s3d_audiodecoder_FillDecodeAhead(s3daudiodecoder *d) {
         }
     }
     d->decodeaheadbuf_fillbytes += (
-        read_frames * sizeof(DECODEMIXTYPE) * d->channels
+        read_frames * sizeof(DECODEMIXTYPE) * d->input_channels
     );
     return 1;
 }
@@ -984,6 +1044,14 @@ int s3d_audiodecoder_Decode(
         s3daudiodecoder *d, char *output, int frames,
         int *out_haderror
         ) {
+    char *output_unadjusted_channels = output;
+    if (d->input_channels != d->output_channels) {
+        int needed_channeladjust_bytes = (
+            (int)(d->input_channels *
+            sizeof(DECODEMIXTYPE) * frames)
+        );
+        //output_unadjusted_channels =
+    }
     const int resampling = (d->input_samplerate !=
         d->output_samplerate);
     int frames_written = 0;

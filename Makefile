@@ -4,8 +4,12 @@ BINEXT:=.exe
 else
 BINEXT:=.bin
 endif
+UNITTEST_SOURCES_NOSDL=$(sort $(wildcard ./implementation/test_*_nosdl.c))
 UNITTEST_SOURCES=$(sort $(wildcard ./implementation/test_*.c))
+UNITTEST_SOURCES_WITHSDL=$(sort $(filter-out $(UNITTEST_SOURCES), $(UNITTEST_SOURCES_NOSDL)))
 UNITTEST_BASENAMES=$(sort $(patsubst %.c, %, $(UNITTEST_SOURCES)))
+UNITTEST_BASENAMES_NOSDL=$(sort $(patsubst %.c, %, $(UNITTEST_SOURCES_NOSDL)))
+UNITTEST_BASENAMES_WITHSDL=$(sort $(patsubst %.c, %, $(UNITTEST_SOURCES_WITHSDL)))
 HEADERS=$(sort $(filter-out ./include/spew3d.h ./implementation/spew3d_prefix_drlibsstbvorbis.h ./implementation/spew3d_postfix_drlibsstbvorbis.h ./implementation/spew3d_prefix_all.h ./implementation/spew3d_prefix_miniz_c.h ./implementation/spew3d_postfix_miniz_c.h,$(wildcard ./include/*.h) $(wildcard ./implementation/*.h)))
 SOURCES=$(sort $(filter-out $(UNITTEST_SOURCES), $(wildcard ./implementation/*.c)))
 TESTPROG=$(sort $(patsubst %.c, %$(BINEXT), $(wildcard ./examples/example_*.c ./implementation/test_*.c)))
@@ -37,7 +41,8 @@ update-vendor:
 
 unittests:
 	echo "TESTS: $(UNITTEST_SOURCES) | $(UNITTEST_BASENAMES)"
-	for x in $(UNITTEST_BASENAMES); do $(CC) $(CFLAGS) -Iinclude/ $(CXXFLAGS) -pthread -o ./$$x$(BINEXT) ./$$x.c -lSDL2 -lcheck -lrt -lsubunit -lm $(LDFLAGS) || { exit 1; }; done
+	for x in $(UNITTEST_BASENAMES_WITHSDL); do $(CC) $(CFLAGS) -Iinclude/ $(CXXFLAGS) -pthread -o ./$$x$(BINEXT) ./$$x.c -lSDL2 -lcheck -lrt -lsubunit -lm $(LDFLAGS) || { exit 1; }; done
+	for x in $(UNITTEST_BASENAMES_NOSDL); do $(CC) $(CFLAGS) -Iinclude/ $(CXXFLAGS) -pthread -o ./$$x$(BINEXT) ./$$x.c -lcheck -lrt -lsubunit -lm $(LDFLAGS) || { exit 1; }; done
 	for x in $(UNITTEST_BASENAMES); do echo ">>> TEST RUN: $$x"; CK_FORK=no valgrind --track-origins=yes --leak-check=full ./$$x$(BINEXT) || { exit 1; }; done
 
 clean:

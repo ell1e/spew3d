@@ -41,6 +41,7 @@ typedef enum s3d_audio_sink_type {
 
 typedef struct spew3d_audio_sink {
     int samplerate;
+    int channels;
     char *soundcard_name;
 
     s3d_audio_sink_type type;
@@ -68,7 +69,7 @@ S3DEXP void spew3d_audio_sink_MainThreadUpdate();
  */
 S3DEXP spew3d_audio_sink *spew3d_audio_sink_CreateOutputEx(
     const char *soundcard_name, int wantsinktype,
-    int samplerate, int buffers
+    int samplerate, int channels, int buffers
 );
 
 /** Create a new audio output sink.
@@ -78,7 +79,8 @@ S3DEXP spew3d_audio_sink *spew3d_audio_sink_CreateOutputEx(
  *  Remember you need to call audio_sink_MainThreadUpdate() on
  *  the main thread continuously for audio to keep working.
  */
-S3DEXP spew3d_audio_sink *spew3d_audio_sink_CreateOutput(int samplerate);
+S3DEXP spew3d_audio_sink *
+    spew3d_audio_sink_CreateStereoOutput(int samplerate);
 
 /** List the available sound card names for any audio sink to use.
  *  You can call this from any thread. The last string array entry
@@ -90,6 +92,15 @@ S3DEXP char **spew3d_audio_sink_GetSoundcardListOutput(int sinktype);
 /** Close the audio sink. Make sure no other threads are still using it
  *  before you do that. */
 S3DEXP void spew3d_audio_sink_Close(spew3d_audio_sink *sink);
+
+/** Set a sink to play audio coming from a decoder.
+ * The audio will be resampled and channel adjusted automatically
+ * for the given sink. Please note an audio decoder can only feed
+ * into one sink at a time or things will break badly.
+ */
+S3DEXP int spew3d_audio_sink_FeedFromDecoder(
+    spew3d_audio_sink *sink, s3daudiodecoder *decoder
+);
 
 /** For sinks that automatically close after all other things using it
  *  disowned it.

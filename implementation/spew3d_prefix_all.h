@@ -102,14 +102,17 @@ typedef int64_t s3dnum_t;
 typedef int32_t s3d_asample_t;
 #define S3D_ASAMPLE_MAX INT32_MAX
 #define S3D_ASAMPLE_MIN INT32_MIN
-#ifndef SPEW3D_SINK_AUDIOBUF_SAMPLES
-#define SPEW3D_SINK_AUDIOBUF_SAMPLES (\
-    512 * (int32_t)sizeof(s3d_asample_t))
+#ifndef SPEW3D_SINK_AUDIOBUF_SAMPLES_ONECHAN
+#define SPEW3D_SINK_AUDIOBUF_SAMPLES_ONECHAN (\
+    256\
+)
 #endif
 #ifdef SPEW3D_SINK_AUDIOBUF_BYTES
 #error "SPEW3D_SINK_AUDIOBUF_BYTES already defined"
 #else
 #define SPEW3D_SINK_AUDIOBUF_BYTES (\
-    512 * (int32_t)sizeof(s3d_asample_t))
+    SPEW3D_SINK_AUDIOBUF_SAMPLES_ONECHAN *\
+    (int32_t)sizeof(s3d_asample_t)\
+)
 #endif
 

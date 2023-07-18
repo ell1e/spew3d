@@ -33,7 +33,15 @@ license, see accompanied LICENSE.md.
 typedef struct s3daudiodecoder s3daudiodecoder;
 
 s3daudiodecoder *audiodecoder_NewFromFile(
+    const char *filepath
+);
+
+s3daudiodecoder *audiodecoder_NewFromFileEx(
     const char *filepath, int vfsflags
+);
+
+int s3d_audiodecoder_SetChannelAdjustTo(
+    s3daudiodecoder *d, int channels
 );
 
 int s3d_audiodecoder_GetSourceSampleRate(
@@ -41,6 +49,10 @@ int s3d_audiodecoder_GetSourceSampleRate(
 );
 
 int s3d_audiodecoder_GetSourceChannels(
+    s3daudiodecoder *d
+);
+
+int s3d_audiodecoder_GetOutputChannels(
     s3daudiodecoder *d
 );
 
