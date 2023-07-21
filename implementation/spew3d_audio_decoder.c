@@ -165,6 +165,7 @@ int s3d_audiodecoder_SetResampleTo(
         ) {
     if (samplerate < 10000 || samplerate > 100000)
         return 0;
+    d->resample_factor = 0;
     d->output_samplerate = samplerate;
     return 1;
 }
@@ -935,8 +936,11 @@ static int s3d_audiodecoder_FillDecodeAheadResampled(
         ) {
     int frames_written = 0;
     if (d->vfserror || !s3d_audiodecoder_FillDecodeAhead(d)) {
+        d->vfserror = 1;
         return 0;
     }
+    if (d->decodeaheadbuf_fillbytes <= 0)
+        return 1;
     const int want_resampled_buffered_frames = (
         d->output_samplerate
     );
@@ -959,60 +963,127 @@ static int s3d_audiodecoder_FillDecodeAheadResampled(
                 d->resample_factor = 1;
             }
         }
-        assert(sizeof(DECODEMIXTYPE) == 2);
-        if (!d->decodeaheadbuf_resampled) {
-            int buf_size = (
-                d->output_samplerate * sizeof(DECODEMIXTYPE) *
-                d->output_channels * 2
+        assert(sizeof(DECODEMIXTYPE) == 2 ||
+            sizeof(DECODEMIXTYPE) == 4);
+        assert(d->decodeaheadbuf_resampled_fillbytes >= 0);
+        int buf_size_factor = ceil(fmax(2.0,
+                d->resample_factor));
+        int buf_size = (
+            d->output_samplerate * sizeof(DECODEMIXTYPE) *
+            d->output_channels * buf_size_factor
+        ) + d->decodeaheadbuf_resampled_fillbytes;
+        assert(buf_size > 0);
+        while (buf_size < (int)(d->input_samplerate *
+                sizeof(DECODEMIXTYPE) *
+                d->output_channels) +
+                d->decodeaheadbuf_resampled_fillbytes)
+            buf_size *= 2;
+        if (!d->decodeaheadbuf_resampled ||
+                d->decodeaheadbuf_resampled_size < buf_size) {
+            char *newresampledbuf = realloc(
+                d->decodeaheadbuf_resampled, buf_size
             );
-            assert(buf_size > 0);
-            while (buf_size < (int)(d->input_samplerate *
-                    sizeof(DECODEMIXTYPE) *
-                    d->output_channels))
-                buf_size *= 2;
-            d->decodeaheadbuf_resampled_size = buf_size;
-            d->decodeaheadbuf_resampled = (
-                malloc(d->decodeaheadbuf_resampled_size)
-            );
-            if (!d->decodeaheadbuf_resampled) {
+            if (!newresampledbuf) {
                 d->vfserror = 1;
                 return 0;
             }
+            d->decodeaheadbuf_resampled = newresampledbuf;
+            d->decodeaheadbuf_resampled_size = buf_size;
         }
 
+        #if defined(DEBUG_SPEW3D_AUDIO_DECODE_RESAMPLE)
+        assert(buf_size >= 0);
+        assert(d->decodeaheadbuf_resampled_fillbytes >= 0);
+        printf(
+            "spew3d_audio_decoder.c: debug: "
+            "decoder addr=%p begin resample loop, freq "
+            "%d -> %d, input total %d bytes, "
+            "desired output total %d bytes, "
+            "buf_size_factor %d, d->resample_factor %f, "
+            "buf space for resample op %d bytes total (with "
+            "%d already filled from previous operations)\n",
+            d, d->input_samplerate, d->output_samplerate,
+            d->decodeaheadbuf_fillbytes,
+            want_resampled_buffered_bytes,
+            buf_size_factor, d->resample_factor,
+            buf_size, d->decodeaheadbuf_resampled_fillbytes
+        );
+        #endif
+        int didoneresample = 0;
         while (d->decodeaheadbuf_resampled_fillbytes <
                 want_resampled_buffered_bytes) {
-            int unresampled_frames = (
+            int unresampled_input_bytes = d->decodeaheadbuf_fillbytes;
+            int doresample_output_frames = (
                 d->decodeaheadbuf_fillbytes / (sizeof(DECODEMIXTYPE) *
                 d->output_channels)
             ) * d->resample_factor;
-            assert(unresampled_frames >= 0);
-            if (unresampled_frames == 0 && (
+            /*int doresample_output_bufspace = (
+                (d->decodeaheadbuf_fillbytes >= 1 ?
+                    d->decodeaheadbuf_fillbytes : 1) * ceil(fmax(1.0,
+                    d->resample_factor)));*/
+            assert(doresample_output_frames >= 0);
+            /*assert(doresample_output_bufspace >=
+                doresample_frames * sizeof(DECODEMIXTYPE) *
+                d->output_channels);*/
+            if (doresample_output_frames == 0 && (
                     d->decodeaheadbuf_fillbytes /
                     (sizeof(DECODEMIXTYPE) *
                     d->output_channels)) > 0)
-                unresampled_frames = 1;
-            int unresampled_bytes = (
-                unresampled_frames * sizeof(DECODEMIXTYPE) *
+                doresample_output_frames = 1;
+            int doresample_output_bytes = (
+                doresample_output_frames * sizeof(DECODEMIXTYPE) *
                 d->output_channels
             );
-            if (unresampled_bytes <= 0)
+            if (doresample_output_bytes <= 0)
                 break;
 
             #ifndef SPEW3D_OPTION_DISABLE_SDL
             SDL_AudioCVT cvt;
             memset(&cvt, 0, sizeof(cvt));
             SDL_BuildAudioCVT(
-                &cvt, AUDIO_S16, d->output_channels,
+                &cvt, (sizeof(DECODEMIXTYPE) == 2 ? AUDIO_S16 :
+                    AUDIO_S32), d->output_channels,
                 d->input_samplerate,
-                AUDIO_S16, d->output_channels,
+                (sizeof(DECODEMIXTYPE) == 2 ? AUDIO_S16 :
+                    AUDIO_S32), d->output_channels,
                 d->output_samplerate
             );
-            if (cvt.len * cvt.len_mult > (
+            #if defined(DEBUG_SPEW3D_AUDIO_DECODE_RESAMPLE)
+            printf(
+                "spew3d_audio_decoder.c: debug: "
+                "decoder addr=%p sdl2 resample step %d->%d, "
+                "sizeof(DECODEMIXTYPE)==%d, "
+                "unresampled_input_bytes=%d, cvt.len_mult=%d, "
+                "d->decodeaheadbuf_resampled_size=%d, "
+                "d->decodeaheadbuf_resampled_fillbytes=%d\n",
+                d, d->input_samplerate, d->output_samplerate,
+                (int)sizeof(DECODEMIXTYPE),
+                (int)unresampled_input_bytes, (int)cvt.len_mult,
+                (int)d->decodeaheadbuf_resampled_size,
+                (int)d->decodeaheadbuf_resampled_fillbytes
+            );
+            #endif
+            if (unresampled_input_bytes * cvt.len_mult > (
                     d->decodeaheadbuf_resampled_size -
-                    d->decodeaheadbuf_resampled_fillbytes))
-                break;
-            cvt.len = unresampled_bytes;
+                    d->decodeaheadbuf_resampled_fillbytes)) {
+                if (didoneresample)
+                    break;  // Just stop here.
+                // SDL2 wants really strangely huge buffers sometimes.
+                // Not much we can do except comply:
+                int new_size = (unresampled_input_bytes *
+                    cvt.len_mult) +
+                    d->decodeaheadbuf_resampled_fillbytes;
+                char *newresampledbuf = realloc(
+                    d->decodeaheadbuf_resampled, buf_size
+                );
+                if (!newresampledbuf) {
+                    d->vfserror = 1;
+                    return 0;
+                }
+                d->decodeaheadbuf_resampled = newresampledbuf;
+                d->decodeaheadbuf_resampled_size = buf_size;
+            }
+            cvt.len = unresampled_input_bytes;
             cvt.buf = (
                 (unsigned char *)d->decodeaheadbuf_resampled +
                 (unsigned int)d->decodeaheadbuf_resampled_fillbytes);
@@ -1023,18 +1094,21 @@ static int s3d_audiodecoder_FillDecodeAheadResampled(
                 memmove(
                     d->decodeaheadbuf,
                     d->decodeaheadbuf + cvt.len,
-                    d->input_samplerate * sizeof(DECODEMIXTYPE) *
-                    d->output_channels - cvt.len
+                    d->decodeaheadbuf_fillbytes - cvt.len
                 );
             }
             assert(cvt.len_cvt > 0);
+            assert(cvt.len_cvt <= (d->decodeaheadbuf_resampled_size -
+                d->decodeaheadbuf_resampled_fillbytes));
+            d->decodeaheadbuf_fillbytes -= cvt.len;
             d->decodeaheadbuf_resampled_fillbytes += cvt.len_cvt;
             #else
-            fprintf(  // FIXME !!!
-                stderr, "spew3d_audio_decoder.c: "
+            fprintf(  // XXX: FIXME !!!
+                stderr, "spew3d_audio_decoder.c: error: "
                 "resampling code path not implemented");
             _exit(1);
             #endif
+            didoneresample = 1;
         }
     }
     return 1;
@@ -1064,13 +1138,19 @@ int s3d_audiodecoder_Decode(
         }
         int copyframes = 0;
         if (resampling) {
+            // We're using resampled audio!
+            // Get our audio data from d->decodeaheadbuf_resampled:
             if (d->decodeaheadbuf_resampled_fillbytes <
                     (int)(d->output_channels * sizeof(DECODEMIXTYPE)))
                 break;
+            assert(d->decodeaheadbuf_resampled_fillbytes <=
+                d->decodeaheadbuf_resampled_size);
             copyframes = (
                 d->decodeaheadbuf_resampled_fillbytes /
                 (d->output_channels * sizeof(DECODEMIXTYPE)));
             int fullcopyframes = copyframes;
+            if (copyframes > frames - frames_written)
+                copyframes = (frames - frames_written);
             assert(copyframes > 0);
             memcpy(
                 output + frames_written *
@@ -1078,14 +1158,24 @@ int s3d_audiodecoder_Decode(
                 d->decodeaheadbuf_resampled,
                 copyframes * d->output_channels * sizeof(DECODEMIXTYPE));
             frames_written += copyframes;
-            if (copyframes < fullcopyframes)
+            if (copyframes < fullcopyframes) {
+                // We only did a partial copy, cut it out of source:
                 memmove(
                     d->decodeaheadbuf_resampled,
                     d->decodeaheadbuf_resampled + sizeof(DECODEMIXTYPE) *
                     d->output_channels * copyframes,
                     sizeof(DECODEMIXTYPE) *
                     d->output_channels * (fullcopyframes - copyframes));
+                d->decodeaheadbuf_resampled_fillbytes -= (
+                    (fullcopyframes - copyframes) *
+                    sizeof(DECODEMIXTYPE) * d->output_channels);
+            } else {
+                // We did a full copy, wipe source.
+                d->decodeaheadbuf_resampled_fillbytes = 0;
+            }
         } else {
+            // We're taking original unresampled audio as-is.
+            // Get our audio data directly from d->decodeaheadbuf:
             if (d->decodeaheadbuf_fillbytes < (int)(
                     d->output_channels * sizeof(DECODEMIXTYPE)))
                 break;
@@ -1101,13 +1191,21 @@ int s3d_audiodecoder_Decode(
                 d->output_channels * sizeof(DECODEMIXTYPE),
                 d->decodeaheadbuf,
                 copyframes * d->output_channels * sizeof(DECODEMIXTYPE));
-            if (copyframes < fullcopyframes)
+            if (copyframes < fullcopyframes) {
+                // We did a partial copy, cut it out of the source:
                 memmove(
                     d->decodeaheadbuf,
                     d->decodeaheadbuf + sizeof(DECODEMIXTYPE) *
                     d->output_channels * copyframes,
                     sizeof(DECODEMIXTYPE) *
                     d->output_channels * (fullcopyframes - copyframes));
+                d->decodeaheadbuf_fillbytes -= (
+                    (fullcopyframes - copyframes) *
+                    sizeof(DECODEMIXTYPE) * d->output_channels);
+            } else {
+                // We did a full copy, wipe source.
+                d->decodeaheadbuf_fillbytes = 0;
+            }
             frames_written += copyframes;
         }
         if (resampling)

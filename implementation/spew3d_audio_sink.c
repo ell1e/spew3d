@@ -227,6 +227,7 @@ S3DHID int _internal_spew3d_audio_sink_Process(spew3d_audio_sink *sink) {
         if (sink->soundcard_name && !wantedcardname)
             goto errorfailsdlaudioopen;
 
+        // SDL2 structure to specify the output format:
         SDL_AudioSpec wanted;
         memset(&wanted, 0, sizeof(wanted));
         wanted.freq = sink->samplerate;
@@ -248,20 +249,40 @@ S3DHID int _internal_spew3d_audio_sink_Process(spew3d_audio_sink *sink) {
             free(wantedcardname);
             wantedcardname = NULL;
         }
+
+        // Get the default card SDL2 recommends, if needed:
+        char *sdlreporteddefaultcard = NULL;
+        if (!wantedcardname) {
+            SDL_AudioSpec unused = {0};
+            // Get default audio info!
+            if (SDL_GetDefaultAudioInfo(
+                    &sdlreporteddefaultcard, &unused, 0
+                    ) != 0) {
+                sdlreporteddefaultcard = NULL;
+            }
+        }
+
+        // Figure out which card we're actually picking:
         const char *cardname = NULL;
         int cardindex = -1;
         int c = SDL_GetNumAudioDevices(0);
         int i = 0;
         while (i < c) {
             const char *name = SDL_GetAudioDeviceName(i, 0);
-            if (name && (wantedcardname == NULL ||
-                    strcasecmp(wantedcardname, name) == 0)) {
+            if (name && ((wantedcardname == NULL && ((
+                        sdlreporteddefaultcard != NULL &&
+                        strcmp(sdlreporteddefaultcard, name) == 0) ||
+                        sdlreporteddefaultcard == NULL)) ||
+                    (wantedcardname != NULL &&
+                    strcasecmp(wantedcardname, name) == 0))) {
                 cardindex = i;
                 cardname = name;
                 break;
             }
             i++;
         }
+        if (sdlreporteddefaultcard)
+            SDL_free(sdlreporteddefaultcard);  // This is from SDl2.
         free(wantedcardname);
         wantedcardname = NULL;
         if (cardindex < 0)
@@ -281,8 +302,8 @@ S3DHID int _internal_spew3d_audio_sink_Process(spew3d_audio_sink *sink) {
             printf(
                 "spew3d_audio_sink.c: debug: sink "
                 "addr=%p: opening SDL2 audio device "
-                "failed\n",
-                sink
+                "failed: %s\n",
+                sink, SDL_GetError()
             );
             #endif
         } else {
@@ -294,8 +315,8 @@ S3DHID int _internal_spew3d_audio_sink_Process(spew3d_audio_sink *sink) {
             printf(
                 "spew3d_audio_sink.c: debug: sink "
                 "addr=%p: opened SDL2 audio device "
-                "successfully\n",
-                sink
+                "successfully (sink->soundcard_name \"%s\")\n",
+                sink, sink->soundcard_name
             );
             #endif
             SDL_PauseAudioDevice(

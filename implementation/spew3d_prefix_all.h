@@ -77,6 +77,7 @@ license, see accompanied LICENSE.md.
 //#define DEBUG_SPEW3D_AUDIO_SINK_DATA
 #define DEBUG_SPEW3D_AUDIO_DECODE
 //#define DEBUG_SPEW3D_AUDIO_DECODE_DATA
+//#define DEBUG_SPEW3D_AUDIO_DECODE_RESAMPLE
 #endif
 
 // Number types:
