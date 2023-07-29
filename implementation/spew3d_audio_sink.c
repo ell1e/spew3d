@@ -302,8 +302,9 @@ S3DHID int _internal_spew3d_audio_sink_Process(spew3d_audio_sink *sink) {
             printf(
                 "spew3d_audio_sink.c: debug: sink "
                 "addr=%p: opening SDL2 audio device "
-                "failed: %s\n",
-                sink, SDL_GetError()
+                "failed: %s (SDL2 backend: \"%s\")\n",
+                sink, SDL_GetError(),
+                SDL_GetCurrentAudioDriver()
             );
             #endif
         } else {
@@ -315,8 +316,10 @@ S3DHID int _internal_spew3d_audio_sink_Process(spew3d_audio_sink *sink) {
             printf(
                 "spew3d_audio_sink.c: debug: sink "
                 "addr=%p: opened SDL2 audio device "
-                "successfully (sink->soundcard_name \"%s\")\n",
-                sink, sink->soundcard_name
+                "successfully (sink->soundcard_name: \"%s\", "
+                "SDL2 backend: \"%s\")\n",
+                sink, sink->soundcard_name,
+                SDL_GetCurrentAudioDriver()
             );
             #endif
             SDL_PauseAudioDevice(
