@@ -64,6 +64,10 @@ S3DEXP char *spew3d_fs_RemoveDoubleSlashes(const char *path);
 
 S3DEXP int spew3d_fs_IsDirectory(const char *path, int *result);
 
+S3DEXP int spew3d_fs_TargetExistsEx(
+    const char *path, int *exists, int noperms_as_ioerror
+);
+
 S3DEXP int spew3d_fs_TargetExists(const char *path, int *exists);
 
 S3DEXP char *spew3d_fs_Normalize(const char *path);

@@ -700,12 +700,20 @@ S3DEXP char *spew3d_fs_Normalize(const char *path) {
 
 
 S3DEXP int spew3d_fs_TargetExists(const char *path, int *exists) {
+    return (spew3d_fs_TargetExistsEx(path, exists, 0));
+}
+
+
+S3DEXP int spew3d_fs_TargetExistsEx(
+        const char *path, int *exists, int noperms_as_ioerror
+        ) {
     #if defined(ANDROID) || defined(__ANDROID__) || \
         defined(__unix__) || defined(__linux__) || \
         defined(__APPLE__) || defined(__OSX__)
     struct stat sb;
     if (stat(path, &sb) != 0) {
-        if (errno == ENOENT || errno == ENOTDIR) {
+        if (errno == ENOENT || errno == ENOTDIR ||
+                (!noperms_as_ioerror && errno == EACCES)) {
             *exists = 0;
             return 1;
         }
@@ -723,7 +731,10 @@ S3DEXP int spew3d_fs_TargetExists(const char *path, int *exists) {
         uint32_t werror = GetLastError();
         if (werror == ERROR_PATH_NOT_FOUND ||
                 werror == ERROR_FILE_NOT_FOUND ||
-                werror == ERROR_INVALID_NAME) {
+                werror == ERROR_INVALID_NAME ||
+                werror == ERROR_INVALID_DRIVE ||
+                (!noperms_as_io_error && werror ==
+                ERROR_ACCESS_DENIED)) {
             *exists = 0;
             return 1;
         }
