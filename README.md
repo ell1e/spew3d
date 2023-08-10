@@ -131,9 +131,10 @@ These compilers should work: GCC, MinGW, Clang.
 **MSVC is unsupported,** use MinGW instead.
 
 For Windows, supported versions are Vista or newer.
-Linux should also work, FreeBSD and macOS aren't regularly
-tested but if issues are found they should be fixable.
+Linux with GLIBC is also regularly tested,
+FreeBSD and macOS aren't but if issues are found they
+should be fixable and pull requests for that are welcome.
 
-It should be possible to get Spew3D on most Unix systems
-that SDL2 also supports. **3D acceleration is not required.**
+It should be possible to get Spew3D running on most Unix systems
+supported by SDL2 as well. **3D acceleration is not required.**
 
