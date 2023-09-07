@@ -41,8 +41,8 @@ update-vendor:
 
 unittests:
 	echo "TESTS: $(UNITTEST_SOURCES) | $(UNITTEST_BASENAMES)"
-	for x in $(UNITTEST_BASENAMES_WITHSDL); do $(CC) $(CFLAGS) -Iinclude/ $(CXXFLAGS) -pthread -o ./$$x$(BINEXT) ./$$x.c -lSDL2 -lcheck -lrt -lsubunit -lm $(LDFLAGS) || { exit 1; }; done
-	for x in $(UNITTEST_BASENAMES_NOSDL); do $(CC) $(CFLAGS) -Iinclude/ $(CXXFLAGS) -pthread -o ./$$x$(BINEXT) ./$$x.c -lcheck -lrt -lsubunit -lm $(LDFLAGS) || { exit 1; }; done
+	for x in $(UNITTEST_BASENAMES_WITHSDL); do $(CC) $(CFLAGS) -Iinclude/ $(CXXFLAGS) -pthread -o ./$$x$(BINEXT) ./$$x.c -lSDL2 -lcheck -lrt -lm $(LDFLAGS) || { exit 1; }; done
+	for x in $(UNITTEST_BASENAMES_NOSDL); do $(CC) $(CFLAGS) -Iinclude/ $(CXXFLAGS) -pthread -o ./$$x$(BINEXT) ./$$x.c -lcheck -lrt -lm $(LDFLAGS) || { exit 1; }; done
 	for x in $(UNITTEST_BASENAMES); do echo ">>> TEST RUN: $$x"; CK_FORK=no valgrind --track-origins=yes --leak-check=full ./$$x$(BINEXT) || { exit 1; }; done
 
 clean:
