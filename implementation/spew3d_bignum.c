@@ -204,11 +204,11 @@ S3DEXP int spew3d_bignum_CompareStrFloatsBuf(
     const int iend = ((v1len > v2len) ? v1len : v2len);
     size_t i = 1;
     while (i < iend) {
-        if (i < v1len && v1[i] == '.') {
+        if (S3DUNLIKELY(i < v1len && v1[i] == '.')) {
             assert(dot1 == v1len);
             dot1 = i;
         }
-        if (i < v2len && v2[i] == '.') {
+        if (S3DUNLIKELY(i < v2len && v2[i] == '.')) {
             assert(dot2 == v2len);
             dot2 = i;
         }
@@ -218,7 +218,8 @@ S3DEXP int spew3d_bignum_CompareStrFloatsBuf(
     int result = spew3d_bignum_CompareStrIntsBuf(
         v1, dot1, v2, dot2
     );
-    if (result != 0 || (dot1 == v1len && dot2 == v2len))
+    if (S3DLIKELY(result != 0 ||
+            (dot1 == v1len && dot2 == v2len)))
         return result;
 
     int v1neg = (v1[0] == '-');
@@ -226,13 +227,13 @@ S3DEXP int spew3d_bignum_CompareStrFloatsBuf(
 
     const char *zerobuf = "0";
     size_t zerobuflen = 1;
-    if (dot1 == v1len) {
+    if (S3DUNLIKELY(dot1 == v1len)) {
         assert(dot2 < v2len && dot2 >= 1);
         v1 = zerobuf;
         v1len = zerobuflen;
         v2 += dot2 + 1;
         v2len -= dot2 + 1;
-    } else if (dot2 == v2len) {
+    } else if (S3DUNLIKELY(dot2 == v2len)) {
         assert(dot1 < v1len && dot1 >= 1);
         v2 = zerobuf;
         v2len = zerobuflen;
@@ -245,9 +246,9 @@ S3DEXP int spew3d_bignum_CompareStrFloatsBuf(
         v1len -= dot1 + 1;
     }
 
-    while (v1len > 1 && v1[v1len - 1] == '0')
+    while (S3DUNLIKELY(v1len > 1 && v1[v1len - 1] == '0'))
         v1len--;
-    while (v2len > 1 && v2[v2len - 1] == '0')
+    while (S3DUNLIKELY(v2len > 1 && v2[v2len - 1] == '0'))
         v2len--;
     size_t minlen = ((v1len < v2len) ? v1len : v2len);
 
