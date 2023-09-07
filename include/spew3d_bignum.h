@@ -64,6 +64,7 @@ S3DEXP int spew3d_bignum_CompareStrFloatsBuf(
 S3DHID char *_internal_spew3d_bignum_AddPosNonfracStrFloatsBuf(
     const char *v1, size_t v1len,
     const char *v2, size_t v2len,
+    int with_initial_carryover,
     uint64_t *out_len
 );
 

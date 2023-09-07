@@ -131,7 +131,7 @@ START_TEST (test_bignum)
         uint64_t resultnumlen = 0;
         char *resultnum;
         resultnum = _internal_spew3d_bignum_AddPosNonfracStrFloatsBuf(
-            num1, strlen(num1), num2, strlen(num2),
+            num1, strlen(num1), num2, strlen(num2), 0,
             &resultnumlen
         );
         assert(resultnum != NULL);
@@ -141,13 +141,24 @@ START_TEST (test_bignum)
         free(resultnum);
         char num1b[] = "999";
         resultnum = _internal_spew3d_bignum_AddPosNonfracStrFloatsBuf(
-            num1b, strlen(num1b), num2, strlen(num2),
+            num1b, strlen(num1b), num2, strlen(num2), 0,
             &resultnumlen
         );
         assert(resultnum != NULL);
         assert(resultnumlen == 4);
         assert(resultnum[0] == '1' && resultnum[1] == '0' &&
                resultnum[2] == '0' && resultnum[3] == '0');
+        free(resultnum);
+        char num1c[] = "49582890529058";
+        char num2c[] = "390429048209";
+        resultnum = _internal_spew3d_bignum_AddPosNonfracStrFloatsBuf(
+            num1c, strlen(num1c), num2c, strlen(num2c), 0,
+            &resultnumlen
+        );
+        assert(resultnum != NULL);
+        assert(resultnumlen == strlen("49973319577267"));
+        assert(memcmp(resultnum, "49973319577267",
+               strlen("49973319577267")) == 0);
         free(resultnum);
     }
 }

@@ -276,6 +276,7 @@ S3DEXP int spew3d_bignum_CompareStrFloatsBuf(
 S3DHID char *_internal_spew3d_bignum_AddPosNonfracStrFloatsBuf(
         const char *v1, size_t v1len,
         const char *v2, size_t v2len,
+        int with_initial_carryover,
         uint64_t *out_len
         ) {
     assert(spew3d_bignum_VerifyStrFloatBuf(v1, v1len) &&
@@ -286,7 +287,7 @@ S3DHID char *_internal_spew3d_bignum_AddPosNonfracStrFloatsBuf(
     if (!result)
         return NULL;
     char *write = result;
-    int carryover = 0;
+    int carryover = (with_initial_carryover != 0);
     int resultlen = 0;
     const char *read1 = v1 + v1len - 1;
     const char *read2 = v2 + v2len - 1;
@@ -302,10 +303,11 @@ S3DHID char *_internal_spew3d_bignum_AddPosNonfracStrFloatsBuf(
         assert(digit1 >= 0 && digit1 <= 9);
         assert(digit2 >= 0 && digit2 <= 9);
         int resultdigit = (digit1 + digit2 + carryover);
+        carryover = 0;
         if (S3DUNLIKELY(resultdigit > 9)) {
-            assert(resultdigit == 10);
+            assert(resultdigit < 20);
             carryover = 1;
-            resultdigit = 0;
+            resultdigit -= 10;
         }
         *write = resultdigit + '0';
         write++;
