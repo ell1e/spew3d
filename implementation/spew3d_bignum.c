@@ -282,7 +282,7 @@ S3DHID char *_internal_spew3d_bignum_AddPosNonfracStrFloatsBuf(
     assert(spew3d_bignum_VerifyStrFloatBuf(v1, v1len) &&
            spew3d_bignum_VerifyStrFloatBuf(v2, v2len));
     char *result = malloc(
-        (v1len > v2len) ? (v1len + 1) : (v2len + 1)
+        (v1len > v2len) ? (v1len + 2) : (v2len + 2)
     );
     if (!result)
         return NULL;
@@ -293,6 +293,21 @@ S3DHID char *_internal_spew3d_bignum_AddPosNonfracStrFloatsBuf(
     const char *read2 = v2 + v2len - 1;
     const char *last1 = v1;
     const char *last2 = v2;
+    while (S3DLIKELY(read1 != last1 && read2 != last2)) {
+        int digit1 = (*read1) - '0';
+        int digit2 = (*read2) - '0';
+        int resultdigit = (digit1 + digit2 + carryover);
+        carryover = 0;
+        if (S3DUNLIKELY(resultdigit > 9)) {
+            assert(resultdigit < 20);
+            carryover = 1;
+            resultdigit -= 10;
+        }
+        *write = resultdigit + '0';
+        write++;
+        read1--;
+        read2--;
+    }
     while (1) {
         int digit1 = 0;
         if (S3DLIKELY(read1))
@@ -305,7 +320,7 @@ S3DHID char *_internal_spew3d_bignum_AddPosNonfracStrFloatsBuf(
         int resultdigit = (digit1 + digit2 + carryover);
         carryover = 0;
         if (S3DUNLIKELY(resultdigit > 9)) {
-            assert(resultdigit < 20);
+            assert(resultdigit <= 11);
             carryover = 1;
             resultdigit -= 10;
         }
@@ -314,11 +329,12 @@ S3DHID char *_internal_spew3d_bignum_AddPosNonfracStrFloatsBuf(
         if (S3DLIKELY(read1)) {
             if (S3DUNLIKELY(read1 == last1)) {
                 read1 = NULL;
-                if (!read2) {
+                if (!read2 || read2 == last2) {
                     if (carryover) {
                         *write = '1';
                         write++;
                     }
+                    *write = '\0';
                     break;
                 }
             } else {
@@ -328,11 +344,103 @@ S3DHID char *_internal_spew3d_bignum_AddPosNonfracStrFloatsBuf(
         if (S3DLIKELY(read2)) {
             if (S3DUNLIKELY(read2 == last2)) {
                 read2 = NULL;
-                if (!read1) {
+                if (!read1 || read2 == last2) {
                     if (carryover) {
                         *write = '1';
                         write++;
                     }
+                    *write = '\0';
+                    break;
+                }
+            } else {
+                read2--;
+            }
+        }
+    }
+    uint64_t result_len = (write - result);
+    spew3d_stringutil_ReverseBufBytes(result, result_len);
+    *out_len = result_len;
+    return result;
+}
+
+S3DHID char *_internal_spew3d_bignum_SubPosNonfracStrFloatsBuf(
+        const char *v1, size_t v1len,
+        const char *v2, size_t v2len,
+        int with_initial_carryover,
+        uint64_t *out_len
+        ) {
+    assert(spew3d_bignum_VerifyStrFloatBuf(v1, v1len) &&
+           spew3d_bignum_VerifyStrFloatBuf(v2, v2len));
+    assert(spew3d_bignum_CompareStrFloatsBuf(
+        v1, v1len, v2, v2len
+    ) >= 0);
+    char *result = malloc(v1len + 2);
+    if (!result)
+        return NULL;
+    char *write = result;
+    int carryover = (with_initial_carryover != 0);
+    int resultlen = 0;
+    const char *read1 = v1 + v1len - 1;
+    const char *read2 = v2 + v2len - 1;
+    const char *last1 = v1;
+    const char *last2 = v2;
+    while (S3DLIKELY(read1 != last1 && read2 != last2)) {
+        int digit1 = (*read1) - '0';
+        int digit2 = (*read2) - '0';
+        int resultdigit = (digit1 - digit2 - carryover);
+        carryover = 0;
+        if (S3DUNLIKELY(resultdigit < 0)) {
+            assert(resultdigit >= -10);
+            carryover = 1;
+            resultdigit = (10 + resultdigit);
+        }
+        *write = resultdigit + '0';
+        write++;
+        read1--;
+        read2--;
+    }
+    while (1) {
+        int digit1 = 0;
+        if (S3DLIKELY(read1))
+            digit1 = (*read1) - '0';
+        int digit2 = 0;
+        if (S3DLIKELY(read2))
+            digit2 = (*read2) - '0';
+        assert(digit1 >= 0 && digit1 <= 9);
+        assert(digit2 >= 0 && digit2 <= 9);
+        int resultdigit = (digit1 - digit2 - carryover);
+        carryover = 0;
+        if (S3DUNLIKELY(resultdigit < 0)) {
+            assert(resultdigit >= -10);
+            carryover = 1;
+            resultdigit = (10 + resultdigit);
+        }
+        *write = resultdigit + '0';
+        write++;
+        if (S3DLIKELY(read1)) {
+            if (S3DUNLIKELY(read1 == last1)) {
+                read1 = NULL;
+                if (!read2 || read2 == last2) {
+                    if (carryover) {
+                        *write = '1';
+                        write++;
+                    }
+                    *write = '\0';
+                    break;
+                }
+            } else {
+                read1--;
+            }
+        }
+        if (S3DLIKELY(read2)) {
+            if (S3DUNLIKELY(read2 == last2)) {
+                read2 = NULL;
+                if (!read1 || read2 == last2) {
+                    if (carryover) {
+                        *write = '1';
+                        write++;
+                    }
+                    *write = '\0';
                     break;
                 }
             } else {

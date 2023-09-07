@@ -160,6 +160,45 @@ START_TEST (test_bignum)
         assert(memcmp(resultnum, "49973319577267",
                strlen("49973319577267")) == 0);
         free(resultnum);
+        char num1d[] = "49582890529058";
+        char num2d[] = "30423390429048209";
+        resultnum = _internal_spew3d_bignum_AddPosNonfracStrFloatsBuf(
+            num1d, strlen(num1d), num2d, strlen(num2d), 0,
+            &resultnumlen
+        );
+        assert(resultnum != NULL);
+        assert(resultnumlen == strlen("30472973319577267"));
+        assert(memcmp(resultnum, "30472973319577267",
+               strlen("30472973319577267")) == 0);
+        free(resultnum);
+    }
+
+    {
+        uint64_t resultnumlen = 0;
+        char *resultnum;
+        char num1[] = "111";
+        char num2[] = "1";
+        resultnum = _internal_spew3d_bignum_SubPosNonfracStrFloatsBuf(
+            num1, strlen(num1), num2, strlen(num2), 0,
+            &resultnumlen
+        );
+        assert(resultnum != NULL);
+        assert(resultnumlen == 3);
+        assert(resultnum[0] == '1' && resultnum[1] == '1' &&
+               resultnum[2] == '0');
+        free(resultnum);
+        char num1b[] = "111";
+        char num2b[] = "2";
+        resultnum = _internal_spew3d_bignum_SubPosNonfracStrFloatsBuf(
+            num1b, strlen(num1b), num2b, strlen(num2b), 0,
+            &resultnumlen
+        );
+        assert(resultnum != NULL);
+        printf("OOPSIEDO: %s\n", resultnum);
+        assert(resultnumlen == 3);
+        assert(resultnum[0] == '1' && resultnum[1] == '0' &&
+               resultnum[2] == '9');
+        free(resultnum);
     }
 }
 END_TEST
