@@ -19,7 +19,7 @@ int main(int argc, const char **argv) {
     printf("Initializing Spew3D audio pipeline\n");
     spew3d_audio_sink *sink = spew3d_audio_sink_CreateStereoOutput(44100);
     if (!sink) {
-        fprintf(stderr, "Failed to crate sink\n");
+        fprintf(stderr, "Failed to create sink\n");
         return 1;
     }
     printf("Opening file to directly feed into output sink\n");
