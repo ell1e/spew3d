@@ -61,5 +61,15 @@ S3DEXP int spew3d_bignum_CompareStrFloatsBuf(
     const char *v2, size_t v2len
 );
 
+S3DHID char *_internal_spew3d_bignum_AddPosNonfracStrFloatsBuf(
+    const char *v1, size_t v1len,
+    const char *v2, size_t v2len,
+    uint64_t *out_len
+);
+
+S3DEXP int spew3d_bignum_PrintFloatBuf(
+    const char *v, size_t vlen
+);
+
 #endif  // SPEW3D_BIGINT_H_
 

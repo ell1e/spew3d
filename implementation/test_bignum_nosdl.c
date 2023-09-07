@@ -124,6 +124,32 @@ START_TEST (test_bignum)
         "44 "
     );
     assert(result == 0);
+
+    {
+        char num1[] = "111";
+        char num2[] = "1";
+        uint64_t resultnumlen = 0;
+        char *resultnum;
+        resultnum = _internal_spew3d_bignum_AddPosNonfracStrFloatsBuf(
+            num1, strlen(num1), num2, strlen(num2),
+            &resultnumlen
+        );
+        assert(resultnum != NULL);
+        assert(resultnumlen == 3);
+        assert(resultnum[0] == '1' && resultnum[1] == '1' &&
+               resultnum[2] == '2');
+        free(resultnum);
+        char num1b[] = "999";
+        resultnum = _internal_spew3d_bignum_AddPosNonfracStrFloatsBuf(
+            num1b, strlen(num1b), num2, strlen(num2),
+            &resultnumlen
+        );
+        assert(resultnum != NULL);
+        assert(resultnumlen == 4);
+        assert(resultnum[0] == '1' && resultnum[1] == '0' &&
+               resultnum[2] == '0' && resultnum[3] == '0');
+        free(resultnum);
+    }
 }
 END_TEST
 
