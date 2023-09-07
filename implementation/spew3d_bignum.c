@@ -450,6 +450,16 @@ S3DHID char *_internal_spew3d_bignum_SubPosNonfracStrFloatsBuf(
         }
     }
     uint64_t result_len = (write - result);
+    if (S3DUNLIKELY(result > 0 &&
+            result[result_len - 1] == '0')) {
+        while (1) {
+            result_len--;
+            if (S3DUNLIKELY(result_len == 0 ||
+                    result[result_len - 1] != '0'))
+                break;
+        }
+    }
+    result[result_len] = '\0';
     spew3d_stringutil_ReverseBufBytes(result, result_len);
     *out_len = result_len;
     return result;

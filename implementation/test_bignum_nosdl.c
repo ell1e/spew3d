@@ -194,10 +194,19 @@ START_TEST (test_bignum)
             &resultnumlen
         );
         assert(resultnum != NULL);
-        printf("OOPSIEDO: %s\n", resultnum);
         assert(resultnumlen == 3);
         assert(resultnum[0] == '1' && resultnum[1] == '0' &&
                resultnum[2] == '9');
+        free(resultnum);
+        char num1c[] = "111";
+        char num2c[] = "29";
+        resultnum = _internal_spew3d_bignum_SubPosNonfracStrFloatsBuf(
+            num1c, strlen(num1c), num2c, strlen(num2c), 0,
+            &resultnumlen
+        );
+        assert(resultnum != NULL);
+        assert(resultnumlen == 2);
+        assert(resultnum[0] == '8' && resultnum[1] == '2');
         free(resultnum);
     }
 }
