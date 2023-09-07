@@ -25,34 +25,40 @@ Alternatively, at your option, this file is offered under the Apache 2
 license, see accompanied LICENSE.md.
 */
 
-#ifndef SPEW3D_STRINGUTIL_H_
-#define SPEW3D_STRINGUTIL_H_
+#include <assert.h>
+#include <check.h>
+#include <string.h>
 
-#include <stdint.h>
+#define SPEW3D_OPTION_DISABLE_SDL
+#define SPEW3D_IMPLEMENTATION
+#include "spew3d.h"
 
-/** Frees any string arrays e.g. created by
- *  spew3d_stringutil_ArrayFromLines(). */
-S3DEXP void spew3d_stringutil_FreeArray(char **array);
+#include "testmain.h"
 
-/* Reverse the bytes inside a byte buffer in-place. */
-S3DEXP void spew3d_stringutil_ReverseBufBytes(
-    char *buf, const uint64_t buflen
-);
 
-/* Reverse the bytes inside the string in-place. */
-S3DEXP void spew3d_stringutil_ReverseBytes(char *s);
+START_TEST (test_stringutil_ReverseBufBytes)
+{
+    char a[] = "";
+    spew3d_stringutil_ReverseBytes(a);
+    assert(strlen(a) == 0);
+    char b[] = "a";
+    spew3d_stringutil_ReverseBytes(b);
+    assert(strlen(b) == 1);
+    assert(b[0] == 'a');
+    char c[] = "abc";
+    spew3d_stringutil_ReverseBytes(c);
+    assert(strlen(c) == 3);
+    assert(c[0] == 'c');
+    assert(c[1] == 'b');
+    assert(c[2] == 'a');
+    char d[] = "abab";
+    spew3d_stringutil_ReverseBytes(d);
+    assert(strlen(d) == 4);
+    assert(d[0] == 'b');
+    assert(d[1] == 'a');
+    assert(d[2] == 'b');
+    assert(d[3] == 'a');
+}
+END_TEST
 
-/** A helper function to read a file from disk or the integrated VFS
- *  and to split it up into a string array line by line. If null bytes
- *  are encountered, they are converted to space characters as to not
- *  terminate the C string of a line early. Returns the string array,
- *  where the last entry is NULL. Sets output_len to the entries in
- *  the array, not counting the last NULL entry. Once you are done
- *  with the array, use spew3d_stringutil_FreeArray() to free it.
- */
-S3DEXP char **spew3d_stringutil_ArrayFromLines(
-    const char *filepath, int vfsflags, int64_t *output_len
-);
-
-#endif  // SPEW3D_STRINGUTIL_H_
-
+TESTS_MAIN(test_stringutil_ReverseBufBytes)

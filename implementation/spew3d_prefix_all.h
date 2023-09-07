@@ -47,6 +47,9 @@ license, see accompanied LICENSE.md.
 #endif
 #endif
 
+#define S3DLIKELY(x) __builtin_expect(!!(x), 1)
+#define S3DUNLIKELY(x) __builtin_expect(!!(x), 0)
+
 // Try to ensure 64bit file handling:
 #define _TIME_BITS 64
 #define _FILE_OFFSET_BITS 64

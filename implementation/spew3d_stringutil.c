@@ -42,6 +42,31 @@ S3DEXP void spew3d_stringutil_FreeArray(char **array) {
     free(array);
 }
 
+S3DEXP void spew3d_stringutil_ReverseBufBytes(
+        char *s, const uint64_t slen) {
+    if (slen <= 1)
+        return;
+    const uint64_t slenhalf = slen / 2;
+    char *left = s;
+    char *right = s + slen - 1;
+    char *lastleft = left + slenhalf - 1;
+    while (1) {
+        unsigned char c = *((unsigned char *)right);
+        *right = *left;
+        *((unsigned char *)left) = c;
+
+        if (S3DUNLIKELY(left == lastleft))
+            return;
+        left++;
+        right--;
+    }
+}
+
+S3DEXP void spew3d_stringutil_ReverseBytes(char *s) {
+    const int slen = strlen(s);
+    spew3d_stringutil_ReverseBufBytes(s, slen);
+}
+
 S3DEXP char **spew3d_stringutil_ArrayFromLines(
         const char *filepath, int vfsflags, int64_t *output_len
         ) {
