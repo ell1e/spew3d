@@ -255,11 +255,15 @@ S3DHID int _internal_spew3d_audio_sink_Process(spew3d_audio_sink *sink) {
         if (!wantedcardname) {
             SDL_AudioSpec unused = {0};
             // Get default audio info!
+            #if SDL_VERSION_ATLEAST(2, 24, 0)
             if (SDL_GetDefaultAudioInfo(
                     &sdlreporteddefaultcard, &unused, 0
                     ) != 0) {
                 sdlreporteddefaultcard = NULL;
             }
+            #else
+            sdlreporteddefaultcard = NULL;
+            #endif
         }
 
         // Figure out which card we're actually picking:
