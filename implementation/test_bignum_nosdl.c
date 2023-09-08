@@ -131,29 +131,30 @@ START_TEST (test_bignum)
         uint64_t resultnumlen = 0;
         char *resultnum;
         resultnum = _internal_spew3d_bignum_AddPosNonfracStrFloatsBuf(
-            num1, strlen(num1), num2, strlen(num2), 0, NULL,
-            &resultnumlen
+            num1, strlen(num1), 1, num2, strlen(num2), 1, 0, NULL,
+            &resultnumlen, NULL
         );
         assert(resultnum != NULL);
-        assert(resultnumlen == 3);
+        assert(resultnumlen == 4);
         assert(resultnum[0] == '1' && resultnum[1] == '1' &&
-               resultnum[2] == '2');
+               resultnum[2] == '2' && resultnum[3] == '0');
         free(resultnum);
         char num1b[] = "999";
+        char num2b[] = "1";
         resultnum = _internal_spew3d_bignum_AddPosNonfracStrFloatsBuf(
-            num1b, strlen(num1b), num2, strlen(num2), 0, NULL,
-            &resultnumlen
+            num1b, strlen(num1b), 0, num2, strlen(num2), 1, 0, NULL,
+            &resultnumlen, NULL
         );
         assert(resultnum != NULL);
         assert(resultnumlen == 4);
         assert(resultnum[0] == '1' && resultnum[1] == '0' &&
-               resultnum[2] == '0' && resultnum[3] == '0');
+               resultnum[2] == '0' && resultnum[3] == '9');
         free(resultnum);
         char num1c[] = "49582890529058";
         char num2c[] = "390429048209";
         resultnum = _internal_spew3d_bignum_AddPosNonfracStrFloatsBuf(
-            num1c, strlen(num1c), num2c, strlen(num2c), 0, NULL,
-            &resultnumlen
+            num1c, strlen(num1c), 0, num2c, strlen(num2c), 0, 0, NULL,
+            &resultnumlen, NULL
         );
         assert(resultnum != NULL);
         assert(resultnumlen == strlen("49973319577267"));
@@ -163,8 +164,8 @@ START_TEST (test_bignum)
         char num1d[] = "49582890529058";
         char num2d[] = "30423390429048209";
         resultnum = _internal_spew3d_bignum_AddPosNonfracStrFloatsBuf(
-            num1d, strlen(num1d), num2d, strlen(num2d), 0, NULL,
-            &resultnumlen
+            num1d, strlen(num1d), 0, num2d, strlen(num2d), 0, 0, NULL,
+            &resultnumlen, NULL
         );
         assert(resultnum != NULL);
         assert(resultnumlen == strlen("30472973319577267"));
@@ -179,7 +180,7 @@ START_TEST (test_bignum)
         char num1[] = "111";
         char num2[] = "1";
         resultnum = _internal_spew3d_bignum_SubPosNonfracStrFloatsBuf(
-            num1, strlen(num1), num2, strlen(num2), 0, NULL,
+            num1, strlen(num1), 0, num2, strlen(num2), 0, 0, NULL,
             &resultnumlen
         );
         assert(resultnum != NULL);
@@ -190,7 +191,7 @@ START_TEST (test_bignum)
         char num1b[] = "111";
         char num2b[] = "2";
         resultnum = _internal_spew3d_bignum_SubPosNonfracStrFloatsBuf(
-            num1b, strlen(num1b), num2b, strlen(num2b), 0, NULL,
+            num1b, strlen(num1b), 0, num2b, strlen(num2b), 0, 0, NULL,
             &resultnumlen
         );
         assert(resultnum != NULL);
@@ -201,7 +202,7 @@ START_TEST (test_bignum)
         char num1c[] = "111";
         char num2c[] = "29";
         resultnum = _internal_spew3d_bignum_SubPosNonfracStrFloatsBuf(
-            num1c, strlen(num1c), num2c, strlen(num2c), 0, NULL,
+            num1c, strlen(num1c), 0, num2c, strlen(num2c), 0, 0, NULL,
             &resultnumlen
         );
         assert(resultnum != NULL);
@@ -211,12 +212,23 @@ START_TEST (test_bignum)
         char num1d[] = "111";
         char num2d[] = "2329";
         resultnum = _internal_spew3d_bignum_SubPosNonfracStrFloatsBuf(
-            num1d, strlen(num1d), num2d, strlen(num2d), 0, NULL,
+            num1d, strlen(num1d), 0, num2d, strlen(num2d), 0, 0, NULL,
             &resultnumlen
         );
         assert(resultnum != NULL);
         assert(resultnumlen == 5);
         assert(memcmp(resultnum, "-2218", 5) == 0);
+        free(resultnum);
+        char num1e[] = "111";
+        char num2e[] = "1";
+        resultnum = _internal_spew3d_bignum_SubPosNonfracStrFloatsBuf(
+            num1e, strlen(num1e), 0, num2e, strlen(num2e), 1, 0, NULL,
+            &resultnumlen
+        );
+        assert(resultnum != NULL);
+        assert(resultnumlen == 3);
+        assert(resultnum[0] == '1' && resultnum[1] == '0' &&
+               resultnum[2] == '1');
         free(resultnum);
     }
 
@@ -226,7 +238,7 @@ START_TEST (test_bignum)
         char num1[] = "111";
         char num2[] = "-1";
         resultnum = spew3d_bignum_AddStrFloatBufs(
-            num1, strlen(num1), num2, strlen(num2), NULL,
+            num1, strlen(num1), num2, strlen(num2),
             &resultnumlen
         );
         assert(resultnum != NULL);
@@ -237,7 +249,7 @@ START_TEST (test_bignum)
         char num1b[] = "-111";
         char num2b[] = "2";
         resultnum = spew3d_bignum_AddStrFloatBufs(
-            num1b, strlen(num1b), num2b, strlen(num2b), NULL,
+            num1b, strlen(num1b), num2b, strlen(num2b),
             &resultnumlen
         );
         assert(resultnum != NULL);
@@ -247,13 +259,35 @@ START_TEST (test_bignum)
         char num1c[] = "-13204211";
         char num2c[] = "22403045903590359";
         resultnum = spew3d_bignum_AddStrFloatBufs(
-            num1c, strlen(num1c), num2c, strlen(num2c), NULL,
+            num1c, strlen(num1c), num2c, strlen(num2c),
             &resultnumlen
         );
         assert(resultnum != NULL);
         assert(resultnumlen == strlen("22403045890386148"));
         assert(memcmp(resultnum, "22403045890386148",
                strlen("22403045890386148")) == 0);
+        free(resultnum);
+        char num1d[] = "0.9";
+        char num2d[] = "0.23";
+        resultnum = spew3d_bignum_AddStrFloatBufs(
+            num1d, strlen(num1d), num2d, strlen(num2d),
+            &resultnumlen
+        );
+        assert(resultnum != NULL);
+        assert(resultnumlen == strlen("1.13"));
+        assert(memcmp(resultnum, "1.13",
+               strlen("1.13")) == 0);
+        free(resultnum);
+        char num1e[] = "13204211.2492042";
+        char num2e[] = "22403045903590359.93490245";
+        resultnum = spew3d_bignum_AddStrFloatBufs(
+            num1e, strlen(num1e), num2e, strlen(num2e),
+            &resultnumlen
+        );
+        assert(resultnum != NULL);
+        assert(resultnumlen == strlen("22403045916794571.18410665"));
+        assert(memcmp(resultnum, "22403045916794571.18410665",
+               strlen("22403045916794571.18410665")) == 0);
         free(resultnum);
     }
 }

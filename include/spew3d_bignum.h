@@ -62,16 +62,17 @@ S3DEXP int spew3d_bignum_CompareStrFloatsBuf(
 );
 
 S3DHID char *_internal_spew3d_bignum_AddPosNonfracStrFloatsBuf(
-    const char *v1, size_t v1len,
-    const char *v2, size_t v2len,
+    const char *v1, size_t v1len, size_t v1imaginaryzeroes,
+    const char *v2, size_t v2len, size_t v2imaginaryzeroes,
     int with_initial_carryover,
     char *use_buf,
-    uint64_t *out_len
+    uint64_t *out_len,
+    int *out_endedwithcarryover
 );
 
 S3DHID char *_internal_spew3d_bignum_SubPosNonfracStrFloatsBuf(
-    const char *v1, size_t v1len,
-    const char *v2, size_t v2len,
+    const char *v1, size_t v1len, size_t v1imaginaryzeroes,
+    const char *v2, size_t v2len, size_t v2imaginaryzeroes,
     int with_initial_carryover,
     char *use_buf,
     uint64_t *out_len
@@ -81,10 +82,16 @@ S3DEXP int spew3d_bignum_PrintFloatBuf(
     const char *v, size_t vlen
 );
 
+S3DEXP char *spew3d_bignum_AddStrFloatBufsEx(
+    const char *v1, size_t v1len,
+    const char *v2, size_t v2len,
+    char *use_buf, int truncate_fractional,
+    uint64_t *out_len
+);
+
 S3DEXP char *spew3d_bignum_AddStrFloatBufs(
     const char *v1, size_t v1len,
     const char *v2, size_t v2len,
-    char *use_buf,
     uint64_t *out_len
 );
 

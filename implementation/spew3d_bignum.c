@@ -275,18 +275,22 @@ S3DEXP int spew3d_bignum_CompareStrFloatsBuf(
 }
 
 S3DHID char *_internal_spew3d_bignum_AddPosNonfracStrFloatsBuf(
-        const char *v1, size_t v1len,
-        const char *v2, size_t v2len,
+        const char *v1, size_t v1len, size_t v1imaginaryzeroes,
+        const char *v2, size_t v2len, size_t v2imaginaryzeroes,
         int with_initial_carryover,
         char *use_buf,
-        uint64_t *out_len
+        uint64_t *out_len,
+        int *out_endedwithcarryover
         ) {
     assert(spew3d_bignum_VerifyStrFloatBuf(v1, v1len) &&
            spew3d_bignum_VerifyStrFloatBuf(v2, v2len));
     char *result = use_buf;
     if (!result) {
         result = malloc(
-            (v1len > v2len) ? (v1len + 2) : (v2len + 2)
+            (v1len + v1imaginaryzeroes >
+            v2len + v2imaginaryzeroes) ?
+            (v1len + v1imaginaryzeroes + 2) :
+            (v2len + v2imaginaryzeroes + 2)
         );
         if (!result)
             return NULL;
@@ -299,8 +303,22 @@ S3DHID char *_internal_spew3d_bignum_AddPosNonfracStrFloatsBuf(
     const char *last1 = v1;
     const char *last2 = v2;
     while (S3DLIKELY(read1 != last1 && read2 != last2)) {
-        int digit1 = (*read1) - '0';
-        int digit2 = (*read2) - '0';
+        int skippeddigit1 = 0;
+        int digit1 = 0;
+        if (S3DUNLIKELY(v1imaginaryzeroes > 0)) {
+            skippeddigit1 = 1;
+            v1imaginaryzeroes--;
+        } else {
+            digit1 = (*read1) - '0';
+        }
+        int skippeddigit2 = 0;
+        int digit2 = 0;
+        if (S3DUNLIKELY(v2imaginaryzeroes > 0)) {
+            skippeddigit2 = 1;
+            v2imaginaryzeroes--;
+        } else {
+            digit2 = (*read2) - '0';
+        }
         int resultdigit = (digit1 + digit2 + carryover);
         carryover = 0;
         if (S3DUNLIKELY(resultdigit > 9)) {
@@ -310,57 +328,81 @@ S3DHID char *_internal_spew3d_bignum_AddPosNonfracStrFloatsBuf(
         }
         *write = resultdigit + '0';
         write++;
-        read1--;
-        read2--;
+        if (S3DLIKELY(!skippeddigit1))
+            read1--;
+        if (S3DLIKELY(!skippeddigit2))
+            read2--;
     }
     while (1) {
+        int skippeddigit1 = 0;
         int digit1 = 0;
-        if (S3DLIKELY(read1))
-            digit1 = (*read1) - '0';
+        if (S3DUNLIKELY(v1imaginaryzeroes > 0)) {
+            skippeddigit1 = 1;
+            v1imaginaryzeroes--;
+        } else {
+            if (S3DLIKELY(read1))
+                digit1 = (*read1) - '0';
+        }
+        int skippeddigit2 = 0;
         int digit2 = 0;
-        if (S3DLIKELY(read2))
-            digit2 = (*read2) - '0';
+        if (S3DUNLIKELY(v2imaginaryzeroes > 0)) {
+            skippeddigit2 = 1;
+            v2imaginaryzeroes--;
+        } else {
+            if (S3DLIKELY(read2))
+                digit2 = (*read2) - '0';
+        }
         assert(digit1 >= 0 && digit1 <= 9);
         assert(digit2 >= 0 && digit2 <= 9);
         int resultdigit = (digit1 + digit2 + carryover);
         carryover = 0;
         if (S3DUNLIKELY(resultdigit > 9)) {
-            assert(resultdigit <= 11);
+            assert(resultdigit <= 19);
             carryover = 1;
             resultdigit -= 10;
         }
         *write = resultdigit + '0';
         write++;
         if (S3DLIKELY(read1)) {
-            if (S3DUNLIKELY(read1 == last1)) {
+            if (S3DUNLIKELY(read1 == last1 && !skippeddigit1)) {
                 read1 = NULL;
-                if (!read2 || read2 == last2) {
+                if (!read2 || (read2 == last2 && !skippeddigit2)) {
                     if (carryover) {
                         *write = '1';
                         write++;
+                        if (out_endedwithcarryover)
+                            *out_endedwithcarryover = 1;
+                    } else {
+                        if (out_endedwithcarryover)
+                            *out_endedwithcarryover = 0;
                     }
                     *write = '\0';
                     break;
                 }
-            } else {
-                read1--;
             }
         }
         if (S3DLIKELY(read2)) {
-            if (S3DUNLIKELY(read2 == last2)) {
+            if (S3DUNLIKELY(read2 == last2 && !skippeddigit2)) {
                 read2 = NULL;
-                if (!read1 || read2 == last2) {
+                if (!read1 || (read1 == last1 && !skippeddigit1)) {
                     if (carryover) {
                         *write = '1';
                         write++;
+                        if (out_endedwithcarryover)
+                            *out_endedwithcarryover = 1;
+                    } else {
+                        if (out_endedwithcarryover)
+                            *out_endedwithcarryover = 0;
                     }
                     *write = '\0';
                     break;
                 }
-            } else {
-                read2--;
             }
         }
+        if (S3DLIKELY(read1 && !skippeddigit1))
+            read1--;
+        if (S3DLIKELY(read2 && !skippeddigit2))
+            read2--;
     }
     uint64_t result_len = (write - result);
     spew3d_stringutil_ReverseBufBytes(result, result_len);
@@ -369,44 +411,72 @@ S3DHID char *_internal_spew3d_bignum_AddPosNonfracStrFloatsBuf(
 }
 
 static int _compare_plain_digit_nos(
-        const char *v1, size_t v1len,
-        const char *v2, size_t v2len
+        const char *v1, size_t v1len, size_t v1imaginaryzeroes,
+        const char *v2, size_t v2len, size_t v2imaginaryzeroes
         ) {
-    const char *v1c = v1c + v1len - 1;
-    const char *v2c = v1c + v2len - 1;
+    assert(v1 != NULL && v2 != NULL);
+    if (v1len + v1imaginaryzeroes > v2len + v2imaginaryzeroes)
+        return 1;
+    if (v2len + v2imaginaryzeroes < v1len + v1imaginaryzeroes)
+        return -1;
+    const char *v1c = v1 + v1len - 1;
+    const char *v2c = v2 + v2len - 1;
     const char *v1end = v1;
     const char *v2end = v2;
+    if (S3DUNLIKELY(v1imaginaryzeroes > 0 && v2imaginaryzeroes > 0)) {
+        while (S3DLIKELY(v1imaginaryzeroes > 0 &&
+                v2imaginaryzeroes > 0)) {
+            v1imaginaryzeroes--;
+            v2imaginaryzeroes--;
+        }
+    }
     while (1) {
-        int cmp = (((int)*((uint8_t *)v1c)) -
-            ((int)*((uint8_t *)v2c)));
+        assert(v1c >= v1end && v2c >= v2end);
+        int skippeddigit1 = 0;
+        int skippeddigit2 = 0;
+        int cmp = 0;
+        if (S3DUNLIKELY(v1imaginaryzeroes > 0)) {
+            cmp = 0 - ((int)*((uint8_t *)v2c));
+            skippeddigit1 = 1;
+            v1imaginaryzeroes--;
+        } else if (S3DUNLIKELY(v2imaginaryzeroes > 0)) {
+            cmp = ((int)*((uint8_t *)v1c));
+            skippeddigit2 = 1;
+            v2imaginaryzeroes--;
+        } else {
+            cmp = (((int)*((uint8_t *)v1c)) -
+                ((int)*((uint8_t *)v2c)));
+        }
         if (S3DUNLIKELY(cmp != 0))
             return cmp;
-        if (S3DUNLIKELY(v1c == v1end)) {
-            if (v2c == v2end)
+        if (S3DUNLIKELY(v1c == v1end && !skippeddigit1)) {
+            if (v2c == v2end && !skippeddigit2)
                 return 0;
             return -1;
-        } else if (S3DUNLIKELY(v2c == v2end)) {
-            if (v1c == v1end)
+        } else if (S3DUNLIKELY(v2c == v2end && !skippeddigit2)) {
+            if (v1c == v1end && !skippeddigit1)
                 return 0;
             return 1;
         }
-        v1c--;
-        v2c--;
+        if (!skippeddigit1)
+            v1c--;
+        if (!skippeddigit2)
+            v2c--;
     }
 }
 
 S3DHID char *_internal_spew3d_bignum_SubPosNonfracStrFloatsBuf(
-        const char *v1, size_t v1len,
-        const char *v2, size_t v2len,
+        const char *v1, size_t v1len, size_t v1imaginaryzeroes,
+        const char *v2, size_t v2len, size_t v2imaginaryzeroes,
         int with_initial_carryover,
         char *use_buf,
         uint64_t *out_len
         ) {
     assert(spew3d_bignum_VerifyStrFloatBuf(v1, v1len) &&
            spew3d_bignum_VerifyStrFloatBuf(v2, v2len));
-    if (v2len > v1len ||
-            (v2len == v1len &&
-            _compare_plain_digit_nos(v1, v1len, v2, v2len) < 0)) {
+    if (_compare_plain_digit_nos(v1, v1len,
+            v1imaginaryzeroes, v2, v2len,
+            v2imaginaryzeroes) < 0) {
         assert(with_initial_carryover >= 0);
         // Special case: result will be negative since substracted
         // number is larger. The code below doesn't support that, so
@@ -421,7 +491,8 @@ S3DHID char *_internal_spew3d_bignum_SubPosNonfracStrFloatsBuf(
         }
         char *inner_result = (
             _internal_spew3d_bignum_SubPosNonfracStrFloatsBuf(
-                v2, v2len, v1, v1len,
+                v2, v2len, v2imaginaryzeroes, v1, v1len,
+                v1imaginaryzeroes,
                 (with_initial_carryover > 0 ? -1 : 0),
                 result + 1, out_len
             ));
@@ -438,7 +509,10 @@ S3DHID char *_internal_spew3d_bignum_SubPosNonfracStrFloatsBuf(
         // which adds one byte, and then we want a null terminator. This
         // Sums up to worst case 3 bytes extra length:
         result = malloc(
-            (v1len > v2len) ? (v1len + 3) : (v2len + 3)
+            (v1len + v1imaginaryzeroes >
+            v2len + v2imaginaryzeroes) ?
+            (v1len + v1imaginaryzeroes + 3) :
+            (v2len + v2imaginaryzeroes + 3)
         );
         if (!result)
             return NULL;
@@ -451,8 +525,22 @@ S3DHID char *_internal_spew3d_bignum_SubPosNonfracStrFloatsBuf(
     const char *last1 = v1;
     const char *last2 = v2;
     while (S3DLIKELY(read1 != last1 && read2 != last2)) {
-        int digit1 = (*read1) - '0';
-        int digit2 = (*read2) - '0';
+        int skippeddigit1 = 0;
+        int digit1 = 0;
+        if (S3DUNLIKELY(v1imaginaryzeroes > 0)) {
+            skippeddigit1 = 1;
+            v1imaginaryzeroes--;
+        } else {
+            digit1 = (*read1) - '0';
+        }
+        int skippeddigit2 = 0;
+        int digit2 = 0;
+        if (S3DUNLIKELY(v2imaginaryzeroes > 0)) {
+            skippeddigit2 = 1;
+            v2imaginaryzeroes--;
+        } else {
+            digit2 = (*read2) - '0';
+        }
         assert(digit1 >= 0 && digit1 <= 9);
         assert(digit2 >= 0 && digit2 <= 9);
         int resultdigit = (digit1 - digit2 - carryover);
@@ -470,16 +558,30 @@ S3DHID char *_internal_spew3d_bignum_SubPosNonfracStrFloatsBuf(
         }
         *write = resultdigit + '0';
         write++;
-        read1--;
-        read2--;
+        if (!skippeddigit1)
+            read1--;
+        if (!skippeddigit2)
+            read2--;
     }
     while (1) {
+        int skippeddigit1 = 0;
         int digit1 = 0;
-        if (S3DLIKELY(read1))
-            digit1 = (*read1) - '0';
+        if (S3DUNLIKELY(v1imaginaryzeroes > 0)) {
+            skippeddigit1 = 1;
+            v1imaginaryzeroes--;
+        } else {
+            if (S3DLIKELY(read1))
+                digit1 = (*read1) - '0';
+        }
+        int skippeddigit2 = 0;
         int digit2 = 0;
-        if (S3DLIKELY(read2))
-            digit2 = (*read2) - '0';
+        if (S3DUNLIKELY(v2imaginaryzeroes > 0)) {
+            skippeddigit2 = 1;
+            v2imaginaryzeroes--;
+        } else {
+            if (S3DLIKELY(read2))
+                digit2 = (*read2) - '0';
+        }
         assert(digit1 >= 0 && digit1 <= 9);
         assert(digit2 >= 0 && digit2 <= 9);
         int resultdigit = (digit1 - digit2 - carryover);
@@ -498,9 +600,9 @@ S3DHID char *_internal_spew3d_bignum_SubPosNonfracStrFloatsBuf(
         *write = resultdigit + '0';
         write++;
         if (S3DLIKELY(read1)) {
-            if (S3DUNLIKELY(read1 == last1)) {
+            if (S3DUNLIKELY(read1 == last1 && !skippeddigit1)) {
                 read1 = NULL;
-                if (!read2 || read2 == last2) {
+                if (!read2 || (read2 == last2 && !skippeddigit2)) {
                     if (carryover) {
                         *write = '1';
                         write++;
@@ -508,14 +610,12 @@ S3DHID char *_internal_spew3d_bignum_SubPosNonfracStrFloatsBuf(
                     *write = '\0';
                     break;
                 }
-            } else {
-                read1--;
             }
         }
         if (S3DLIKELY(read2)) {
-            if (S3DUNLIKELY(read2 == last2)) {
+            if (S3DUNLIKELY(read2 == last2 && !skippeddigit2)) {
                 read2 = NULL;
-                if (!read1 || read2 == last2) {
+                if (!read1 || (read1 == last1 && !skippeddigit1)) {
                     if (carryover) {
                         *write = '1';
                         write++;
@@ -523,10 +623,12 @@ S3DHID char *_internal_spew3d_bignum_SubPosNonfracStrFloatsBuf(
                     *write = '\0';
                     break;
                 }
-            } else {
-                read2--;
             }
         }
+        if (S3DLIKELY(read1 && !skippeddigit1))
+            read1--;
+        if (S3DLIKELY(read2 && !skippeddigit2))
+            read2--;
     }
     uint64_t result_len = (write - result);
     if (S3DUNLIKELY(result > 0 &&
@@ -544,31 +646,41 @@ S3DHID char *_internal_spew3d_bignum_SubPosNonfracStrFloatsBuf(
     return result;
 }
 
-S3DEXP char *spew3d_bignum_AddStrFloatBufs(
+S3DEXP char *spew3d_bignum_AddStrFloatBufsEx(
         const char *v1, size_t v1len,
         const char *v2, size_t v2len,
-        char *use_buf,
+        char *use_buf, int truncate_fractional,
         uint64_t *out_len
         ) {
     assert(spew3d_bignum_VerifyStrFloatBuf(v1, v1len) &&
            spew3d_bignum_VerifyStrFloatBuf(v2, v2len));
     char *resultbuf = use_buf;
+    int worstcaselen = (
+        // For non-fractional numbers:
+        // Addition or substraction can produce a max additional
+        // digit before AND after the fractional dot. On top, a new
+        // leading minus might appear. With null terminator, that's
+        // four additional bytes total in the worst case, +4 length.
+        // For fractional:
+        // It's above but not with the longest number, but rather
+        // the longest non-fractional half of both and the longest
+        // fractional half of both. We approximate this as
+        // both lengths and above +4 added.
+        v1len + v2len + 4
+    );
+    int freeresultbufonerror = 0;
     if (!resultbuf) {
-        resultbuf = malloc(
-            // Addition or substraction can produce a max additional
-            // digit before AND after the fractional dot. On top, a new
-            // leading minus might appear. With null terminator, that's
-            // four additional bytes total in the worst case:
-            (v1len > v2len) ? (v1len + 4) : (v2len + 4)
-        );
+        resultbuf = malloc(worstcaselen);
         if (!resultbuf)
             return NULL;
+        freeresultbufonerror = 1;
     }
     int positiveonly = 0;
     if (S3DUNLIKELY(v1[0] == '-' && v2[0] == '-')) {
-        char *innerresult = spew3d_bignum_AddStrFloatBufs(
+        char *innerresult = spew3d_bignum_AddStrFloatBufsEx(
             v1 + 1, v1len - 1, v2 + 1, v2len - 1,
-            resultbuf + 1, out_len
+            resultbuf + 1, truncate_fractional,
+            out_len
         );
         assert(innerresult != NULL);
         (*out_len)++;
@@ -576,11 +688,13 @@ S3DEXP char *spew3d_bignum_AddStrFloatBufs(
         return resultbuf;
     } else if (S3DLIKELY(v1[0] == '-' && v2[0] != '-')) {
         // Reverse, so the 2nd number is always the substracted one:
-        return spew3d_bignum_AddStrFloatBufs(
+        return spew3d_bignum_AddStrFloatBufsEx(
             v2, v2len, v1, v1len,
-            resultbuf, out_len
+            resultbuf, truncate_fractional,
+            out_len
         );
     }
+    assert(v1[0] != '-');
     int dot1pos = v1len;
     int dot2pos = v2len;
     int i = 0;
@@ -600,25 +714,95 @@ S3DEXP char *spew3d_bignum_AddStrFloatBufs(
         i++;
     }
     if (S3DLIKELY(dot1pos == v1len && dot2pos == v2len)) {
-        assert(v1[0] != '-');
         if (S3DLIKELY(v2[0] != '-')) {
             return _internal_spew3d_bignum_AddPosNonfracStrFloatsBuf(
-                v1, v1len, v2, v2len, 0, resultbuf, out_len
+                v1, v1len, 0, v2, v2len, 0, 0, resultbuf, out_len, NULL
             );
         } else {
             return _internal_spew3d_bignum_SubPosNonfracStrFloatsBuf(
-                v1, v1len, v2 + 1, v2len - 1, 0, resultbuf, out_len
+                v1, v1len, 0, v2 + 1, v2len - 1, 0, 0, resultbuf, out_len
             );
         }
     }
-    char _bufstack[256];
-    char *fracbuf = _bufstack;
-    int heapfracbuf = 0;
-    if ((dot1pos - v1len) > 246 || (dot2pos - v2len) > 246) {
-        heapfracbuf = 1;
-        fracbuf = NULL;
+    if (S3DLIKELY(v2[0] != '-')) {
+        // Easier case, both numbers are positive.
+        // In this case, go the more efficient route of handling the
+        // fractional part separately without moving things around:
+        char _bufstack[256];
+        char *fracbuf = _bufstack;
+        int heapfracbuf = 0;
+        if ((v1len - dot1pos) > 246 || (v2len - dot2pos) > 246) {
+            if (truncate_fractional) {
+                if (v1len - dot1pos > 246)
+                    v1len -= (v1len - dot1pos) - 246;
+                if (v2len - dot2pos > 246)
+                    v2len -= (v2len - dot2pos) - 246;
+            } else {
+                heapfracbuf = 1;
+                fracbuf = NULL;
+            }
+        }
+        int frac1zeropad = (
+            ((v1len - dot1pos) < (v2len - dot2pos)) ?
+            ((v2len - dot2pos) - (v1len - dot1pos)) : 0
+        );
+        int frac2zeropad = (
+            ((v2len - dot2pos) < (v1len - dot1pos)) ?
+            ((v1len - dot1pos) - (v2len - dot2pos)) : 0
+        );
+        char zeronum[] = "0";
+        int zeronumlen = 1;
+        char *fractioninnerresult = NULL;
+        const char *frac1 = ((v1len - dot1pos > 1) ?
+            (v1 + dot1pos + 1) : zeronum);
+        int frac1len = ((v1len - dot1pos > 1) ?
+            (v1len - dot1pos - 1) : zeronumlen);
+        const char *frac2 = ((v2len - dot2pos > 1) ?
+            (v2 + dot2pos + 1) : zeronum);
+        int frac2len = ((v2len - dot2pos > 1) ?
+            (v2len - dot2pos - 1) : zeronumlen);
+        int fracendswithcarry = 0;
+        uint64_t fracoutlen = 0;
+        fractioninnerresult = (
+            _internal_spew3d_bignum_AddPosNonfracStrFloatsBuf(
+                frac1, frac1len, frac1zeropad,
+                frac2, frac2len, frac2zeropad, 0,
+                fracbuf, &fracoutlen, &fracendswithcarry
+            ));
+        if (heapfracbuf && fractioninnerresult == NULL) {
+            if (freeresultbufonerror)
+                free(resultbuf);
+            return NULL;
+        }
+        assert(fractioninnerresult != NULL);
+        uint64_t nonfracoutlen = 0;
+        char *nonfracresult = (
+            _internal_spew3d_bignum_AddPosNonfracStrFloatsBuf(
+                v1, dot1pos, 0, v2, dot2pos, 0, fracendswithcarry,
+                resultbuf, &nonfracoutlen, NULL
+            ));
+        assert(nonfracresult != NULL);
+        resultbuf[nonfracoutlen] = '.';
+        memcpy(resultbuf + nonfracoutlen + 1,
+            fractioninnerresult + fracendswithcarry,
+            fracoutlen - fracendswithcarry);
+        resultbuf[nonfracoutlen + 1 + fracoutlen - fracendswithcarry] = '\0';
+        *out_len = nonfracoutlen + 1 + fracoutlen - fracendswithcarry;
+        if (heapfracbuf)
+            free(fractioninnerresult);
+        return resultbuf;
     }
-    assert(0);  // FIXME.
+    assert(0);
+}
+
+S3DEXP char *spew3d_bignum_AddStrFloatBufs(
+        const char *v1, size_t v1len,
+        const char *v2, size_t v2len,
+        uint64_t *out_len
+        ) {
+    return spew3d_bignum_AddStrFloatBufsEx(
+        v1, v1len, v2, v2len, NULL, 0, out_len
+    );
 }
 
 #endif  // SPEW3D_IMPLEMENTATION
