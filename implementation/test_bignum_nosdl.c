@@ -219,6 +219,43 @@ START_TEST (test_bignum)
         assert(memcmp(resultnum, "-2218", 5) == 0);
         free(resultnum);
     }
+
+    {
+        uint64_t resultnumlen = 0;
+        char *resultnum;
+        char num1[] = "111";
+        char num2[] = "-1";
+        resultnum = spew3d_bignum_AddStrFloatBufs(
+            num1, strlen(num1), num2, strlen(num2), NULL,
+            &resultnumlen
+        );
+        assert(resultnum != NULL);
+        assert(resultnumlen == 3);
+        assert(resultnum[0] == '1' && resultnum[1] == '1' &&
+               resultnum[2] == '0');
+        free(resultnum);
+        char num1b[] = "-111";
+        char num2b[] = "2";
+        resultnum = spew3d_bignum_AddStrFloatBufs(
+            num1b, strlen(num1b), num2b, strlen(num2b), NULL,
+            &resultnumlen
+        );
+        assert(resultnum != NULL);
+        assert(resultnumlen == 4);
+        assert(memcmp(resultnum, "-109", 4) == 0);
+        free(resultnum);
+        char num1c[] = "-13204211";
+        char num2c[] = "22403045903590359";
+        resultnum = spew3d_bignum_AddStrFloatBufs(
+            num1c, strlen(num1c), num2c, strlen(num2c), NULL,
+            &resultnumlen
+        );
+        assert(resultnum != NULL);
+        assert(resultnumlen == strlen("22403045890386148"));
+        assert(memcmp(resultnum, "22403045890386148",
+               strlen("22403045890386148")) == 0);
+        free(resultnum);
+    }
 }
 END_TEST
 
