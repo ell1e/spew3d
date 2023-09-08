@@ -7,17 +7,17 @@ for C.**
 
 **Features:**
 
-- Simple API
-- 2D and 3D graphics, image loading, sound, and more
-- Retro-style like PlayStation 1 or Nintendo64
-- Filesystem, multi-byte strings, etc., all unified
-- Wide platform support thanks to [SDL2](https://libsdl.org)
+- Simple API,
+- 2D and 3D graphics, image loading, sound, and more,
+- Retro-style like PlayStation 1 or Nintendo64,
+- Filesystem, multi-byte strings, etc., all unified,
+- Wide platform support thanks to [SDL2](https://libsdl.org).
 
 **Do not use if** it disturbs you that Spew3D:
 
-- Can't do modern shader effects
-- Can't do modern realtime shadows
-- Can't handle modern higher poly counts
+- Can't do modern shader effects,
+- Can't do modern realtime shadows,
+- Can't handle modern higher poly counts.
 
 Compiling / Usage
 -----------------
