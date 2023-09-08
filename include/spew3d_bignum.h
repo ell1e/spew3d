@@ -65,6 +65,7 @@ S3DHID char *_internal_spew3d_bignum_AddPosNonfracStrFloatsBuf(
     const char *v1, size_t v1len,
     const char *v2, size_t v2len,
     int with_initial_carryover,
+    char *use_buf,
     uint64_t *out_len
 );
 
@@ -72,11 +73,19 @@ S3DHID char *_internal_spew3d_bignum_SubPosNonfracStrFloatsBuf(
     const char *v1, size_t v1len,
     const char *v2, size_t v2len,
     int with_initial_carryover,
+    char *use_buf,
     uint64_t *out_len
 );
 
 S3DEXP int spew3d_bignum_PrintFloatBuf(
     const char *v, size_t vlen
+);
+
+S3DEXP char *spew3d_bignum_AddStrFloatBufs(
+    const char *v1, size_t v1len,
+    const char *v2, size_t v2len,
+    char *use_buf,
+    uint64_t *out_len
 );
 
 #endif  // SPEW3D_BIGINT_H_
