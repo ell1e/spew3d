@@ -78,7 +78,7 @@ S3DHID char *_internal_spew3d_bignum_SubPosNonfracStrFloatsBuf(
     uint64_t *out_len
 );
 
-S3DEXP int spew3d_bignum_PrintFloatBuf(
+S3DEXP void spew3d_bignum_PrintFloatBuf(
     const char *v, size_t vlen
 );
 

@@ -37,7 +37,7 @@ license, see accompanied LICENSE.md.
 //#define _SPEW3D_BIGINT_DEBUG
 
 
-S3DEXP int spew3d_bignum_PrintFloatBuf(
+S3DEXP void spew3d_bignum_PrintFloatBuf(
         const char *v, size_t vlen
         ) {
     const char *vend = v + vlen;
@@ -417,7 +417,7 @@ static int _compare_plain_digit_nos(
     assert(v1 != NULL && v2 != NULL);
     if (v1len + v1imaginaryzeroes > v2len + v2imaginaryzeroes)
         return 1;
-    if (v2len + v2imaginaryzeroes < v1len + v1imaginaryzeroes)
+    if (v2len + v2imaginaryzeroes > v1len + v1imaginaryzeroes)
         return -1;
     const char *v1c = v1 + v1len - 1;
     const char *v2c = v2 + v2len - 1;
@@ -447,15 +447,13 @@ static int _compare_plain_digit_nos(
             cmp = (((int)*((uint8_t *)v1c)) -
                 ((int)*((uint8_t *)v2c)));
         }
-        if (S3DUNLIKELY(cmp != 0))
-            return cmp;
         if (S3DUNLIKELY(v1c == v1end && !skippeddigit1)) {
             if (v2c == v2end && !skippeddigit2)
-                return 0;
+                return cmp;
             return -1;
         } else if (S3DUNLIKELY(v2c == v2end && !skippeddigit2)) {
             if (v1c == v1end && !skippeddigit1)
-                return 0;
+                return cmp;
             return 1;
         }
         if (!skippeddigit1)
@@ -500,9 +498,10 @@ S3DHID char *_internal_spew3d_bignum_SubPosNonfracStrFloatsBuf(
         (*out_len)++;
         return result;
     }
-    assert(spew3d_bignum_CompareStrFloatsBuf(
-        v1, v1len, v2, v2len
-    ) >= 0);
+    assert(v1imaginaryzeroes != 0 || v2imaginaryzeroes != 0 ||
+        spew3d_bignum_CompareStrFloatsBuf(
+            v1, v1len, v2, v2len
+        ) >= 0);
     char *result = use_buf;
     if (!result) {
         // A carry over can add a digit, then the result might be negative
