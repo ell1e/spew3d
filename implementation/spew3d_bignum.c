@@ -753,16 +753,18 @@ S3DEXP char *spew3d_bignum_AddStrFloatBufsEx(
         char _bufstack[256];
         char *fracbuf = _bufstack;
         int heapfracbuf = 0;
-        if ((v1len - dot1pos) > 246 || (v2len - dot2pos) > 246) {
-            if (truncate_fractional) {
-                if (v1len - dot1pos > 246)
-                    v1len -= (v1len - dot1pos) - 246;
-                if (v2len - dot2pos > 246)
-                    v2len -= (v2len - dot2pos) - 246;
-            } else {
-                heapfracbuf = 1;
-                fracbuf = NULL;
-            }
+        if (truncate_fractional) {
+            if (v1len - dot1pos > S3D_BIGNUM_MAXFRACTIONDIGITS)
+                v1len -= (v1len - dot1pos) -
+                    S3D_BIGNUM_MAXFRACTIONDIGITS;
+            if (v2len - dot2pos > S3D_BIGNUM_MAXFRACTIONDIGITS)
+                v2len -= (v2len - dot2pos) -
+                    S3D_BIGNUM_MAXFRACTIONDIGITS;
+        }
+        if ((v1len - dot1pos) > 246 ||
+                (v2len - dot2pos) > 246) {
+            heapfracbuf = 1;
+            fracbuf = NULL;
         }
         int frac1zeropad = (
             ((v1len - dot1pos) < (v2len - dot2pos)) ?
@@ -823,7 +825,7 @@ S3DEXP char *spew3d_bignum_AddStrFloatBufs(
         uint64_t *out_len
         ) {
     return spew3d_bignum_AddStrFloatBufsEx(
-        v1, v1len, v2, v2len, NULL, 0, out_len
+        v1, v1len, v2, v2len, NULL, 1, out_len
     );
 }
 

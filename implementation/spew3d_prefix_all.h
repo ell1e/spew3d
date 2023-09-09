@@ -94,6 +94,9 @@ typedef int64_t s3dnum_t;
 #define S3D_METER (4096)
 #endif
 #endif
+#ifndef S3D_BIGNUM_MAXFRACTIONDIGITS
+#define S3D_BIGNUM_MAXFRACTIONDIGITS 200
+#endif
 
 // Some code is written with this assumption (e.g. spew3d_bigint.h):
 #include <limits.h>
