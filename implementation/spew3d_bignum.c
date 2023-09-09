@@ -466,6 +466,7 @@ static int _compare_plain_digit_nos(
 S3DHID char *_internal_spew3d_bignum_SubPosNonfracStrFloatsBuf(
         const char *v1, size_t v1len, size_t v1imaginaryzeroes,
         const char *v2, size_t v2len, size_t v2imaginaryzeroes,
+        int ignoredots,
         int with_initial_carryover,
         char *use_buf,
         uint64_t *out_len
@@ -490,7 +491,7 @@ S3DHID char *_internal_spew3d_bignum_SubPosNonfracStrFloatsBuf(
         char *inner_result = (
             _internal_spew3d_bignum_SubPosNonfracStrFloatsBuf(
                 v2, v2len, v2imaginaryzeroes, v1, v1len,
-                v1imaginaryzeroes,
+                v1imaginaryzeroes, ignoredots,
                 (with_initial_carryover > 0 ? -1 : 0),
                 result + 1, out_len
             ));
@@ -524,6 +525,15 @@ S3DHID char *_internal_spew3d_bignum_SubPosNonfracStrFloatsBuf(
     const char *last1 = v1;
     const char *last2 = v2;
     while (S3DLIKELY(read1 != last1 && read2 != last2)) {
+        if (S3DUNLIKELY(ignoredots))
+            if (S3DUNLIKELY((*read1) == '.')) {
+                read1--;
+                continue;
+            }
+            if (S3DUNLIKELY((*read2) == '.')) {
+                read2--;
+                continue;
+            }
         int skippeddigit1 = 0;
         int digit1 = 0;
         if (S3DUNLIKELY(v1imaginaryzeroes > 0)) {
@@ -563,6 +573,17 @@ S3DHID char *_internal_spew3d_bignum_SubPosNonfracStrFloatsBuf(
             read2--;
     }
     while (1) {
+        if (S3DUNLIKELY(ignoredots))
+            if (S3DUNLIKELY(read1 != NULL &&
+                    (*read1) == '.')) {
+                read1--;
+                continue;
+            }
+            if (S3DUNLIKELY(read2 != NULL &&
+                    (*read2) == '.')) {
+                read2--;
+                continue;
+            }
         int skippeddigit1 = 0;
         int digit1 = 0;
         if (S3DUNLIKELY(v1imaginaryzeroes > 0)) {
@@ -715,11 +736,13 @@ S3DEXP char *spew3d_bignum_AddStrFloatBufsEx(
     if (S3DLIKELY(dot1pos == v1len && dot2pos == v2len)) {
         if (S3DLIKELY(v2[0] != '-')) {
             return _internal_spew3d_bignum_AddPosNonfracStrFloatsBuf(
-                v1, v1len, 0, v2, v2len, 0, 0, resultbuf, out_len, NULL
+                v1, v1len, 0, v2, v2len, 0,
+                0, resultbuf, out_len, NULL
             );
         } else {
             return _internal_spew3d_bignum_SubPosNonfracStrFloatsBuf(
-                v1, v1len, 0, v2 + 1, v2len - 1, 0, 0, resultbuf, out_len
+                v1, v1len, 0, v2 + 1, v2len - 1, 0,
+                0, 0, resultbuf, out_len
             );
         }
     }

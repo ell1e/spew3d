@@ -73,6 +73,7 @@ S3DHID char *_internal_spew3d_bignum_AddPosNonfracStrFloatsBuf(
 S3DHID char *_internal_spew3d_bignum_SubPosNonfracStrFloatsBuf(
     const char *v1, size_t v1len, size_t v1imaginaryzeroes,
     const char *v2, size_t v2len, size_t v2imaginaryzeroes,
+    int ignoredots,
     int with_initial_carryover,
     char *use_buf,
     uint64_t *out_len
