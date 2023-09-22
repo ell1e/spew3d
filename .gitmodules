@@ -8,3 +8,9 @@
 [submodule "vendor/dr_libs"]
 	path = vendor/dr_libs
 	url = https://github.com/mackron/dr_libs
+[submodule "vendor/r128"]
+	path = vendor/r128
+	url = https://github.com/fahickman/r128
+[submodule "r128"]
+	path = r128
+	url = https://github.com/fahickman/r128
