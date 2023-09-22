@@ -19,12 +19,20 @@ int main(int argc, const char **argv) {
         return 1;
     }
 
+    // First, ensure we're in the right folder:
+    int _exists = 0;
+    if (!spew3d_fs_TargetExists("hello_world.png", &_exists) || !_exists) {
+        fprintf(stderr, "You didn't run this in 'examples' folder, "
+            "or there was an I/O error.\n");
+        return 1;
+    }
+
     printf("Loading sprite texture\n");
     spew3d_texture_t spritetex = spew3d_texture_FromFile(
-        "./hello_world.png", 0
+        "hello_world.png", 0
     );
     if (!spritetex) {
-        fprintf(stderr, "Failed to load sprite\n");
+        fprintf(stderr, "Failed to create a sprite\n");
         return 1;
     }
 

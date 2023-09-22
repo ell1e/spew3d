@@ -22,23 +22,23 @@ int main(int argc, const char **argv) {
         fprintf(stderr, "Failed to create sink\n");
         return 1;
     }
-    printf("Opening file to directly feed into output sink\n");
-    int use_parent_file = 0;
-    {
-        int file_exists_in_cwd = 0;
-        if (!spew3d_fs_TargetExists("audiotest.mp3", &file_exists_in_cwd)) {
-            fprintf(stderr, "Failed to find audio file due to I/O error\n");
-            return 1;
-        }
-        use_parent_file = !file_exists_in_cwd;
+
+    // First, ensure we're in the right folder:
+    int _exists = 0;
+    if (!spew3d_fs_TargetExists("audiotest.mp3", &_exists) || !_exists) {
+        fprintf(stderr, "You didn't run this in 'examples' folder, "
+            "or there was an I/O error.\n");
+        return 1;
     }
+
+    printf("Opening file to directly feed into output sink\n");
     s3daudiodecoder *decoder = audiodecoder_NewFromFile(
-        (use_parent_file ? "../audiotest.mp3" : "audiotest.mp3")
+        "audiotest.mp3"
     );
     if (!decoder || !spew3d_audio_sink_FeedFromDecoder(
             sink, decoder
             )) {
-        fprintf(stderr, "Failed to set up decoded file\n");
+        fprintf(stderr, "Failed to set up decoded file.\n");
         return 1;
     }
 
