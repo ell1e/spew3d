@@ -58,11 +58,24 @@ typedef struct spew3d_texture_extrainfo {
 
     char *pixels;
     uint32_t width, height;
+    int forcenosdl;
 
     #ifndef SPEW3D_OPTION_DISABLE_SDL
     SDL_Texture *sdltexture_alpha, *sdltexture_noalpha;
     #endif
 } spew3d_texture_extrainfo;
+
+static char *_internal_tex_get_buf = NULL;
+static uint32_t _internal_tex_get_buf_size = 0;
+
+#if !defined(SPEW3D_OPTION_DISABLE_SDL) &&\
+        defined(SPEW3D_OPTION_DISABLE_SDL_HEADER)
+// This won't be in the header, so define it here:
+S3DEXP void spew3d_window_GetSDLWindowAndRenderer(
+    spew3d_window *win, SDL_Window **out_w,
+    SDL_Renderer **out_r
+);
+#endif
 
 static void __attribute__((constructor)) _internal_spew3d_ensure_texhash() {
     if (_internal_spew3d_texlist_hashmap != NULL)
@@ -90,7 +103,7 @@ static inline spew3d_texture_info *_fast_spew3d_texinfo(
     return &_internal_spew3d_texlist[id - 1];
 }
 
-spew3d_texture_info *spew3d_texinfo(
+S3DEXP spew3d_texture_info *spew3d_texinfo(
         spew3d_texture_t id
         ) {
     assert(id > 0 && id <= _internal_spew3d_texlist_count);
@@ -182,7 +195,7 @@ static int _internal_spew3d_ForceLoadTexture(spew3d_texture_t tid) {
 
 #ifndef SPEW3D_OPTION_DISABLE_SDL
 static int _internal_spew3d_TextureToGPU(
-        spew3d_ctx *ctx,
+        spew3d_window *win,
         spew3d_texture_t tid, int alpha,
         SDL_Texture **out_tex
         ) {
@@ -200,9 +213,12 @@ static int _internal_spew3d_TextureToGPU(
     if (extrainfo->loadingjob != NULL)
         return 0;
 
+    if (extrainfo->forcenosdl)
+        return 1;
+
     SDL_Renderer *renderer = NULL;
-    spew3d_ctx_GetSDLWindowAndRenderer(
-        ctx, NULL, &renderer
+    spew3d_window_GetSDLWindowAndRenderer(
+        win, NULL, &renderer
     );
     if (alpha && extrainfo->sdltexture_alpha) {
         *out_tex = extrainfo->sdltexture_alpha;
@@ -242,7 +258,7 @@ static int _internal_spew3d_TextureToGPU(
 }
 #endif  // #ifndef SPEW3D_OPTION_DISABLE_SDL
 
-const char *spew3d_texture_GetReadonlyPixels(
+S3DEXP const char *spew3d_texture_GetReadonlyPixels(
         spew3d_texture_t tid
         ) {
     spew3d_texture_info *tinfo = spew3d_texinfo(tid);
@@ -251,7 +267,7 @@ const char *spew3d_texture_GetReadonlyPixels(
     return spew3d_extrainfo(tid)->pixels;
 }
 
-char *spew3d_texture_UnlockPixelsToEdit(
+S3DEXP char *spew3d_texture_UnlockPixelsToEdit(
         spew3d_texture_t tid
         ) {
     spew3d_texture_info *tinfo = spew3d_texinfo(tid);
@@ -267,7 +283,7 @@ char *spew3d_texture_UnlockPixelsToEdit(
     return einfo->pixels;
 }
 
-void spew3d_texture_LockPixelsToFinishEdit(
+S3DEXP void spew3d_texture_LockPixelsToFinishEdit(
         spew3d_texture_t tid
         ) {
     spew3d_texture_extrainfo *einfo = spew3d_extrainfo(tid);
@@ -287,7 +303,7 @@ void spew3d_texture_LockPixelsToFinishEdit(
     #endif
 }
 
-int spew3d_texture_GetSize(
+S3DEXP int spew3d_texture_GetSize(
         spew3d_texture_t tid, int32_t *out_width,
         int32_t *out_height
         ) {
@@ -335,45 +351,7 @@ static int _unregister_texid_from_hashmap(
     return unregistercount;
 }
 
-void _internal_normpath(char *p) {
-    uint32_t plen = strlen(p);
-    uint32_t i = 0;
-    while (i < plen) {
-        if (p[i] == '\\') {
-            p[i] = '/';
-        }
-        if (p[i] == '/' && i > 0 &&
-                p[i - 1] == '/') {  // Collapse "//":
-            if (i + 1 < plen)
-                memcpy(&p[i], &p[i + 1],
-                    (plen - i - 1));  // Ignores null terminator!
-            plen -= 1;
-            p[plen] = '\0';  // Re-add null terminator.
-            // Don't do i++!
-            continue; 
-        } else if (p[i] == '/' && i > 0 && p[i - 1] == '.' &&
-                (i <= 1 || p[i - 2] == '/')) {  // Collapse "/./":
-            if (i + 1 < plen)
-                memcpy(&p[i - 1], &p[i + 1],
-                    (plen - i));  // Ignores null terminator!
-            plen -= 2;
-            p[plen] = '\0';  // Re-add null terminator.
-            i--;  // Intentional.
-            continue;
-        } else if (p[i] == '/' &&
-                i + 1 >= plen) {  // Remove trailing "/":
-            plen--;
-            p[plen] = '\0';
-            break;
-        }
-        i++;
-    }
-}
-
-char *_internal_tex_get_buf = NULL;
-uint32_t _internal_tex_get_buf_size = 0;
-
-spew3d_texture_t _internal_spew3d_texture_NewEx(
+S3DHID spew3d_texture_t _internal_spew3d_texture_NewEx(
         const char *name, const char *path, int vfsflags,
         int fromfile
         ) {
@@ -384,10 +362,14 @@ spew3d_texture_t _internal_spew3d_texture_NewEx(
         "(\"%s\", \"%s\", %d, %d)\n",
         name, path, vfsflags, fromfile);
     #endif
-    char *normpath = (fromfile ? spew3d_vfs_NormalizePath(path) : NULL);
+    char *normpath = (
+        fromfile ? spew3d_vfs_NormalizePath(path) : NULL
+    );
     if (!normpath)
         return 0;
-    uint32_t idlen = (fromfile ? strlen(normpath) + 2 : strlen(name) + 2);
+    uint32_t idlen = (
+        fromfile ? strlen(normpath) + 2 : strlen(name) + 2
+    );
     char *id = malloc(idlen + 1);
     if (!id) {
         free(normpath);
@@ -447,6 +429,7 @@ spew3d_texture_t _internal_spew3d_texture_NewEx(
         return 0;
     }
 
+    // Check if this texture is already in the global hashmap:
     _internal_spew3d_ensure_texhash();
     assert(_internal_spew3d_texlist_hashmap != NULL);
     uint16_t idhash = spew3d_simplehash(_internal_tex_get_buf);
@@ -550,13 +533,32 @@ spew3d_texture_t _internal_spew3d_texture_NewEx(
     return _internal_spew3d_texlist_count;
 }
 
-int spew3d_texture_Draw(
-        spew3d_ctx *ctx,
+S3DEXP int spew3d_texture_Draw(
+        spew3d_window *win,
+        spew3d_texture_t tid,
+        spew3d_point point, int centered, s3dnum_t scale, s3dnum_t angle,
+        s3dnum_t tint_red, s3dnum_t tint_green, s3dnum_t tint_blue,
+        s3dnum_t transparency,
+        int withalphachannel
+        ) {
+    int32_t x, y;
+    spew3d_window_PointToCanvasDrawPixels(
+        win, point, &x, &y
+    );
+    return spew3d_texture_DrawAtCanvasPixels(
+        win, tid, x, y, centered, scale, angle,
+        tint_red, tint_green, tint_blue,
+        transparency, withalphachannel
+    );
+}
+
+S3DEXP int spew3d_texture_DrawAtCanvasPixels(
+        spew3d_window *win,
         spew3d_texture_t tid,
         int32_t x, int32_t y, int centered,
-        double scale, double angle,
-        double tint_red, double tint_green, double tint_blue,
-        double transparency,
+        s3dnum_t scale, s3dnum_t angle,
+        s3dnum_t tint_red, s3dnum_t tint_green, s3dnum_t tint_blue,
+        s3dnum_t transparency,
         int withalphachannel
         ) {
     spew3d_texture_info *tinfo = _fast_spew3d_texinfo(tid);
@@ -566,45 +568,53 @@ int spew3d_texture_Draw(
     if (!_internal_spew3d_ForceLoadTexture(tid))
         return 0;
 
-    #ifdef SPEW3D_OPTION_DISABLE_SDL
-    return 0;
-    #else
+    if (
+            #ifndef SPEW3D_OPTION_DISABLE_SDL
+            extrainfo->forcenosdl
+            #else
+            1
+            #endif
+            ) {
+        if (transparency < (1.0 / 256.0) * 0.5)
+            return 1;
+
+        // FIXME: implement this.
+        return 0;
+    }
+    #ifndef SPEW3D_OPTION_DISABLE_SDL
     SDL_Renderer *renderer = NULL;
-    spew3d_ctx_GetSDLWindowAndRenderer(
-        ctx, NULL, &renderer
+    spew3d_window_GetSDLWindowAndRenderer(
+        win, NULL, &renderer
     );
     SDL_Texture *tex = NULL;
     assert(!tinfo->loadingfailed);
     int gpuupload = _internal_spew3d_TextureToGPU(
-        ctx, tid, withalphachannel, &tex
+        win, tid, withalphachannel, &tex
     );
     if (gpuupload == 0) {
         tinfo->loadingfailed = 1;
         #if defined(DEBUG_SPEW3D_TEXTURE)
         fprintf(stderr,
             "spew3d_texture.c: debug: "
-            "spew3d_texture_Draw(): "
+            "spew3d_texture_DrawToCanvas(): "
             "failed to access, decode, or "
             "GPU upload texture\n");
         #endif
         return 0;
     }
-    if (gpuupload == -1) {
-        // Simply not done yet.
-        return 1;
-    }
 
-    if (transparency < (1.0 / 256.0) * 0.5)
+    double transparency_dbl = S3D_NUMTODBL(transparency);
+    if (transparency_dbl < (1.0 / 256.0) * 0.5)
         return 1;
 
     uint8_t old_r, old_g, old_b, old_a;
     if (SDL_GetRenderDrawColor(renderer,
             &old_r, &old_g, &old_b, &old_a) != 0)
         return 0;
-    uint8_t draw_r = fmax(0, fmin(255, tint_red * 256.0));
-    uint8_t draw_g = fmax(0, fmin(255, tint_green * 255.0));
-    uint8_t draw_b = fmax(0, fmin(255, tint_blue * 255.0));
-    uint8_t draw_a = fmax(0, fmin(255, transparency * 255.0));
+    uint8_t draw_r = fmax(0, fmin(255, S3D_NUMTODBL(tint_red) * 256.0));
+    uint8_t draw_g = fmax(0, fmin(255, S3D_NUMTODBL(tint_green) * 255.0));
+    uint8_t draw_b = fmax(0, fmin(255, S3D_NUMTODBL(tint_blue) * 255.0));
+    uint8_t draw_a = fmax(0, fmin(255, transparency_dbl * 255.0));
     if (draw_a <= 0)
         return 1;
     if (SDL_SetRenderDrawColor(renderer,
@@ -630,7 +640,7 @@ int spew3d_texture_Draw(
     #endif  // #ifndef SPEW3D_OPTION_DISABLE_SDL
 }
 
-spew3d_texture_t spew3d_texture_FromFile(
+S3DEXP spew3d_texture_t spew3d_texture_FromFile(
         const char *path, int vfsflags
         ) {
     return _internal_spew3d_texture_NewEx(
@@ -638,7 +648,7 @@ spew3d_texture_t spew3d_texture_FromFile(
     );
 }
 
-spew3d_texture_t spew3d_texture_NewWritable(
+S3DEXP spew3d_texture_t spew3d_texture_NewWritable(
         const char *name, uint32_t w, uint32_t h
         ) {
     spew3d_texture_t tex = (
@@ -679,8 +689,8 @@ spew3d_texture_t spew3d_texture_NewWritable(
     return tex;
 }
 
-void spew3d_texture_Destroy(spew3d_texture_t tid) {
-    assert(tid >= 0 && tid < _internal_spew3d_texlist_count);
+S3DEXP void spew3d_texture_Destroy(spew3d_texture_t tid) {
+    assert(tid >= 0 && tid <= _internal_spew3d_texlist_count);
     if (tid == 0)
         return;
     spew3d_texture_info *tinfo = _fast_spew3d_texinfo(tid);
@@ -715,7 +725,7 @@ void spew3d_texture_Destroy(spew3d_texture_t tid) {
     tinfo->loaded = 0;
 }
 
-spew3d_texture_t spew3d_texture_NewWritableFromFile(
+S3DEXP spew3d_texture_t spew3d_texture_NewWritableFromFile(
         const char *name,
         const char *original_path,
         int original_vfsflags

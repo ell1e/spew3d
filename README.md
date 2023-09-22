@@ -98,6 +98,18 @@ Available options:
   without actual playback, threading and file system helpers,
   the Virtual File System, and so on. Ideal for headless use!
 
+- `SPEW3D_OPTION_DISABLE_SDL_HEADER`: If defined, while Spew3D
+  will expect SDL2 to be present and linked, the program using
+  and including Spew3D is expected NOT to include and use SDL2
+  headers directly. As a consequence, all functions bridging
+  SDL2 and Spew3D items, like creating a Spew3D window from an
+  SDL2 window, will no longer be present.
+
+- `SPEW3D_OPTION_DISABLE_EMULATE_INT128`: If defined, Spew3D will
+  never use native 128bit integer types even if present, and
+  instead emulate it with 64bit integers. This will result in
+  many math operations being slower.
+
 - `SPEW3D_DEBUG_OUTPUT`: If defined, Spew3D will print out
   some amount of debug messages for internal diagnostics.
 

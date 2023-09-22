@@ -1,4 +1,4 @@
-/* Copyright (c) 2020-2022, ellie/@ell1e & Spew3D Team (see AUTHORS.md).
+/* Copyright (c) 2020-2023, ellie/@ell1e & Spew3D Team (see AUTHORS.md).
 
 Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions are met:
@@ -32,7 +32,7 @@ license, see accompanied LICENSE.md.
 #include <SDL2/SDL.h>
 
 typedef uint64_t spew3d_texture_t;
-typedef struct spew3d_ctx spew3d_ctx;
+typedef struct spew3d_window spew3d_window;
 
 typedef struct spew3d_texture_info {
     char *idstring, *diskpath;
@@ -43,48 +43,58 @@ typedef struct spew3d_texture_info {
 } spew3d_texture_info;
 
 
-spew3d_texture_t spew3d_texture_FromFile(
+S3DEXP spew3d_texture_t spew3d_texture_FromFile(
     const char *path, int vfsflags
 );
 
-spew3d_texture_info *spew3d_texinfo(
+S3DEXP spew3d_texture_info *spew3d_texinfo(
     spew3d_texture_t id
 );
 
-spew3d_texture_t spew3d_texture_NewWritable(
+S3DEXP spew3d_texture_t spew3d_texture_NewWritable(
     const char *name, uint32_t w, uint32_t h
 );
 
-spew3d_texture_t spew3d_texture_NewWritableFromFile(
+S3DEXP spew3d_texture_t spew3d_texture_NewWritableFromFile(
     const char *name, const char *original_path,
     int original_vfsflags
 );
 
-void spew3d_texture_Destroy(spew3d_texture_t tid);
+S3DEXP void spew3d_texture_Destroy(spew3d_texture_t tid);
 
-int spew3d_texture_Draw(
-    spew3d_ctx *ctx,
+S3DEXP int spew3d_texture_Draw(
+    spew3d_window *win,
     spew3d_texture_t tid,
-    int32_t x, int32_t y, int centered, double scale, double angle,
-    double tint_red, double tint_white, double tint_blue,
-    double transparency,
+    spew3d_point point, int centered, s3dnum_t scale, s3dnum_t angle,
+    s3dnum_t tint_red, s3dnum_t tint_green, s3dnum_t tint_blue,
+    s3dnum_t transparency,
     int withalphachannel
 );
 
-int spew3d_texture_GetSize(
+S3DEXP int spew3d_texture_DrawAtCanvasPixels(
+    spew3d_window *win,
+    spew3d_texture_t tid,
+    int32_t x, int32_t y, int centered,
+    s3dnum_t scale, s3dnum_t angle,
+    s3dnum_t tint_red, s3dnum_t tint_green, s3dnum_t tint_blue,
+    s3dnum_t transparency,
+    int withalphachannel
+);
+
+S3DEXP int spew3d_texture_GetSize(
     spew3d_texture_t tid, int32_t *out_width,
     int32_t *out_height
 );
 
-const char *spew3d_texture_GetReadonlyPixels(
+S3DEXP const char *spew3d_texture_GetReadonlyPixels(
     spew3d_texture_t tid
 );
 
-char *spew3d_texture_UnlockPixelsToEdit(
+S3DEXP char *spew3d_texture_UnlockPixelsToEdit(
     spew3d_texture_t tid
 );
 
-void spew3d_texture_LockPixelsToFinishEdit(
+S3DEXP void spew3d_texture_LockPixelsToFinishEdit(
     spew3d_texture_t tid
 );
 

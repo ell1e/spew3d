@@ -38,7 +38,7 @@ license, see accompanied LICENSE.md.
 int _global_graphics_init_done = 0;
 int _global_audio_init_done = 0;
 
-S3DHID int _internal_spew3d_InitGraphics() {
+S3DHID int _internal_spew3d_InitSDLGraphics() {
     if (_global_graphics_init_done)
         return 1;
     #ifndef SPEW3D_OPTION_DISABLE_SDL
@@ -71,82 +71,6 @@ S3DHID int _internal_spew3d_InitAudio() {
     _global_audio_init_done = 1;
     return 1;
 }
-
-#ifndef SPEW3D_OPTION_DISABLE_SDL
-S3DEXP spew3d_ctx *spew3d_CreateSDLWindowForMe(
-        const char *window_title, int initflags
-        ) {
-    if (!_internal_spew3d_InitGraphics())
-        return 0;
-
-    SDL_Window *window = SDL_CreateWindow(
-        window_title, SDL_WINDOWPOS_UNDEFINED,
-        SDL_WINDOWPOS_UNDEFINED, 800, 500,
-        SDL_WINDOW_RESIZABLE|
-        (((initflags & SPEW3D_INITFLAG_FULLSCREEN) != 0) ?
-            SDL_WINDOW_FULLSCREEN:0)|
-        (((initflags & SPEW3D_INITFLAG_FORCE_SOFTWARE_RENDERED) == 0) ?
-            SDL_WINDOW_OPENGL:0)|
-        SDL_WINDOW_ALLOW_HIGHDPI);
-    if (!window && (((initflags & SPEW3D_INITFLAG_FORCE_OPENGL) != 0)))
-        return 0;
-    SDL_Renderer *renderer = NULL;
-    if (window) {
-        renderer = SDL_CreateRenderer(window, -1,
-            SDL_RENDERER_PRESENTVSYNC|
-            (((initflags & SPEW3D_INITFLAG_FORCE_SOFTWARE_RENDERED) == 0) ?
-                SDL_RENDERER_ACCELERATED:SDL_RENDERER_SOFTWARE));
-        if (!renderer) {
-            SDL_DestroyWindow(window);
-            window = NULL;
-            if ((initflags & SPEW3D_INITFLAG_FORCE_OPENGL) != 0)
-                return NULL;
-        } else {
-            spew3d_ctx *ctx = spew3d_ctx_NewFromSDLRenderer(
-                window, renderer
-            );
-            if (!ctx) {
-                SDL_DestroyWindow(window);
-                window = NULL;
-                SDL_DestroyRenderer(renderer);
-                renderer = NULL;
-                return NULL;
-            }
-            return ctx;
-        }
-    }
-    window = SDL_CreateWindow(
-        window_title, SDL_WINDOWPOS_UNDEFINED,
-        SDL_WINDOWPOS_UNDEFINED, 800, 500,
-        SDL_WINDOW_RESIZABLE|
-        (((initflags & SPEW3D_INITFLAG_FULLSCREEN) != 0) ?
-            SDL_WINDOW_FULLSCREEN:0)|
-        SDL_WINDOW_ALLOW_HIGHDPI);
-    if (!window)
-        return NULL;
-    renderer = SDL_CreateRenderer(window, -1,
-        SDL_RENDERER_PRESENTVSYNC|SDL_RENDERER_SOFTWARE);
-    if (!renderer) {
-        SDL_DestroyWindow(window);
-        window = NULL;
-        return NULL;
-    }
-
-    assert(window != NULL && renderer != NULL);
-    spew3d_ctx *ctx = spew3d_ctx_NewFromSDLRenderer(
-        window, renderer
-    );
-    if (!ctx) {
-        SDL_DestroyWindow(window);
-        window = NULL;
-        SDL_DestroyRenderer(renderer);
-        renderer = NULL;
-        return NULL;
-    }
-
-    return ctx;
-}
-#endif  // #ifndef SPEW3D_OPTION_DISABLE_SDL
 
 #endif  // SPEW3D_IMPLEMENTATION
 

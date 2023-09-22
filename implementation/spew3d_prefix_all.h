@@ -1,4 +1,4 @@
-/* Copyright (c) 2020-2022, ellie/@ell1e & Spew3D Team (see AUTHORS.md).
+/* Copyright (c) 2020-2023, ellie/@ell1e & Spew3D Team (see AUTHORS.md).
 
 Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions are met:
@@ -67,6 +67,11 @@ license, see accompanied LICENSE.md.
 #define STB_IMAGE_IMPLEMENTATION
 #endif
 
+// For <r128.h>:
+#ifdef SPEW3D_IMPLEMENTATION
+#define R128_IMPLEMENTATION
+#endif
+
 // For <miniz/miniz.h>:
 #define MINIZ_NO_ZLIB_APIS
 #define MINIZ_NO_ZLIB_COMPATIBLE_NAMES
@@ -84,14 +89,30 @@ license, see accompanied LICENSE.md.
 #endif
 
 // Number types:
+#if defined(__SIZEOF_INT128__) &&\
+        !defined(SPEW3D_OPTION_DISABLE_EMULATE_INT128)
+typedef __int128 s3dint128_t;
+#else
+typedef struct s3dint128_t_struct {
+    uint64_t highsignificance;
+    int64_t lowsignificance;
+} s3dint128_t_struct;
+typedef s3dint128_t_struct s3dint128_t;
+#endif
 #ifndef SPEW3D_FIXED_POINT
 typedef double s3dnum_t;
 #define S3D_METER (1.0)
+#define S3D_NUMONE S3D_METER
+#define S3D_NUMTODBL(x) ((double)x)
+#define S3D_DBLTONUM(x) ((double)x)
 #else
 typedef int64_t s3dnum_t;
 #ifndef S3D_METER
 // Default to 12 bits of fractional part:
 #define S3D_METER (4096)
+#define S3D_NUMONE (4096)
+#define S3D_NUMTODBL(x) ((double)x / (double)NUMONE)
+#define S3D_DBLTONUM(x) ((s3d_num_t)((double)x * (double)NUMONE))
 #endif
 #endif
 #ifndef S3D_BIGNUM_MAXFRACTIONDIGITS

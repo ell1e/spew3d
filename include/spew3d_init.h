@@ -33,27 +33,9 @@ license, see accompanied LICENSE.md.
 #endif
 #include <stdint.h>
 
-
-enum {
-    SPEW3D_INITFLAG_FULLSCREEN = 1,
-    SPEW3D_INITFLAG_FORCE_OPENGL = 2,
-    SPEW3D_INITFLAG_FORCE_SOFTWARE_RENDERED = 3
-};
-
-#ifndef SPEW3D_OPTION_DISABLE_SDL
-/** This is a helper function if you don't want to do SDL_Init(),
- *  SDL_CreateWindow(), and SDL_CreateRenderer() manually. It will do
- *  those things for you in one go, then return a spew3d_ctx pointer
- *  which can be used for all Spew3D drawing and to return the
- *  underlying SDL2 window and renderer. */
-S3DEXP spew3d_ctx *spew3d_init_CreateSDLWindowForMe(
-    const char *window_title, int initflags
-);
-#endif  // #ifndef SPEW3D_OPTION_DISABLE_SDL
-
 /** This helper function ensures the graphics system is initialized.
  *  You don't need to call this, Spew3D uses this internally itself. */
-S3DHID int _internal_spew3d_InitGraphics();
+S3DHID int _internal_spew3d_InitSDLGraphics();
 
 /** This helper function ensures the audio system is initialized.
  *  You don't need to call this, Spew3D uses this internally itself. */

@@ -11,16 +11,13 @@
 
 int main(int argc, const char **argv) {
     printf("Initializing Spew3D with window and renderer\n");
-    SDL_Window *window = NULL;
-    SDL_Renderer * renderer = NULL;
-    spew3d_ctx *ctx = spew3d_CreateSDLWindowForMe(
+    spew3d_window *win = spew3d_window_New(
         "Spew 3D Sprite Example", 0
     );
-    if (!ctx) {
+    if (!win) {
         fprintf(stderr, "Spew3D initialization failed\n");
         return 1;
     }
-    spew3d_ctx_GetSDLWindowAndRenderer(ctx, &window, &renderer);
 
     printf("Loading sprite texture\n");
     spew3d_texture_t spritetex = spew3d_texture_FromFile(
@@ -47,28 +44,27 @@ int main(int argc, const char **argv) {
                 }
             }
         }
-        SDL_SetRenderDrawColor(renderer, 255, 225, 255, 255);
-        SDL_RenderClear(renderer);
+        spew3d_window_FillWithColor(win, 1.0, 1.0, 1.0);
 
-        int32_t cvwidth = spew3d_window_CanvasDrawWidth(ctx);
-        int32_t cvheight = spew3d_window_CanvasDrawHeight(ctx);
+        spew3d_point p = spew3d_window_GetWindowSize(win);
+        p.x /= 2.0;
+        p.y /= 2.0;
         int32_t imagewidth, imageheight;
         if (spew3d_texture_GetSize(
                 spritetex, &imagewidth, &imageheight
                 )) {
             assert(imagewidth != 0 && imageheight != 0);
             double scale = (
-                fmin((double)cvwidth, (double)cvheight) /
+                fmin((double)p.x * 2, (double)p.y * 2) /
                     (double)imagewidth);
             int result = spew3d_texture_Draw(
-                ctx, spritetex,
-                cvwidth / 2, cvheight / 2,
+                win, spritetex, p,
                 1, scale,
                 45, 1.0, 1.0, 1.0, 1.0, 1
             );
             assert(result != 0);
         }
-        SDL_RenderPresent(renderer);
+        spew3d_window_PresentToScreen(win);
     }
 
     printf("Shutting down\n");

@@ -28,11 +28,10 @@ license, see accompanied LICENSE.md.
 #ifndef SPEW3D_MATH2D_H_
 #define SPEW3D_MATH2D_H_
 
-typedef struct spew3d_point spew3d_point;
 struct spew3d_point {
     s3dnum_t x, y;
 };
-
+typedef struct spew3d_point spew3d_point;
 
 #ifndef M_PI
 #define M_PI (3.14159265358979323846)
@@ -52,7 +51,6 @@ static inline void spew3d_math2d_rotate(
     p->y = newy * S3D_METER;
 }
 
-
 static inline void spew3d_math2d_rotatecenter(
         spew3d_point *p, s3dnum_t degree,
         spew3d_point center
@@ -63,7 +61,6 @@ static inline void spew3d_math2d_rotatecenter(
     p->x += center.x;
     p->y += center.y;
 }
-
 
 static inline s3dnum_t spew3d_math2d_angle(
         spew3d_point *p

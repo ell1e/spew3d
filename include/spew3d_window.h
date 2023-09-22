@@ -1,4 +1,4 @@
-/* Copyright (c) 2020-2022, ellie/@ell1e & Spew3D Team (see AUTHORS.md).
+/* Copyright (c) 2020-2023, ellie/@ell1e & Spew3D Team (see AUTHORS.md).
 
 Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions are met:
@@ -29,36 +29,97 @@ license, see accompanied LICENSE.md.
 #define SPEW3D_WINDOW_H_
 
 #include <stdint.h>
+#if !defined(SPEW3D_OPTION_DISABLE_SDL) &&\
+        !defined(SPEW3D_OPTION_DISABLE_SDL_HEADER)
 #include <SDL2/SDL.h>
+#endif
 
+typedef struct spew3d_window spew3d_window;
+typedef struct spew3d_point spew3d_point;
+
+#define SPEW3D_WINDOW_FLAG_FORCE_HIDDEN_VIRTUAL (0x1)
+#define SPEW3D_WINDOW_FLAG_FULLSCREEN (0x2)
+#define SPEW3D_WINDOW_FLAG_FORCE_NO_3D_ACCEL (0x4)
+S3DEXP spew3d_window *spew3d_window_NewEx(
+    const char *title, uint32_t flags,
+    int32_t width, int32_t height
+);
+
+S3DEXP spew3d_window *spew3d_window_New(
+    const char *title, uint32_t flags
+);
+
+#if !defined(SPEW3D_OPTION_DISABLE_SDL) &&\
+        !defined(SPEW3D_OPTION_DISABLE_SDL_HEADER)
+S3DEXP spew3d_window *spew3d_window_NewFromSDLWindowAndRenderer(
+    uint32_t flags, SDL_Window *sdlwin, SDL_Renderer *sdlrenderer
+);
+#endif
+
+#if !defined(SPEW3D_OPTION_DISABLE_SDL) &&\
+        !defined(SPEW3D_OPTION_DISABLE_SDL_HEADER)
+S3DEXP void spew3d_window_GetSDLWindowAndRenderer(
+    spew3d_window *win, SDL_Window **out_sdlwindow,
+    SDL_Renderer **out_sdlrenderer
+);
+#endif
 
 typedef struct spew3d_point spew3d_point;
 typedef struct spew3d_ctx spew3d_ctx;
 
-/// Convert coordinates from a mouse event supplied
-/// by SDL2 into the 2d canvas draw units.
+/// Fill the inner area of the window with a solid color.
+S3DEXP void spew3d_window_FillWithColor(
+    spew3d_window *window,
+    s3dnum_t red, s3dnum_t green, s3dnum_t blue
+);
+
+/// Show the latest drawn contents to the user.
+S3DEXP void spew3d_window_PresentToScreen(spew3d_window *win);
+
+/// Convert coordinates from high-level event coordinates
+/// used for any mouse or touch events or any widgets, to
+/// actual pixel coordinates on the window's 2d canvas.
 /// The resulting coordinates match what you'd supply to
 /// something like SDL_RenderCopy, SDL_RenderFillRect, or
-/// spew3d_texture_Draw to draw at the clicked spot.
-/// This conversion is needed e.g. with a High-DPI window.
-spew3d_point spew3d_window_EventPointToCanvasDrawPoint(
-    spew3d_ctx *ctx, int x, int y
+/// spew3d_texture_DrawAtCanvasPixels.
+/// This conversion is needed e.g. with a window DPI scale
+/// other than 1.0.
+S3DEXP void spew3d_window_PointToCanvasDrawPixels(
+    spew3d_window *win, spew3d_point point,
+    int32_t *x, int32_t *y
 );
 
 /// Helper function for how wide the 2d canvas is (that may
 /// or may not correspond to screen pixels) for the output
-/// window. This unit is also used for SDL_RenderCopy,
-/// SDL_RenderFillRect, or spew3d_texture_Draw.
-/// This might differ from SDL_GetWindowSize e.g. for a
-/// High-DPI window.
-int32_t spew3d_window_CanvasDrawWidth(spew3d_ctx *ctx);
+/// window. This unit is also used for e.g. SDL_RenderCopy,
+/// SDL_RenderFillRect, or spew3d_texture_DrawAtCanvasPixels.
+/// This might differ from spew3d_window_GetWindowWidth/Height
+/// if any window DPI scaling other than 1.0 which is common.
+S3DEXP int32_t spew3d_window_GetCanvasDrawWidth(
+    spew3d_window *win
+);
 
 /// Helper function for how tall the 2d canvas is (that may
 /// or may not correspond to screen pixels) for the output
-/// window. This unit is also used for SDL_RenderCopy,
-/// SDL_RenderFillRect, or spew3d_texture_Draw.
-/// This might differ from SDL_GetWindowSize e.g. for a
-/// High-DPI window.
-int32_t spew3d_window_CanvasDrawHeight(spew3d_ctx *ctx);
+/// window. This unit is also used for e.g. SDL_RenderCopy,
+/// SDL_RenderFillRect, or spew3d_texture_DrawAtCanvasPixels.
+/// This might differ from spew3d_window_GetWindowSize
+/// if any window DPI scaling other than 1.0 which is common.
+S3DEXP int32_t spew3d_window_GetCanvasDrawHeight(
+    spew3d_window *win
+);
+
+/// Get the titlebar string of a Spew3D window.
+S3DEXP const char *spew3d_window_GetTitle(
+    spew3d_window *win
+);
+
+/// Get the inner width of a window. Please note this is
+/// in high-level event coordinates and therefore for any window
+/// DPI scaling other than 1.0 will not be pixels. If you want
+/// the pixel size then use spew3d_window_CanvasDrawWidth/Height.
+S3DEXP spew3d_point spew3d_window_GetWindowSize(
+    spew3d_window *win
+);
 
 #endif  // SPEW3D_WINDOW_H_

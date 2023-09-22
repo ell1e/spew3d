@@ -10,16 +10,13 @@
 
 int main(int argc, const char **argv) {
     printf("Initializing Spew3D with window and renderer\n");
-    SDL_Window *window = NULL;
-    SDL_Renderer * renderer = NULL;
-    spew3d_ctx *ctx = spew3d_CreateSDLWindowForMe(
+    spew3d_window *win = spew3d_window_New(
         "Spew 3D Cube Example", 0
     );
-    if (!ctx) {
+    if (!win) {
         fprintf(stderr, "Spew3D initialization failed\n");
         return 1;
     }
-    spew3d_ctx_GetSDLWindowAndRenderer(ctx, &window, &renderer);
 
     printf("Creating a cube\n");
     spew3d_geometry *cube = spew3d_geometry_Create();
@@ -52,7 +49,7 @@ int main(int argc, const char **argv) {
                 }
             }
         }
-        SDL_RenderPresent(renderer);
+        spew3d_window_PresentToScreen(win);
     }
 
     printf("Shutting down\n");

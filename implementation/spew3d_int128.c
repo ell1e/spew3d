@@ -1,4 +1,4 @@
-/* Copyright (c) 2020-2022, ellie/@ell1e & Spew3D Team (see AUTHORS.md).
+/* Copyright (c) 2023, ellie/@ell1e & Spew3D Team (see AUTHORS.md).
 
 Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions are met:
@@ -27,60 +27,7 @@ license, see accompanied LICENSE.md.
 
 #ifdef SPEW3D_IMPLEMENTATION
 
-#ifndef SPEW3D_OPTION_DISABLE_SDL
-#include <SDL2/SDL.h>
-#endif
 #include <stdint.h>
-
-typedef struct spew3d_ctx {
-    #ifndef SPEW3D_OPTION_DISABLE_SDL 
-    SDL_Window *_sdl_outputwindow;
-    SDL_Renderer *_sdl_outputrenderer;
-    #endif
-} spew3d_ctx;
-
-spew3d_ctx *spew3d_ctx_New() {
-    spew3d_ctx *ctx = malloc(sizeof(*ctx));
-    if (!ctx)
-        return NULL;
-    memset(ctx, 0, sizeof(*ctx));
-    return ctx;
-}
-
-#ifndef SPEW3D_OPTION_DISABLE_SDL
-void spew3d_ctx_SetSDLWindowAndRenderer(
-        spew3d_ctx *ctx, SDL_Window *w, SDL_Renderer *r
-        ) {
-    ctx->_sdl_outputwindow = w;
-    ctx->_sdl_outputrenderer = r;
-}
-#endif
-
-#ifndef SPEW3D_OPTION_DISABLE_SDL
-void spew3d_ctx_GetSDLWindowAndRenderer(
-        spew3d_ctx *ctx, SDL_Window **out_w,
-        SDL_Renderer **out_r
-        ) {
-    if (out_w)
-        *out_w = ctx->_sdl_outputwindow;
-    if (out_r)
-        *out_r = ctx->_sdl_outputrenderer;
-}
-#endif
-
-#ifndef SPEW3D_OPTION_DISABLE_SDL
-spew3d_ctx *spew3d_ctx_NewFromSDLRenderer(
-        SDL_Window *w, SDL_Renderer *r
-        ) {
-    spew3d_ctx *ctx = spew3d_ctx_New();
-    if (!ctx)
-        return NULL;
-    spew3d_ctx_SetSDLWindowAndRenderer(
-        ctx, w, r
-    );
-    return ctx;
-}
-#endif
 
 #endif  // SPEW3D_IMPLEMENTATION
 
