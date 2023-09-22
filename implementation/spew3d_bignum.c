@@ -277,6 +277,7 @@ S3DEXP int spew3d_bignum_CompareStrFloatsBuf(
 S3DHID char *_internal_spew3d_bignum_AddPosNonfracStrFloatsBuf(
         const char *v1, size_t v1len, size_t v1imaginaryzeroes,
         const char *v2, size_t v2len, size_t v2imaginaryzeroes,
+        int allowlinedupdot,
         int with_initial_carryover,
         char *use_buf,
         uint64_t *out_len,
@@ -303,6 +304,16 @@ S3DHID char *_internal_spew3d_bignum_AddPosNonfracStrFloatsBuf(
     const char *last1 = v1;
     const char *last2 = v2;
     while (S3DLIKELY(read1 != last1 && read2 != last2)) {
+        if (S3DUNLIKELY(allowlinedupdot))
+            if (S3DUNLIKELY((*read1) == '.' &&
+                    (*read2) == '.')) {
+                assert(read1 != last1 && read2 != last2);
+                read1--;
+                read2--;
+                *write = '.';
+                write++;
+                continue;
+            }
         int skippeddigit1 = 0;
         int digit1 = 0;
         if (S3DUNLIKELY(v1imaginaryzeroes > 0)) {
@@ -334,6 +345,18 @@ S3DHID char *_internal_spew3d_bignum_AddPosNonfracStrFloatsBuf(
             read2--;
     }
     while (1) {
+        if (S3DUNLIKELY(allowlinedupdot))
+            if (S3DUNLIKELY(read1 != NULL &&
+                    (*read1) == '.' &&
+                    read2 != NULL &&
+                    (*read2) == '.')) {
+                assert(read1 != last1 && read2 != last2);
+                read1--;
+                read2--;
+                *write = '.';
+                write++;
+                continue;
+            }
         int skippeddigit1 = 0;
         int digit1 = 0;
         if (S3DUNLIKELY(v1imaginaryzeroes > 0)) {
@@ -466,7 +489,7 @@ static int _compare_plain_digit_nos(
 S3DHID char *_internal_spew3d_bignum_SubPosNonfracStrFloatsBuf(
         const char *v1, size_t v1len, size_t v1imaginaryzeroes,
         const char *v2, size_t v2len, size_t v2imaginaryzeroes,
-        int ignoredots,
+        int allowlinedupdot,
         int with_initial_carryover,
         char *use_buf,
         uint64_t *out_len
@@ -491,7 +514,7 @@ S3DHID char *_internal_spew3d_bignum_SubPosNonfracStrFloatsBuf(
         char *inner_result = (
             _internal_spew3d_bignum_SubPosNonfracStrFloatsBuf(
                 v2, v2len, v2imaginaryzeroes, v1, v1len,
-                v1imaginaryzeroes, ignoredots,
+                v1imaginaryzeroes, allowlinedupdot,
                 (with_initial_carryover > 0 ? -1 : 0),
                 result + 1, out_len
             ));
@@ -525,13 +548,14 @@ S3DHID char *_internal_spew3d_bignum_SubPosNonfracStrFloatsBuf(
     const char *last1 = v1;
     const char *last2 = v2;
     while (S3DLIKELY(read1 != last1 && read2 != last2)) {
-        if (S3DUNLIKELY(ignoredots))
-            if (S3DUNLIKELY((*read1) == '.')) {
+        if (S3DUNLIKELY(allowlinedupdot))
+            if (S3DUNLIKELY((*read1) == '.' &&
+                    (*read2) == '.')) {
+                assert(read1 != last1 && read2 != last2);
                 read1--;
-                continue;
-            }
-            if (S3DUNLIKELY((*read2) == '.')) {
-                read2--;
+                read2--; 
+                *write = '.';
+                write++;
                 continue;
             }
         int skippeddigit1 = 0;
@@ -573,15 +597,16 @@ S3DHID char *_internal_spew3d_bignum_SubPosNonfracStrFloatsBuf(
             read2--;
     }
     while (1) {
-        if (S3DUNLIKELY(ignoredots))
+        if (S3DUNLIKELY(allowlinedupdot))
             if (S3DUNLIKELY(read1 != NULL &&
-                    (*read1) == '.')) {
-                read1--;
-                continue;
-            }
-            if (S3DUNLIKELY(read2 != NULL &&
+                    (*read1) == '.' &&
+                    read2 != NULL &&
                     (*read2) == '.')) {
+                assert(read1 != last1 && read2 != last2);
+                read1--;
                 read2--;
+                *write = '.';
+                write++;
                 continue;
             }
         int skippeddigit1 = 0;
@@ -737,7 +762,7 @@ S3DEXP char *spew3d_bignum_AddStrFloatBufsEx(
         if (S3DLIKELY(v2[0] != '-')) {
             return _internal_spew3d_bignum_AddPosNonfracStrFloatsBuf(
                 v1, v1len, 0, v2, v2len, 0,
-                0, resultbuf, out_len, NULL
+                0, 0, resultbuf, out_len, NULL
             );
         } else {
             return _internal_spew3d_bignum_SubPosNonfracStrFloatsBuf(
@@ -746,8 +771,35 @@ S3DEXP char *spew3d_bignum_AddStrFloatBufsEx(
             );
         }
     }
-    if (S3DLIKELY(v2[0] != '-')) {
-        // Easier case, both numbers are positive.
+    int isneg = (v2[0] == '-');
+    int frac1zeropad = (
+        ((v1len - dot1pos) < (v2len - dot2pos)) ?
+        ((v2len - dot2pos) - (v1len - dot1pos)) : 0
+    );
+    int frac2zeropad = (
+        ((v2len - dot2pos) < (v1len - dot1pos)) ?
+        ((v1len - dot1pos) - (v2len - dot2pos)) : 0
+    );
+    uint64_t innerresultoutlen = 0;
+    char *innerresult = NULL;
+    if (!isneg) {
+        innerresult = _internal_spew3d_bignum_AddPosNonfracStrFloatsBuf(
+            v1, dot1pos, 0, v2, dot2pos, 0,
+            1, 0,
+            resultbuf, &innerresultoutlen, NULL
+        );
+    } else {
+        innerresult = _internal_spew3d_bignum_SubPosNonfracStrFloatsBuf(
+            v1, dot1pos, 0, v2 + 1, dot2pos - 1, 0,
+            1, 0,
+            resultbuf, &innerresultoutlen
+        );
+    }
+    assert(innerresult != NULL);
+    resultbuf[innerresultoutlen] = '\0';
+    *out_len = innerresultoutlen;
+    return resultbuf;
+/*        // Easier case, both numbers are positive.
         // In this case, go the more efficient route of handling the
         // fractional part separately without moving things around:
         char _bufstack[256];
@@ -816,7 +868,7 @@ S3DEXP char *spew3d_bignum_AddStrFloatBufsEx(
             free(fractioninnerresult);
         return resultbuf;
     }
-    assert(0);
+    assert(0);*/
 }
 
 S3DEXP char *spew3d_bignum_AddStrFloatBufs(
