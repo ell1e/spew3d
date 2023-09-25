@@ -24,7 +24,7 @@ amalgamate: update-vendor-if-needed
 	rm -f .spew3d_ifndef
 
 build-tests:
-	cd examples && $(MAKE) clean && $(MAKE)
+	cd examples && $(MAKE) clean && $(MAKE) CC="$(CC)"
 
 test: amalgamate build-tests unittests
 	cd examples && ./example_sprite.bin
