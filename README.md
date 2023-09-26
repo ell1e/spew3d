@@ -22,7 +22,7 @@ for C.**
 Compiling / Usage
 -----------------
 
-*(Get `spew3d.h` [from here](https://codeberg.org/ell1e/spew3d/releases).)*
+*(Get `spew3d.h` [from here](https://codeberg.org/ell1e/Spew3D/releases).)*
 
 **Step 1:** Add `spew3d.h` into your project's code folder, and
 put this in all your files where you want to use it from:
