@@ -733,7 +733,7 @@ S3DEXP int spew3d_fs_TargetExistsEx(
                 werror == ERROR_FILE_NOT_FOUND ||
                 werror == ERROR_INVALID_NAME ||
                 werror == ERROR_INVALID_DRIVE ||
-                (!noperms_as_io_error && werror ==
+                (!noperms_as_ioerror && werror ==
                 ERROR_ACCESS_DENIED)) {
             *exists = 0;
             return 1;
