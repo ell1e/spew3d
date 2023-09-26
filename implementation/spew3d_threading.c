@@ -458,7 +458,7 @@ void threadevent_Free(s3d_tevent *e) {
 
 void threadevent_Wait(s3d_tevent *e) {
 #ifdef WINDOWS
-    WaitForSingleObject(e->e);
+    WaitForSingleObject(e->e, INFINITE);
 #else
     pthread_mutex_lock(&e->m);
     while (!e->was_set) {
