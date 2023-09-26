@@ -35,8 +35,7 @@ update-vendor-if-needed:
 	@if [ ! -e "vendor/miniz/include/miniz/miniz.h" ]; then $(MAKE) update-vendor; fi
 
 update-vendor:
-	@if [ -e "vendor/miniz/miniz.h" ]; then cd vendor/miniz && git reset --hard; fi
-	git submodule init && git submodule update
+	@if [ ! -e "vendor/miniz/miniz.h" ]; then cd vendor/miniz && git submodule update --init; fi
 	# Make sure miniz is available:
 	cd vendor/miniz/ && mkdir -p ./include/miniz/ && rm -f ./include/miniz/miniz.c && rm -f ./include/miniz/miniz.h && rm -rf ./amalgamation/ && rm -rf ./_build && CC=gcc CXX=g++ CFLAGS= bash ./amalgamate.sh && cp ./amalgamation/miniz.c ./include/miniz/miniz.c && cp ./amalgamation/miniz.h ./include/miniz/miniz.h
 	cd vendor/miniz && sed -i 's/\#include \"miniz\.h\"//g' ./include/miniz/miniz.c
