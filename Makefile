@@ -10,7 +10,7 @@ UNITTEST_SOURCES_WITHSDL=$(sort $(filter-out $(UNITTEST_SOURCES), $(UNITTEST_SOU
 UNITTEST_BASENAMES=$(sort $(patsubst %.c, %, $(UNITTEST_SOURCES)))
 UNITTEST_BASENAMES_NOSDL=$(sort $(patsubst %.c, %, $(UNITTEST_SOURCES_NOSDL)))
 UNITTEST_BASENAMES_WITHSDL=$(sort $(patsubst %.c, %, $(UNITTEST_SOURCES_WITHSDL)))
-HEADERS=$(sort $(filter-out ./include/spew3d.h ./implementation/spew3d_prefix_drlibsstbvorbis.h ./implementation/spew3d_postfix_drlibsstbvorbis.h ./implementation/spew3d_prefix_all.h ./implementation/spew3d_prefix_miniz_c.h ./implementation/spew3d_postfix_miniz_c.h,$(wildcard ./include/*.h) $(wildcard ./implementation/*.h)))
+HEADERS=$(sort $(filter-out ./include/spew3d.h ./implementation/testmain.h ./implementation/spew3d_prefix_drlibsstbvorbis.h ./implementation/spew3d_postfix_drlibsstbvorbis.h ./implementation/spew3d_prefix_all.h ./implementation/spew3d_prefix_miniz_c.h ./implementation/spew3d_postfix_miniz_c.h,$(wildcard ./include/*.h) $(wildcard ./implementation/*.h)))
 SOURCES=$(sort $(filter-out $(UNITTEST_SOURCES), $(wildcard ./implementation/*.c)))
 TESTPROG=$(sort $(patsubst %.c, %$(BINEXT), $(wildcard ./examples/example_*.c ./implementation/test_*.c)))
 
