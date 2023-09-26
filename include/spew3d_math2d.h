@@ -28,6 +28,8 @@ license, see accompanied LICENSE.md.
 #ifndef SPEW3D_MATH2D_H_
 #define SPEW3D_MATH2D_H_
 
+#include <math.h>
+
 struct spew3d_point {
     s3dnum_t x, y;
 };

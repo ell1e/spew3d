@@ -1,4 +1,4 @@
-/* Copyright (c) 2020-2022, ellie/@ell1e & Spew3D Team (see AUTHORS.md).
+/* Copyright (c) 2020-2023, ellie/@ell1e & Spew3D Team (see AUTHORS.md).
 
 Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions are met:
@@ -27,6 +27,8 @@ license, see accompanied LICENSE.md.
 
 #ifndef SPEW3D_MATH3D_H_
 #define SPEW3D_MATH3D_H_
+
+#include <math.h>
 
 typedef struct spew3d_pos {
     s3dnum_t x, y, z;
