@@ -1,4 +1,4 @@
-/* Copyright (c) 2020-2022, ellie/@ell1e & Spew3D Team (see AUTHORS.md).
+/* Copyright (c) 2020-2023, ellie/@ell1e & Spew3D Team (see AUTHORS.md).
 
 Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions are met:
@@ -53,6 +53,10 @@ license, see accompanied LICENSE.md.
 #include <unistd.h>
 #if defined(_WIN32) || defined(_WIN64)
 #include <windows.h>
+#ifndef FSCTL_GET_REPARSE_POINT
+// Needed for MinGW:
+#include <winioctl.h>
+#endif
 #define h64filehandle HANDLE
 #define H64_NOFILE (INVALID_HANDLE_VALUE)
 #else
