@@ -22,7 +22,8 @@ for C.**
 Compiling / Usage
 -----------------
 
-*(Get `spew3d.h` [from here](https://codeberg.org/ell1e/Spew3D/releases).)*
+*(Get `spew3d.h` [from here](
+https://codeberg.org/Spew3D/Spew3D/releases).)*
 
 **Step 1:** Add `spew3d.h` into your project's code folder, and
 put this in all your files where you want to use it from:
@@ -41,7 +42,8 @@ will make it contain the actual implementation code and not just its API:
 ```
 
 **Step 3:** When you link your final program, make sure to add [SDL2](
-https://libsdl.org) to your linked libraries.
+https://libsdl.org) to your linked libraries, unless you're using
+the [option to not use SDL](#options).
 
 Documentation
 -------------
