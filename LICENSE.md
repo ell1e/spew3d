@@ -10,7 +10,7 @@ Files outside of the `vendor` folder are, unless indicated
 otherwise, licensed under the following **BSD-2-Clause license**:
 
 ```
-Copyright (c) 2020-2022,  ellie/@ell1e & Spew3D Team (see AUTHORS.md).
+Copyright (c) 2020-2023,  ellie/@ell1e & Spew3D Team (see AUTHORS.md).
 
 
 Redistribution and use in source and binary forms, with or without

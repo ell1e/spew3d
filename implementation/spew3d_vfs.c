@@ -804,7 +804,7 @@ int spew3d_vfs_FileToBytes(
                 #if defined(_WIN32) || defined(_WIN64)
                 uint64_t werror = GetLastError();
                 if (werror == ERROR_NOT_ENOUGH_MEMORY)
-                    _err = FSERR_OUTOFMEMORY:
+                    _err = FSERR_OUTOFMEMORY;
                 else if (werror == ERROR_ACCESS_DENIED ||
                         werror == ERROR_SHARING_VIOLATION)
                     _err = FSERR_NOPERMISSION;
