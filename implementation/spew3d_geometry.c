@@ -28,7 +28,9 @@ license, see accompanied LICENSE.md.
 #ifdef SPEW3D_IMPLEMENTATION
 
 #include <assert.h>
+#ifndef SPEW3D_OPTION_DISABLE_SDL
 #include <SDL2/SDL.h>
+#endif
 #include <string.h>
 
 

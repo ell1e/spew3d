@@ -34,7 +34,7 @@ license, see accompanied LICENSE.md.
 #else
 #include <alloca.h>
 #endif
-#if defined(HAVE_SDL)
+#ifndef SPEW3D_OPTION_DISABLE_SDL
 #include <SDL2/SDL.h>
 #endif
 #include <stdint.h>

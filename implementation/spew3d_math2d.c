@@ -29,9 +29,7 @@ license, see accompanied LICENSE.md.
 
 #include <assert.h>
 #include <math.h>
-#include <SDL2/SDL.h>
 #include <string.h>
-
 
 #ifndef NDEBUG
 static void __attribute__((constructor))

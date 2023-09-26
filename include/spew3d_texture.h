@@ -29,7 +29,10 @@ license, see accompanied LICENSE.md.
 #define SPEW3D_TEXTURE_H_
 
 #include <stdint.h>
+#if !defined(SPEW3D_OPTION_DISABLE_SDL) &&\
+        !defined(SPEW3D_OPTION_DISABLE_SDL_HEADER)
 #include <SDL2/SDL.h>
+#endif
 
 typedef uint64_t spew3d_texture_t;
 typedef struct spew3d_window spew3d_window;

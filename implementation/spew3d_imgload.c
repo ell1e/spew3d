@@ -30,7 +30,6 @@ license, see accompanied LICENSE.md.
 #include <assert.h>
 #include <stdint.h>
 #include <string.h>
-#include <SDL2/SDL.h>
 #include <unistd.h>
 
 

@@ -30,7 +30,9 @@ license, see accompanied LICENSE.md.
 #include <assert.h>
 #include <stdint.h>
 #include <string.h>
+#ifndef SPEW3D_OPTION_DISABLE_SDL
 #include <SDL2/SDL.h>
+#endif
 #include <unistd.h>
 
 static inline uint16_t spew3d_simplehash(const char *k);
