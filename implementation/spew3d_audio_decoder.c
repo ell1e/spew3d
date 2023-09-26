@@ -176,7 +176,12 @@ size_t _drmp3drwavdrflac_read_cb(
     s3daudiodecoder *d = ud;
     if (!d->vfshandle || d->vfserror)
         return 0;
-    return spew3d_vfs_fread(pBufferOut, 1, bytesToRead, d->vfshandle);
+    size_t result = spew3d_vfs_fread(
+        pBufferOut, 1, bytesToRead, d->vfshandle
+    );
+    if (result == 0 && spew3d_vfs_ferror(d->vfshandle))
+        d->vfserror = 1;
+    return result;
 }
 
 uint32_t _drmp3_seek_cb(void *ud,
@@ -744,7 +749,8 @@ static int s3d_audiodecoder_FillDecodeAhead(s3daudiodecoder *d) {
             int result = spew3d_vfs_fread(readbuf, 1,
                 input_size, d->vfshandle);
             if ((result <= 0 || result < input_size) &&
-                    !spew3d_vfs_feof(d->vfshandle)) {
+                    (!spew3d_vfs_feof(d->vfshandle) ||
+                    spew3d_vfs_ferror(d->vfshandle))) {
                 vorbisfilefail:
                 stb_vorbis_close(d->_vorbisdecode);
                 d->_vorbisdecode = NULL;

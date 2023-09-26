@@ -60,6 +60,8 @@ SPEW3DVFS_FILE *spew3d_vfs_fopen(
     const char *path, const char *mode, int flags
 );
 
+int spew3d_vfs_ferror(SPEW3DVFS_FILE *f);
+
 SPEW3DVFS_FILE *spew3d_vfs_OwnThisFD(
     FILE *f, const char *reopenmode
 );

@@ -69,7 +69,7 @@ int64_t _spew3d_lastusedmountid = 0;
 spew3d_vfs_mount *_spew3d_global_mount_list = NULL;
 
 typedef struct SPEW3DVFS_FILE {
-    uint8_t via_mount, is_limited;
+    uint8_t via_mount, is_limited, ferror_set;
     union {
         struct {
             spew3d_vfs_mount *src_mount;
@@ -303,6 +303,7 @@ SPEW3DVFS_FILE *spew3d_vfs_fdup(SPEW3DVFS_FILE *f) {
         return NULL;
     }
     memcpy(fnew, f, sizeof(*f));
+    fnew->ferror_set = f->ferror_set;
     fnew->mode = strdup(f->mode);
     if (!fnew->mode) {
         free(fnew);
@@ -354,6 +355,10 @@ int spew3d_vfs_fseektoend(SPEW3DVFS_FILE *f) {
     return 1;
 }
 
+int spew3d_vfs_ferror(SPEW3DVFS_FILE *f) {
+    return f->ferror_set;
+}
+
 size_t spew3d_vfs_fread(
         char *buffer, int bytes, int numn,
         SPEW3DVFS_FILE *f
@@ -392,8 +397,9 @@ size_t spew3d_vfs_fread(
         if (result > 0) {
             f->offset += result;
         } else {
-            if (!feof(f->diskhandle)) {
+            if (ferror(f->diskhandle) || !feof(f->diskhandle)) {
                 errno = EIO;
+                f->ferror_set = 1;
             }
         }
         return result;
@@ -422,6 +428,7 @@ size_t spew3d_vfs_fread(
                 f->offset, buffer, bytes);
             if (result != bytes) {
                 errno = EIO;
+                f->ferror_set = 1;
                 mutex_Release(spew3d_vfs_mutex);
                 return 0;
             }
@@ -445,6 +452,7 @@ size_t spew3d_vfs_fread(
             f->offset, buffer, numn);
         if (result <= 0) {
             errno = EIO;
+            f->ferror_set = 1;
             mutex_Release(spew3d_vfs_mutex);
             return 0;
         }
