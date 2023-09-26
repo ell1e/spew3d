@@ -1228,6 +1228,79 @@ S3DEXP int spew3d_fs_IsAbsolutePath(const char *path) {
     return 0;
 }
 
+S3DEXP char *spew3d_fs_Basename(const char *path) {
+    int i = 0;
+    while ((int)strlen(path) > i &&
+            path[strlen(path) - i - 1] != '/'
+            #if defined(_WIN32) || defined(_WIN64)
+            &&
+            path[strlen(path) - i - 1] != '\\'
+            #endif
+            )
+        i++;
+    char *result = malloc(i + 1);
+    if (!result)
+        return result;
+    memcpy(result, path + strlen(path) - i, i + 1);
+    return result;
+}
+
+S3DEXP char *spew3d_fs_ParentdirOfItem(const char *path) {
+    if (!path)
+        return NULL;
+    char *p = strdup(path);
+    if (!p)
+        return NULL;
+
+    // Strip trailing duplicate separators if any:
+    #if defined(_WIN32) || defined(_WIN64)
+    while (strlen(p) > 1 && (
+            p[strlen(p) - 1] == '/' ||
+            p[strlen(p) - 1] == '\\') &&
+            (p[strlen(p) - 2] == '/' ||
+            p[strlen(p) - 2] == '\\'))
+        p[strlen(p) - 1] = '\0';
+    #else
+    while (strlen(p) > 1 && (
+            p[strlen(p) - 1] == '/') &&
+            (p[strlen(p) - 2] == '/'))
+        p[strlen(p) - 1] = '\0';
+    #endif
+
+    // If this is already shortened to absolute path root, abort:
+    #if defined(_WIN32) || defined(_WIN64)
+    if (strlen(path) >= 2 && strlen(path) <= 3 &&
+            path[1] == ':' && (strlen(path) == 2 ||
+            path[2] == '/' || path[2] == '\\') &&
+            ((path[0] >= 'a' && path[0] <= 'z') ||
+              (path[0] >= 'A' && path[0] <= 'Z')))
+        return p;
+    #else
+    if (strlen(path) == 1 && path[0] == '/')
+        return p;
+    #endif
+
+    // Strip trailing ALL trailing separators, then go back to previous:
+    #if defined(_WIN32) || defined(_WIN64)
+    while (strlen(p) > 0 && (
+            p[strlen(p) - 1] == '/' ||
+            p[strlen(p) - 1] == '\\'))
+        p[strlen(p) - 1] = '\0';
+    while (strlen(p) > 0 &&
+            p[strlen(p) - 1] != '/' &&
+            p[strlen(p) - 1] != '\\')
+        p[strlen(p) - 1] = '\0';
+    #else
+    while (strlen(p) > 0 &&
+            p[strlen(p) - 1] == '/')
+        p[strlen(p) - 1] = '\0';
+    while (strlen(p) > 0 &&
+            p[strlen(p) - 1] != '/')
+        p[strlen(p) - 1] = '\0';
+    #endif
+    return p;
+}
+
 S3DEXP char *spew3d_fs_GetOwnExecutablePath() {
     #if defined(_WIN32) || defined(_WIN64)
     wchar_t fp[MAX_PATH * 2 + 1];
