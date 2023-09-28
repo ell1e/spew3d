@@ -1,8 +1,8 @@
 # Spew3D Licensing
 
 *(Note: this document omits bake-in 3rd party dependencies. See
-[3RDPARTYCREDITS.md] which attempts to list them with no guarantees
-for completeness or accuracy.)*
+(3RDPARTYCREDITS.md)[3RDPARTYCREDITS.md] which attempts to list
+them with no guarantees for completeness or accuracy.)*
 
 ## License
 
@@ -247,8 +247,8 @@ following **Apache 2 License**:
 ## Contributions
 
 If you contribute to the project, you **permit licensing as described
-in this file** and agree to the [DCO](#Developer Certificate
-of Origin) below.
+in this file** and agree to the [DCO](
+#Developer%20Certificate%20of%20Origin) below.
 
 For this, sign your commit messages:
 
