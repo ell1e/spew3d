@@ -25,6 +25,9 @@ Alternatively, at your option, this file is offered under the Apache 2
 license, see accompanied LICENSE.md.
 */
 
+#ifndef SPEW3D_TESTMAIN_H_
+#define SPEW3D_TESTMAIN_H_
+
 #include <assert.h>
 #include <check.h>
 #include <stdarg.h>
@@ -47,6 +50,7 @@ int main(void)\
     Suite *s1 = suite_create("Core");\
     TCase *tc1_1 = tcase_create("Core");\
     SRunner *sr = srunner_create(s1);\
+    srunner_set_fork_status(sr,CK_NOFORK);\
     int nf;\
 \
     suite_add_tcase(s1, tc1_1);\
@@ -58,3 +62,6 @@ int main(void)\
 \
     return nf == 0 ? 0 : 1;\
 }
+
+#endif  // SPEW3D_TESTMAIN_H_
+
