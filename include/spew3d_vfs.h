@@ -68,6 +68,9 @@ SPEW3DVFS_FILE *spew3d_vfs_OwnThisFD(
 
 void spew3d_vfs_DetachFD(SPEW3DVFS_FILE *f);
 
+/// Check if the file position is at the end or not.
+/// Returns 1 if position is at the end of the file,
+/// otherwise 0.
 int spew3d_vfs_feof(SPEW3DVFS_FILE *f);
 
 size_t spew3d_vfs_fread(
@@ -78,12 +81,20 @@ int64_t spew3d_vfs_ftell(SPEW3DVFS_FILE *f);
 
 void spew3d_vfs_fclose(SPEW3DVFS_FILE *f);
 
+/// Seek to the given absolute offset.
+/// Returns 0 on success, -1 on error.
 int spew3d_vfs_fseek(SPEW3DVFS_FILE *f, uint64_t offset);
 
+/// Seek to end of file. Returns 1 on success, 0 on error.
 int spew3d_vfs_fseektoend(SPEW3DVFS_FILE *f);
 
+/// Get next byte returned as value from 0 to 255,
+/// or a negative value on error.
 int spew3d_vfs_fgetc(SPEW3DVFS_FILE *f);
 
+/// Peak at next byte but don't advance file position,
+/// returns byte as value from 0 to 255, or a negative
+/// value on error.
 int spew3d_vfs_peakc(SPEW3DVFS_FILE *f);
 
 size_t spew3d_vfs_fwrite(
