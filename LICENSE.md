@@ -1,7 +1,7 @@
 # Spew3D Licensing
 
 *(Note: this document omits bake-in 3rd party dependencies. See
-(3RDPARTYCREDITS.md)[3RDPARTYCREDITS.md] which attempts to list
+[3RDPARTYCREDITS.md](3RDPARTYCREDITS.md) which attempts to list
 them with no guarantees for completeness or accuracy.)*
 
 ## License
