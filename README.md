@@ -38,7 +38,6 @@ will make it contain the actual implementation code and not just its API:
 ```
 #define SPEW3D_IMPLEMENTATION
 #include <spew3d.h>
-#undef SPEW3D_IMPLEMENTATION
 ```
 
 **Step 3:** When you link your final program, make sure to add [SDL2](
@@ -128,7 +127,8 @@ This will also generate the `spew3d.h` file if you checked out
 the development version of Spew3D at `include/spew3d.h`.
 
 To run the tests, install SDL2 and libcheck (the GNU unit
-test library for C) system-wide, then use: `make test`
+test library for C) and [valgrind](https://valgrind.org)
+system-wide, then use: `make test`
 
 License
 -------
