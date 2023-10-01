@@ -1,10 +1,14 @@
-# Spew3D Licensing
+
+Spew3D Licensing
+================
 
 *(Note: this document omits bake-in 3rd party dependencies. See
 [3RDPARTYCREDITS.md](3RDPARTYCREDITS.md) which attempts to list
 them with no guarantees for completeness or accuracy.)*
 
-## License
+
+License
+-------
 
 Files outside of the `vendor` folder are, unless indicated
 otherwise, licensed under the following **BSD-2-Clause license**:
@@ -244,7 +248,8 @@ following **Apache 2 License**:
 ```
 
 
-## Contributions
+Contributions
+-------------
 
 If you contribute to the project, you **permit licensing as described
 in this file** and agree to the [DCO](
@@ -255,7 +260,8 @@ For this, sign your commit messages:
 `DCO-1.1-Signed-off-by: Your Name <your@email>`
 
 
-## Developer Certificate of Origin
+Developer Certificate of Origin
+-------------------------------
 
 This is the DCO which all contributors agree to:
 

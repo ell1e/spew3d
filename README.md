@@ -1,6 +1,6 @@
 
-Spew3D
-======
+Welcome to Spew3D
+=================
 
 You've found **Spew3D**, a one-header file **retro 3D toolkit
 for C.**
@@ -18,6 +18,7 @@ for C.**
 - Can't do modern shader effects,
 - Can't do modern realtime shadows,
 - Can't handle modern higher poly counts.
+
 
 Compiling / Usage
 -----------------
@@ -44,6 +45,7 @@ will make it contain the actual implementation code and not just its API:
 https://libsdl.org) to your linked libraries, unless you're using
 the [option to not use SDL](#options).
 
+
 Documentation
 -------------
 
@@ -51,6 +53,7 @@ For now, please refer to the [header files](./include/) themselves
 like [spew3d_init.h](./include/spew3d_init.h),
 [spew3d_texture.h](./include/spew3d_texture.h), etc.
 and the ['examples' folder](./examples/) for documentation.
+
 
 Common Compilation Problems
 ---------------------------
@@ -77,6 +80,7 @@ program via `g++` (or similar) and got tons of errors!**
 
 *Answer: Currently, C++ is not supported. This is in part due
 to some included dependencies like miniz not supporting it, sorry.*
+
 
 Options
 -------
@@ -119,6 +123,7 @@ Available options:
   to `4096` (instead of `1.0`). This gives you 64bit fixed point
   coordinate math with a 12bit fractional number part.
 
+
 Run Tests
 ---------
 
@@ -130,6 +135,7 @@ To run the tests, install SDL2 and libcheck (the GNU unit
 test library for C) and [valgrind](https://valgrind.org)
 system-wide, then use: `make test`
 
+
 License
 -------
 
@@ -137,6 +143,7 @@ Spew3D is licensed under a BSD license or an Apache 2
 License, [see here for details](LICENSE.md).
 It includes other projects baked in, see `vendor` folder in the
 repository.
+
 
 Supported Platforms / Compilers
 -------------------------------
