@@ -78,6 +78,11 @@ S3DEXP int spew3d_fs_TargetExists(const char *path, int *exists);
 
 S3DEXP char *spew3d_fs_Normalize(const char *path);
 
+S3DEXP char *spew3d_fs_NormalizeEx(
+    const char *path, int always_allow_windows_separator,
+    char unified_separator_to_use
+);
+
 S3DEXP int spew3d_fs_CreateDirectoryEx(
     const char *path, int onlyuserreadable
 );

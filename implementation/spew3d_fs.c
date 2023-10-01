@@ -578,32 +578,48 @@ S3DEXP char *spew3d_fs_RemoveDoubleSlashes(const char *path) {
 }
 
 S3DEXP char *spew3d_fs_Normalize(const char *path) {
+    return spew3d_fs_NormalizeEx(path, 0,
+        #if defined(_WIN32) || defined(_WIN64)
+        '\\'
+        #else
+        '/'
+        #endif
+    );
+}
+
+S3DEXP char *spew3d_fs_NormalizeEx(
+        const char *path, int always_allow_windows_separator,
+        char unified_separator_to_use
+        ) {
     char *result = spew3d_fs_RemoveDoubleSlashes(path);
     if (!result)
         return NULL;
+
+    int allow_windows_separator = (
+        #if defined(_WIN32) || defined(_WIN64)
+        1
+        #else
+        always_allow_windows_separator
+        #endif
+    );
 
     // Remove all unnecessary ../ and ./ inside the path:
     int last_component_start = -1;
     int i = 0;
     while (i < (int)strlen(result)) {
-        if ((result[i] == '/'
-                #if defined(_WIN32) || defined(_WIN64)
-                || result[i] == '\\'
-                #endif
-                ) && result[i + 1] == '.' &&
+        if ((result[i] == '/' ||
+                (allow_windows_separator && result[i] == '\\')) &&
+                result[i + 1] == '.' &&
                 result[i + 2] == '.' && (
-                result[i + 3] == '/'
-                #if defined(_WIN32) || defined(_WIN64)
-                || result[i + 3] == '\\'
-                #endif
-                || result[i + 3] == '\0'
+                result[i + 3] == '/' ||
+                (allow_windows_separator && result[i + 3] == '\\') ||
+                result[i + 3] == '\0'
                 ) && i > last_component_start && i > 0 &&
                 (result[last_component_start + 1] != '.' ||
                  result[last_component_start + 2] != '.' ||
-                 (result[last_component_start + 3] != '/'
-                  #if defined(_WIN32) || defined(_WIN64)
-                  && result[last_component_start + 3] != '\\'
-                  #endif
+                 (result[last_component_start + 3] != '/' &&
+                  (allow_windows_separator &&
+                   result[last_component_start + 3] != '\\')
                  )
                 )) {
             // Collapse ../ into previous component:
@@ -617,32 +633,24 @@ S3DEXP char *spew3d_fs_Normalize(const char *path) {
             i = 0;
             last_component_start = 0;
             continue;
-        } else if ((result[i] == '/'
-                #if defined(_WIN32) || defined(_WIN64)
-                || result[i] == '\\'
-                #endif
+        } else if ((result[i] == '/' ||
+                (allow_windows_separator && result[i] == '\\')
                 ) && result[i + 1] == '.' && (
-                result[i + 2] == '/'
-                #if defined(_WIN32) || defined(_WIN64)
-                || result[i + 2] == '\\'
-                #endif
+                result[i + 2] == '/' ||
+                (allow_windows_separator && result[i + 1] == '\\')
                 )) {
             // Collapse unncessary ./ away:
             last_component_start = i;
             memmove(result + i, result + (i + 2),
                     strlen(result) - (i - 2) + 1);
             continue;
-        } else if (result[i] == '/'
-                #if defined(_WIN32) || defined(_WIN64)
-                || result[i] == '\\'
-                #endif
+        } else if (result[i] == '/' ||
+                (allow_windows_separator && result[i] == '\\')
                 ) {
             last_component_start = i;
             // Collapse all double slashes away:
-            while (result[i + 1] == '/'
-                    #if defined(_WIN32) || defined(_WIN64)
-                    || result[i + 1] == '\\'
-                    #endif
+            while (result[i + 1] == '/' ||
+                    (allow_windows_separator && result[i + 1] == '\\')
                     ) {
                 memmove(result + i, result + (i + 1),
                         strlen(result) - (i - 1) + 1);
@@ -653,10 +661,8 @@ S3DEXP char *spew3d_fs_Normalize(const char *path) {
 
     // Remove leading ./ instances:
     while (strlen(result) >= 2 && result[0] == '.' && (
-            result[1] == '/'
-            #if defined(_WIN32) || defined(_WIN64)
-            || result[1] == '\\'
-            #endif
+            result[1] == '/' ||
+            (allow_windows_separator && result[1] == '\\')
             )) {
         memmove(result, result + 2, strlen(result) + 1 - 2);
     }
@@ -664,27 +670,16 @@ S3DEXP char *spew3d_fs_Normalize(const char *path) {
     // Unify path separators:
     i = 0;
     while (i < (int)strlen(result)) {
-        if (result[i] == '/'
-                #if defined(_WIN32) || defined(_WIN64)
-                || result[i] == '\\'
-                #endif
-                ) {
-            #if defined(_WIN32) || defined(_WIN64)
-            result[i] = '\\';
-            #else
-            result[i] = '/';
-            #endif
+        if (result[i] == '/' ||
+                (allow_windows_separator && result[i] == '\\')) {
+            result[i] = unified_separator_to_use;
         }
         i++;
     }
 
     // Remove trailing path separators:
     while (strlen(result) > 0) {
-        if (result[strlen(result) - 1] == '/'
-                #if defined(_WIN32) || defined(_WIN64)
-                || result[strlen(result) - 1] == '\\'
-                #endif
-                ) {
+        if (result[strlen(result) - 1] == unified_separator_to_use) {
             result[strlen(result) - 1] = '\0';
         } else {
             break;
