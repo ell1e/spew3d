@@ -578,7 +578,7 @@ S3DEXP char *spew3d_fs_RemoveDoubleSlashes(const char *path) {
 }
 
 S3DEXP char *spew3d_fs_Normalize(const char *path) {
-    return spew3d_fs_NormalizeEx(path, 0,
+    return spew3d_fs_NormalizeEx(path, 0, 0,
         #if defined(_WIN32) || defined(_WIN64)
         '\\'
         #else
@@ -589,15 +589,18 @@ S3DEXP char *spew3d_fs_Normalize(const char *path) {
 
 S3DEXP char *spew3d_fs_NormalizeEx(
         const char *path, int always_allow_windows_separator,
+        int never_allow_windows_separator,
         char unified_separator_to_use
         ) {
+    assert(!always_allow_windows_separator ||
+        !never_allow_windows_separator);
     char *result = spew3d_fs_RemoveDoubleSlashes(path);
     if (!result)
         return NULL;
 
     int allow_windows_separator = (
         #if defined(_WIN32) || defined(_WIN64)
-        1
+        !never_allow_windows_separator
         #else
         always_allow_windows_separator
         #endif
