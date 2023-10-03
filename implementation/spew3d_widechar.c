@@ -35,7 +35,7 @@ license, see accompanied LICENSE.md.
 #include <windows.h>
 #endif
 
-int utf8_to_utf16(
+S3DEXP int utf8_to_utf16(
         const uint8_t *input, int64_t input_len,
         uint16_t *outbuf, int64_t outbuflen,
         int64_t *out_len, int surrogateunescape,
@@ -101,7 +101,7 @@ int utf8_to_utf16(
     return 1;
 }
 
-int utf16_to_utf8(
+S3DEXP int utf16_to_utf8(
         const uint16_t *input, int64_t input_len,
         char *outbuf, int64_t outbuflen,
         int64_t *out_len, int surrogateescape
@@ -183,14 +183,14 @@ int utf16_to_utf8(
     return 1;
 }
 
-size_t strlen16(const uint16_t *s) {
+S3DEXP size_t strlen16(const uint16_t *s) {
     const uint16_t *orig_s = s;
     while (*s != '\0')
         s++;
     return s - orig_s;
 }
 
-char *AS_U8_FROM_U16(const uint16_t *s) {
+S3DEXP char *AS_U8_FROM_U16(const uint16_t *s) {
     #if (defined(_WIN32) || defined(_WIN64)) && \
         defined(USE_WINAPI_WIDECHAR)
     assert(sizeof(wchar_t) == sizeof(uint16_t));
@@ -234,7 +234,7 @@ char *AS_U8_FROM_U16(const uint16_t *s) {
     #endif
 }
 
-uint16_t *AS_U16(const char *s) {
+S3DEXP uint16_t *AS_U16(const char *s) {
     #if (defined(_WIN32) || defined(_WIN64)) && \
         defined(USE_WINAPI_WIDECHAR)
     if (strlen(s) == 0) {
@@ -277,6 +277,24 @@ uint16_t *AS_U16(const char *s) {
     #endif
 }
 
+S3DEXP void utf8_char_to_lowercase(
+        const char *s, int *out_origbyteslen,
+        int *out_lowercasebyteslen,
+        char *out_lowercased) {
+    // FIXME: look it up in the unicode table.
+
+    // Fallback implementation without unicode data:
+    int l = utf8_char_len(s);
+    *out_origbyteslen = l;
+    if (l <= 1) {
+        *out_lowercased = tolower(l);
+        *out_lowercasebyteslen = 1;
+    } else {
+        memcpy(out_lowercased, s, l);
+        *out_lowercasebyteslen = l;
+    }
+}
+
 static int is_utf8_start(uint8_t c) {
     if ((int)(c & 0xE0) == (int)0xC0) {  // 110xxxxx
         return 1;
@@ -288,7 +306,7 @@ static int is_utf8_start(uint8_t c) {
     return 0;
 }
 
-int utf8_char_len(const unsigned char *p) {
+S3DEXP int utf8_char_len(const unsigned char *p) {
     if ((int)((*p) & 0xE0) == (int)0xC0)
         return 2;
     if ((int)((*p) & 0xF0) == (int)0xE0)
@@ -298,7 +316,7 @@ int utf8_char_len(const unsigned char *p) {
     return 1;
 }
 
-int get_utf8_codepoint(
+S3DEXP int get_utf8_codepoint(
         const unsigned char *p, int size,
         s3dcodepoint *out, int *cpbyteslen
         ) {
@@ -398,7 +416,7 @@ int get_utf8_codepoint(
     return 0;
 }
 
-int starts_with_valid_utf8_char(
+S3DEXP int starts_with_valid_utf8_char(
         const unsigned char *p, int size
         ) {
     if (!get_utf8_codepoint(p, size, NULL, NULL))
@@ -406,7 +424,7 @@ int starts_with_valid_utf8_char(
     return 1;
 }
 
-int write_codepoint_as_utf8(
+S3DEXP int write_codepoint_as_utf8(
         s3dcodepoint codepoint, int surrogateunescape,
         int questionmarkescape,
         char *out, int outbuflen, int *outlen
