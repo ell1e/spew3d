@@ -28,6 +28,7 @@ license, see accompanied LICENSE.md.
 #ifdef SPEW3D_IMPLEMENTATION
 
 #include <assert.h>
+#include <ctype.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
