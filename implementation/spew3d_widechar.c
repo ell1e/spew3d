@@ -288,7 +288,7 @@ S3DEXP void utf8_char_to_lowercase(
     int l = utf8_char_len(s);
     *out_origbyteslen = l;
     if (l <= 1) {
-        *out_lowercased = tolower(l);
+        *out_lowercased = tolower(*s);
         *out_lowercasebyteslen = 1;
     } else {
         memcpy(out_lowercased, s, l);
