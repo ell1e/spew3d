@@ -20,8 +20,8 @@ for C.**
 - Can't handle modern higher poly counts.
 
 
-Compiling / Usage
------------------
+Compiling and usage
+-------------------
 
 *(Get `spew3d.h` [from here](
 https://codeberg.org/Spew3D/Spew3D/releases).)*
@@ -55,7 +55,7 @@ like [spew3d_init.h](./include/spew3d_init.h),
 and the ['examples' folder](./examples/) for documentation.
 
 
-Common Compilation Problems
+Common compilation problems
 ---------------------------
 
 **Question: Where is `spew3d.h`?**
@@ -124,7 +124,7 @@ Available options:
   coordinate math with a 12bit fractional number part.
 
 
-Run Tests
+Run tests
 ---------
 
 Currently, running the tests is only supported on Linux.
@@ -145,8 +145,8 @@ It includes other projects baked in, see `vendor` folder in the
 repository.
 
 
-Supported Platforms / Compilers
--------------------------------
+Supported platforms and compilers
+---------------------------------
 
 These compilers should work: GCC, MinGW, Clang.
 **MSVC is unsupported,** use MinGW instead.
