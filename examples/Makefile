@@ -13,7 +13,7 @@ amalgamate:
 	cd ../ && $(MAKE) amalgamate
 
 example_%$(BINEXT): example_%.c
-	$(CC) -pthread -g -Og -o $@ $(patsubst %$(BINEXT),%.c, $@) -I../include -lm -lSDL2
+	$(CC) -pthread -g -O0 -o $@ $(patsubst %$(BINEXT),%.c, $@) -I../include -lm -lSDL2
 
 clean:
 	rm -rf $(TESTPROG)
