@@ -278,7 +278,7 @@ S3DHID int _internal_spew3d_audio_sink_Process(spew3d_audio_sink *sink) {
                         strcmp(sdlreporteddefaultcard, name) == 0) ||
                         sdlreporteddefaultcard == NULL)) ||
                     (wantedcardname != NULL &&
-                    strcasecmp(wantedcardname, name) == 0))) {
+                    s3dstrcasecmp(wantedcardname, name) == 0))) {
                 cardindex = i;
                 cardname = name;
                 break;
