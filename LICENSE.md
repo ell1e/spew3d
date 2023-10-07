@@ -10,7 +10,7 @@ them with no guarantees for completeness or accuracy.)*
 License
 -------
 
-Files outside of the `vendor` folder are, unless indicated
+Files outside of the `logo` and `vendor` folder are, unless indicated
 otherwise, licensed under the following **BSD-2-Clause license**:
 
 ```
@@ -245,6 +245,24 @@ following **Apache 2 License**:
    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
    See the License for the specific language governing permissions and
    limitations under the License.
+```
+
+
+Logo license
+------------
+
+This concerns the files inside `logo` folder:
+
+```
+Spew3D Logo is Copyright (C)  2023, ellie/@ell1e. All Rights Reserved.
+
+The "Spew3D Logo"'s files are located in `logo/` with the filenames
+starting with "logo".
+The Spew3D Logo and its files may only be used in the official
+unmodified "Spew3D" distribution as maintained by ellie/@ell1e,
+currently found at codeberg.org/Spew3D and github.com/Spew3D.
+DON'T DISTRIBUTE MODIFIED SPEW3D VERSIONS WITH THE LOGO, PLEASE DON'T
+USE THE OFFICIAL NAME "Spew3D" FOR THEM EITHER.
 ```
 
 
