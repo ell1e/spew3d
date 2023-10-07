@@ -1,4 +1,4 @@
-/* Copyright (c) 2020-2022, ellie/@ell1e & Spew3D Team (see AUTHORS.md).
+/* Copyright (c) 2020-2023, ellie/@ell1e & Spew3D Team (see AUTHORS.md).
 
 Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions are met:
@@ -31,10 +31,11 @@ license, see accompanied LICENSE.md.
 #include <assert.h>
 #include <check.h>
 #include <stdarg.h>
+#include <stdio.h>
 #include <stdlib.h>
 
 #define TESTS_MAIN(...) \
-void addtests(TCase *tc, ...) {\
+void _custom_addtests(TCase *tc, ...) {\
     va_list vl;\
     va_start(vl, tc);\
     while (1) {\
@@ -54,7 +55,7 @@ int main(void)\
     int nf;\
 \
     suite_add_tcase(s1, tc1_1);\
-    addtests(tc1_1, __VA_ARGS__, NULL);\
+    _custom_addtests(tc1_1, __VA_ARGS__, NULL);\
 \
     srunner_run_all(sr, CK_ENV);\
     nf = srunner_ntests_failed(sr);\
@@ -62,6 +63,23 @@ int main(void)\
 \
     return nf == 0 ? 0 : 1;\
 }
+
+#ifdef ck_assert
+#undef ck_assert
+#endif
+#define ck_assert(x) assert(x)
+static void _custom_assert_str_eq(const char *s1, const char *s2) {
+    if ((s1 || s2) && (!s1 || !s2 || strcmp(s1, s2) != 0)) {
+        fprintf(stderr, "testmain.h: ERROR: ck_assert_eq failed: "
+            "\"%s\" != \"%s\"\n", s1, s2);
+        fflush(stderr);
+    }
+    assert((!s1 && !s2) || (s1 && s2 && strcmp(s1, s2) == 0));
+}
+#ifdef ck_assert_str_eq
+#undef ck_assert_str_eq
+#endif
+#define ck_assert_str_eq _custom_assert_str_eq
 
 #endif  // SPEW3D_TESTMAIN_H_
 

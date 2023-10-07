@@ -279,21 +279,104 @@ S3DEXP uint16_t *AS_U16(const char *s) {
 }
 
 S3DEXP void utf8_char_to_lowercase(
-        const char *s, int *out_origbyteslen,
+        const char *s, size_t slen,
+        int *out_origbyteslen,
         int *out_lowercasebyteslen,
         char *out_lowercased) {
-    // FIXME: look it up in the unicode table.
-
-    // Fallback implementation without unicode data:
     int l = utf8_char_len(s);
+    if (S3DUNLIKELY(l > slen)) {
+        l = 1;
+        if (S3DUNLIKELY(slen == 0)) {
+            *out_origbyteslen = 0;
+            *out_lowercasebyteslen = 0;
+            return;
+        }
+    }
     *out_origbyteslen = l;
-    if (l <= 1) {
-        *out_lowercased = tolower(*s);
+    if (S3DLIKELY(l == 1)) {
+        *out_lowercased = (*s == '\0' ? '\0' :
+            (char)tolower((int)(*s)));
         *out_lowercasebyteslen = 1;
     } else {
+        // FIXME: look it up in the unicode table.
+
+        // Fallback implementation without unicode data:
         memcpy(out_lowercased, s, l);
         *out_lowercasebyteslen = l;
     }
+}
+
+S3DHID int _s3dstrandmemcasecmp(
+        const char *s1, size_t s1len,
+        const char *s2, size_t s2len
+        ) {
+    while (s1len != 0 && s2len != 0) {
+        char s1lowerbuf[8];
+        int out_s1origbyteslen;
+        int out_s1lowerbyteslen;
+        utf8_char_to_lowercase(s1, s1len,
+            &out_s1origbyteslen,
+            &out_s1lowerbyteslen,
+            s1lowerbuf);
+        char s2lowerbuf[8];
+        int out_s2origbyteslen;
+        int out_s2lowerbyteslen;
+        utf8_char_to_lowercase(s2, s2len,
+            &out_s2origbyteslen,
+            &out_s2lowerbyteslen,
+            s2lowerbuf);
+        int k = 0;
+        while (S3DLIKELY(k < out_s1lowerbyteslen &&
+                k < out_s2lowerbyteslen)) {
+            int diff = ((int)((unsigned char *)s1lowerbuf)[k]) -
+                ((int)((unsigned char *)s2lowerbuf)[k]);
+            if (S3DUNLIKELY(diff != 0))
+                return diff;
+            k += 1;
+        }
+        if (S3DUNLIKELY(k < out_s2lowerbyteslen)) {
+            int v = -((int)((unsigned char *)s2lowerbuf)[k]);
+            if (v == 0) v = -1;
+            return v;
+        } else if (S3DUNLIKELY(k < out_s1lowerbyteslen)) {
+            int v = ((int)((unsigned char *)s1lowerbuf)[k]);
+            if (v == 0) v = 1;
+            return v;
+        }
+        s1++;
+        s1len--;
+        s2++;
+        s2len--;
+    }
+    if (S3DLIKELY(s1len == 0 && s2len == 0))
+        return 0;
+    if (s1len != 0) {
+        int v = ((int)(*(unsigned char *)s1));
+        if (v == 0) v = 1;
+        return v;
+    } else {
+        assert(*s2 == '\0');
+        int v = -((int)(*(unsigned char *)s2));
+        if (v == 0) v = -1;
+        return v;
+    }
+}
+
+S3DEXP int s3dstrcasecmp(
+        const char *s1, const char *s2
+        ) {
+    return _s3dstrandmemcasecmp(
+        s1, strlen(s1), s2, strlen(s2)
+    );
+}
+
+S3DEXP int s3dmemcasecmp(
+        const char *s1, const char *s2,
+        size_t cmplen
+        ) {
+    return _s3dstrandmemcasecmp(
+        s1, cmplen, s2, cmplen
+    );
 }
 
 static int is_utf8_start(uint8_t c) {

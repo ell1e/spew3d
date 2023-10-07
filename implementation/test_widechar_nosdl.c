@@ -36,30 +36,16 @@ license, see accompanied LICENSE.md.
 #include "testmain.h"
 
 
-START_TEST (test_stringutil_ReverseBufBytes)
+START_TEST (test_s3dstrcasecmp)
 {
-    char a[] = "";
-    spew3d_stringutil_ReverseBytes(a);
-    assert(strlen(a) == 0);
-    char b[] = "a";
-    spew3d_stringutil_ReverseBytes(b);
-    assert(strlen(b) == 1);
-    assert(b[0] == 'a');
-    char c[] = "abc";
-    spew3d_stringutil_ReverseBytes(c);
-    assert(strlen(c) == 3);
-    assert(c[0] == 'c');
-    assert(c[1] == 'b');
-    assert(c[2] == 'a');
-    char d[] = "abab";
-    spew3d_stringutil_ReverseBytes(d);
-    assert(strlen(d) == 4);
-    assert(d[0] == 'b');
-    assert(d[1] == 'a');
-    assert(d[2] == 'b');
-    assert(d[3] == 'a');
+    ck_assert(s3dstrcasecmp(
+        "a", "A"
+    ) == 0);
+    ck_assert(s3dstrcasecmp(
+        "aB", "A"
+    ) == (int)('B'));
 }
 END_TEST
 
-TESTS_MAIN(test_stringutil_ReverseBufBytes)
+TESTS_MAIN(test_s3dstrcasecmp)
 
