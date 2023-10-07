@@ -1,4 +1,6 @@
 
+![Project logo](logo/logo.png)
+
 Welcome to Spew3D
 =================
 
@@ -139,8 +141,8 @@ system-wide, then use: `make test`
 License
 -------
 
-Spew3D is licensed under a BSD license or an Apache 2
-License, [see here for details](LICENSE.md).
+Spew3D is licensed under a BSD license or the Apache 2
+License (excluding the logo), [see here for details](LICENSE.md).
 It includes other projects baked in, see `vendor` folder in the
 repository.
 
