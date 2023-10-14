@@ -10,7 +10,7 @@ them with no guarantees for completeness or accuracy.)*
 License
 -------
 
-Files outside of the `logo` and `vendor` folder are, unless indicated
+Files outside of the `logo` and `vendor` folders are, unless indicated
 otherwise, licensed under the following **BSD-2-Clause license**:
 
 ```
