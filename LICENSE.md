@@ -261,6 +261,8 @@ starting with "logo".
 The Spew3D Logo and its files may only be used in the official
 unmodified "Spew3D" distribution as maintained by ellie/@ell1e,
 currently found at codeberg.org/Spew3D and github.com/Spew3D.
+These retrictions may be changed in the future, in which case
+they'll apply in their new form form that point forward.
 DON'T DISTRIBUTE MODIFIED SPEW3D VERSIONS WITH THE LOGO, PLEASE DON'T
 USE THE OFFICIAL NAME "Spew3D" FOR THEM EITHER.
 ```
