@@ -141,10 +141,9 @@ system-wide, then use: `make test`
 License
 -------
 
-Spew3D is free and open-source offered under either a BSD license
-or the Apache 2 License (excluding the logo that you can leave
-away), [see here for details](LICENSE.md).
-It includes other projects baked in, see `vendor` folder in the
+Spew3D is free and open-source (other than the logo which isn't
+needed to use it), [see here for details](LICENSE.md).
+It includes other projects baked in, see `vendor` folder in this
 repository.
 
 
