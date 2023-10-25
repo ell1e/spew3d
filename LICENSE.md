@@ -14,7 +14,7 @@ Files outside of the `logo` and `vendor` folders are, unless indicated
 otherwise, licensed under the following **BSD-2-Clause license**:
 
 ```
-Copyright (c) 2020-2023,  ellie/@ell1e & Spew3D Team (see AUTHORS.md).
+Copyright (c) 2020-2023, ellie/@ell1e & Spew3D Team (see AUTHORS.md).
 
 
 Redistribution and use in source and binary forms, with or without
@@ -254,17 +254,16 @@ Logo license
 This concerns the files inside `logo` folder:
 
 ```
-Spew3D Logo is Copyright (C)  2023, ellie/@ell1e. All Rights Reserved.
+Spew3D Logo is Copyright (C) 2023, ellie/@ell1e. All Rights Reserved.
 
 The "Spew3D Logo"'s files are located in `logo/` with the filenames
 starting with "logo".
 The Spew3D Logo and its files may only be used in the official
 unmodified "Spew3D" distribution as maintained by ellie/@ell1e,
 currently found at codeberg.org/Spew3D and github.com/Spew3D.
-These retrictions may be changed in the future, in which case
-they'll apply in their new form form that point forward.
-DON'T DISTRIBUTE MODIFIED SPEW3D VERSIONS WITH THE LOGO, PLEASE DON'T
-USE THE OFFICIAL NAME "Spew3D" FOR THEM EITHER.
+These official places may change in the future, watch out for that.
+DON'T DISTRIBUTE MODIFIED OR UNOFFICIAL SPEW3D VERSIONS WITH THE LOGO,
+PLEASE DON'T USE THE OFFICIAL NAME "Spew3D" FOR THEM EITHER.
 ```
 
 
