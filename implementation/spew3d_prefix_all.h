@@ -63,6 +63,11 @@ license, see accompanied LICENSE.md.
 
 // For <stb/stb_image.h>:
 #define STBI_NO_STDIO
+#define STBI_ONLY_JPEG
+#define STBI_ONLY_PNG
+#define STBI_ONLY_BMP
+#define STBI_ONLY_TGA
+#define STBI_ONLY_PNM
 #ifdef SPEW3D_IMPLEMENTATION
 #define STB_IMAGE_IMPLEMENTATION
 #endif
