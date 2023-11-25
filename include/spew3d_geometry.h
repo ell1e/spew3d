@@ -1,4 +1,4 @@
-/* Copyright (c) 2020-2022, ellie/@ell1e & Spew3D Team (see AUTHORS.md).
+/* Copyright (c) 2020-2023, ellie/@ell1e & Spew3D Team (see AUTHORS.md).
 
 Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions are met:
@@ -62,9 +62,9 @@ typedef struct spew3d_geometry {
 spew3d_geometry *spew3d_geometry_Create();
 
 
-int spew3d_geometry_AddCube(
+S3DEXP int spew3d_geometry_AddCube(
     spew3d_geometry *geometry,
-    double edge_width,
+    s3dnum_t edge_width,
     spew3d_pos *offset,
     spew3d_rotation *rotation,
     spew3d_point *side_texcoord,
