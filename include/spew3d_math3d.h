@@ -38,7 +38,6 @@ typedef struct spew3d_rotation {
     s3dnum_t hori, verti, roll;
 } spew3d_rotation;
 
-
 static inline void spew3d_math3d_add(
         spew3d_pos *p, spew3d_pos *p2
         ) {
@@ -54,42 +53,37 @@ static inline void spew3d_math3d_rotate(
     /// Positive angle gives CW (clockwise) rotation.
     /// X is forward (into screen), Y is left, Z is up.
 
-    double roth = ((double)r->hori / (double)S3D_METER /
-        180.0) * M_PI;
-    double rotv = ((double)r->verti / (double)S3D_METER /
-        180.0) * M_PI;
-    double rotr = ((double)r->roll / (double)S3D_METER /
-        180.0) * M_PI;
+    double roth = (S3D_NUMTODBL(r->hori) * M_PI / 180.0);
+    double rotv = (S3D_NUMTODBL(r->verti) * M_PI / 180.0);
+    double rotr = (S3D_NUMTODBL(r->roll) * M_PI / 180.0);
     double newx, newy, newz;
-    double px = (double)p->x / (double)S3D_METER;
-    double py = (double)p->y / (double)S3D_METER;
-    double pz = (double)p->z / (double)S3D_METER;
+    double px = S3D_NUMTODBL(p->x);
+    double py = S3D_NUMTODBL(p->y);
+    double pz = S3D_NUMTODBL(p->z);
 
     // Roll angle:
     newy = (py) * cos(rotr) + (pz) * sin(rotr);
     newz = (pz) * cos(rotr) - (py) * sin(rotr);
-    p->z = newz * S3D_METER;
-    p->y = newy * S3D_METER;
+    p->z = S3D_DBLTONUM(newz);
+    p->y = S3D_DBLTONUM(newy);
 
-    px = (double)p->x / (double)S3D_METER;
-    py = (double)p->y / (double)S3D_METER;
-    pz = (double)p->z / (double)S3D_METER;
+    py = newy;
+    pz = newz;
 
     // Vertical angle:
     newz = (pz) * cos(rotv) + (px) * sin(rotv);
     newx = (px) * cos(rotv) - (pz) * sin(rotv);
-    p->x = newx * S3D_METER;
-    p->z = newz * S3D_METER;
+    p->x = S3D_DBLTONUM(newx);
+    p->z = S3D_DBLTONUM(newz);
 
-    px = (double)p->x / (double)S3D_METER;
-    py = (double)p->y / (double)S3D_METER;
-    pz = (double)p->z / (double)S3D_METER;
+    px = newx;
+    pz = newz;
 
     // Horizontal angle:
     newy = (py) * cos(roth) + (px) * sin(roth);
     newx = (px) * cos(roth) - (py) * sin(roth);
-    p->x = newx * S3D_METER;
-    p->y = newy * S3D_METER;
+    p->x = S3D_DBLTONUM(newx);
+    p->y = S3D_DBLTONUM(newy);
 }
 
 #endif  // SPEW3D_MATH3D_H_

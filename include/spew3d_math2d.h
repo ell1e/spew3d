@@ -1,4 +1,4 @@
-/* Copyright (c) 2020-2022, ellie/@ell1e & Spew3D Team (see AUTHORS.md).
+/* Copyright (c) 2020-2023, ellie/@ell1e & Spew3D Team (see AUTHORS.md).
 
 Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions are met:
@@ -45,12 +45,13 @@ static inline void spew3d_math2d_rotate(
     /// Rotate a given point around its origin by the given degree.
     /// Positive angle gives CW (clockwise) rotation.
     /// X is right, Y is down.
-    double d_degree = ((double)degree /
-        (double)S3D_METER / 180.0) * M_PI;
-    double newy = (p->y) * cos(d_degree) + (p->x) * sin(d_degree);
-    double newx = (p->x) * cos(d_degree) - (p->y) * sin(d_degree);
-    p->x = newx * S3D_METER;
-    p->y = newy * S3D_METER;
+    double d_degree = (S3D_NUMTODBL(degree) * M_PI) / 180.0;
+    double py_d = S3D_NUMTODBL(p->y);
+    double px_d = S3D_NUMTODBL(p->x);
+    double newy = py_d * cos(d_degree) + px_d * sin(d_degree);
+    double newx = px_d * cos(d_degree) - py_d * sin(d_degree);
+    p->x = S3D_DBLTONUM(newx);
+    p->y = S3D_DBLTONUM(newy);
 }
 
 static inline void spew3d_math2d_rotatecenter(
@@ -71,9 +72,9 @@ static inline s3dnum_t spew3d_math2d_angle(
     /// Angles: (1.0, 0.0) returns 0 degrees angle,
     /// CW rotation increases angle. X is right, Y is down,
     /// (0.0, 1.0) returns 90 degrees angle.
-    return (double)((atan2((double)p->y / (double)S3D_METER,
-        (double)p->x / (double)S3D_METER) / M_PI) * 180.0) *
-        (double)S3D_METER;
+    return (double)((atan2(S3D_NUMTODBL(p->y),
+        S3D_NUMTODBL(p->x)) / M_PI) * 180.0) *
+        (double)S3D_NUMONE;
 }
 
 #endif  // SPEW3D_MATH2D_H_
