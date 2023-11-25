@@ -45,13 +45,13 @@ static inline void spew3d_math2d_rotate(
     /// Rotate a given point around its origin by the given degree.
     /// Positive angle gives CW (clockwise) rotation.
     /// X is right, Y is down.
-    double d_degree = (S3D_NUMTODBL(degree) * M_PI) / 180.0;
-    double py_d = S3D_NUMTODBL(p->y);
-    double px_d = S3D_NUMTODBL(p->x);
+    double d_degree = ((double)degree * M_PI) / 180.0;
+    double py_d = p->y;
+    double px_d = p->x;
     double newy = py_d * cos(d_degree) + px_d * sin(d_degree);
     double newx = px_d * cos(d_degree) - py_d * sin(d_degree);
-    p->x = S3D_DBLTONUM(newx);
-    p->y = S3D_DBLTONUM(newy);
+    p->x = newx;
+    p->y = newy;
 }
 
 static inline void spew3d_math2d_rotatecenter(
@@ -72,9 +72,7 @@ static inline s3dnum_t spew3d_math2d_angle(
     /// Angles: (1.0, 0.0) returns 0 degrees angle,
     /// CW rotation increases angle. X is right, Y is down,
     /// (0.0, 1.0) returns 90 degrees angle.
-    return (double)((atan2(S3D_NUMTODBL(p->y),
-        S3D_NUMTODBL(p->x)) / M_PI) * 180.0) *
-        (double)S3D_NUMONE;
+    return (double)((atan2(p->y, p->x) / M_PI) * 180.0);
 }
 
 #endif  // SPEW3D_MATH2D_H_

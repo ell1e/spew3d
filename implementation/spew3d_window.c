@@ -183,11 +183,11 @@ S3DEXP void spew3d_window_FillWithColor(
     #ifndef SPEW3D_OPTION_DISABLE_SDL
     if (win->virtualwin.canvas == 0) {
         double redv = fmax(0.0, fmin(255.0,
-            S3D_NUMTODBL(red) * 256.0));
+            (double)red * 256.0));
         double greenv = fmax(0.0, fmin(255.0,
-            S3D_NUMTODBL(green) * 256.0));
+            (double)green * 256.0));
         double bluev = fmax(0.0, fmin(255.0,
-            S3D_NUMTODBL(blue) * 256.0));
+            (double)blue * 256.0));
         SDL_SetRenderDrawColor(
             win->_sdl_outputrenderer, redv, greenv, bluev, 255
         );
@@ -268,8 +268,8 @@ S3DEXP spew3d_point spew3d_window_GetWindowSize(
         #endif
     }
     spew3d_point result;
-    result.x = ((s3dnum_t)w) * S3D_NUMONE;
-    result.y = ((s3dnum_t)h) * S3D_NUMONE;
+    result.x = ((s3dnum_t)w);
+    result.y = ((s3dnum_t)h);
     return result;
 }
 
@@ -299,10 +299,8 @@ S3DEXP void spew3d_window_PointToCanvasDrawPixels(
     SDL_Renderer *renderer = NULL;
     spew3d_window_GetSDLWindowAndRenderer(win, &sdlwin, &renderer);
     if (sdlwin == NULL || renderer == NULL) {
-        s3dint128_t x128 = S3D_INT128MULT(point.x, win->virtualwin.dpiscale);
-        s3dint128_t y128 = S3D_INT128MULT(point.y, win->virtualwin.dpiscale);
-        *x = S3D_INT128DIV(x128, S3D_INT128FROM64(S3D_NUMONE)); 
-        *y = S3D_INT128DIV(y128, S3D_INT128FROM64(S3D_NUMONE));
+        *x = (point.x * win->virtualwin.dpiscale);
+        *y = (point.y * win->virtualwin.dpiscale);
         return;
     }
     assert(win->virtualwin.canvas == 0);
@@ -316,8 +314,8 @@ S3DEXP void spew3d_window_PointToCanvasDrawPixels(
     int w, h;
     SDL_RenderGetLogicalSize(renderer, &w, &h);
     if (w != 0 || h != 0) {
-        *x = S3D_NUMTODBL(point.x);
-        *y = S3D_NUMTODBL(point.y);
+        *x = point.x;
+        *y = point.y;
         return;
     }
     int ww, wh;
@@ -325,13 +323,13 @@ S3DEXP void spew3d_window_PointToCanvasDrawPixels(
     if (!SDL_GetRendererOutputSize(
             renderer, &w, &h
             )) {
-        *x = S3D_NUMTODBL(point.x);
-        *y = S3D_NUMTODBL(point.y);
+        *x = point.x;
+        *y = point.y;
         return;
     }
-    *x = round(((double)S3D_NUMTODBL(point.x)) *
+    *x = round(((double)point.x) *
         ((double)w/(double)ww));
-    *y = round(((double)S3D_NUMTODBL(point.y)) *
+    *y = round(((double)point.y) *
         ((double)h/(double)wh));
     #endif  // #ifndef SPEW3D_OPTION_DISABLE_SDL
 }

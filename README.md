@@ -112,21 +112,8 @@ Available options:
   SDL2 and Spew3D items, like creating a Spew3D window from an
   SDL2 window, will no longer be present.
 
-- `SPEW3D_OPTION_DISABLE_EMULATE_INT128`: If defined, Spew3D will
-  never use native 128bit integer types even if present, and
-  instead emulate it with 64bit integers. This will result in
-  many math operations being slower.
-
 - `SPEW3D_DEBUG_OUTPUT`: If defined, Spew3D will print out
   some amount of debug messages for internal diagnostics.
-
-- `SPEW3D_FIXED_POINT`: If defined, `s3dnum_t` will be set to
-  `int64_t` (instead of `double`) and `S3D_METER` for a good
-  one meter unit as well as `S3D_NUMONE` for a value corresponding
-  to 1.0 will be set to `4096` (instead of `1.0`).
-
-  This gives you 64bit fixed point coordinate math with
-  a 12bit fractional number part.
 
 
 Run tests

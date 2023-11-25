@@ -605,7 +605,7 @@ S3DEXP int spew3d_texture_DrawAtCanvasPixels(
         return 0;
     }
 
-    double transparency_dbl = S3D_NUMTODBL(transparency);
+    double transparency_dbl = transparency;
     if (transparency_dbl < (1.0 / 256.0) * 0.5)
         return 1;
 
@@ -613,9 +613,9 @@ S3DEXP int spew3d_texture_DrawAtCanvasPixels(
     if (SDL_GetRenderDrawColor(renderer,
             &old_r, &old_g, &old_b, &old_a) != 0)
         return 0;
-    uint8_t draw_r = fmax(0, fmin(255, S3D_NUMTODBL(tint_red) * 256.0));
-    uint8_t draw_g = fmax(0, fmin(255, S3D_NUMTODBL(tint_green) * 255.0));
-    uint8_t draw_b = fmax(0, fmin(255, S3D_NUMTODBL(tint_blue) * 255.0));
+    uint8_t draw_r = fmax(0, fmin(255, (double)tint_red * 256.0));
+    uint8_t draw_g = fmax(0, fmin(255, (double)tint_green * 255.0));
+    uint8_t draw_b = fmax(0, fmin(255, (double)tint_blue * 255.0));
     uint8_t draw_a = fmax(0, fmin(255, transparency_dbl * 255.0));
     if (draw_a <= 0)
         return 1;

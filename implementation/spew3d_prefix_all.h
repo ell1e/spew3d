@@ -94,40 +94,11 @@ license, see accompanied LICENSE.md.
 #endif
 
 // Number types:
-#if defined(__SIZEOF_INT128__) &&\
-        !defined(SPEW3D_OPTION_DISABLE_EMULATE_INT128)
-typedef __int128 s3dint128_t;
-#else
-typedef struct s3dint128_t_struct {
-    uint64_t highsignificance;
-    int64_t lowsignificance;
-} s3dint128_t_struct;
-typedef s3dint128_t_struct s3dint128_t;
-#endif
-#ifndef SPEW3D_FIXED_POINT
 typedef double s3dnum_t;
-#define S3D_METER (1.0)
-#define S3D_NUMONE S3D_METER
-#define S3D_NUMTODBL(x) ((double)x)
-#define S3D_DBLTONUM(x) ((double)x)
-#define S3D_NUMMULT(x, y) ((double)x * (double)y)
-#define S3D_ABS(x) (fabs(x))
-#else
-#include <stdint.h>
-typedef int64_t s3dnum_t;
 #ifndef S3D_METER
-// Default to 12 bits of fractional part:
-#define S3D_METER (4096)  // (16384)
-#define S3D_NUMONE (4096) // (16384)
-static inline s3dnum_t S3D_ABS(s3dnum_t x) {
-    if (x > 0) return x;
-    return -x;
-}
-#define S3D_NUMMULT(x, y) (S3D_INT128MULT(x, y) / S3D_NUMONE)
-#define S3D_NUMTODBL(x) ((double)x / (double)S3D_NUMONE)
-#define S3D_DBLTONUM(x) ((s3dnum_t)((double)x * (double)S3D_NUMONE))
+#define S3D_METER (1.0)
 #endif
-#endif
+#define S3D_ABS(x) (fabs(x))
 #ifndef S3D_BIGNUM_MAXFRACTIONDIGITS
 #define S3D_BIGNUM_MAXFRACTIONDIGITS 200
 #endif

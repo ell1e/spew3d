@@ -53,37 +53,37 @@ static inline void spew3d_math3d_rotate(
     /// Positive angle gives CW (clockwise) rotation.
     /// X is forward (into screen), Y is left, Z is up.
 
-    double roth = (S3D_NUMTODBL(r->hori) * M_PI / 180.0);
-    double rotv = (S3D_NUMTODBL(r->verti) * M_PI / 180.0);
-    double rotr = (S3D_NUMTODBL(r->roll) * M_PI / 180.0);
+    double roth = (r->hori * M_PI / 180.0);
+    double rotv = (r->verti * M_PI / 180.0);
+    double rotr = (r->roll * M_PI / 180.0);
     double newx, newy, newz;
-    double px = S3D_NUMTODBL(p->x);
-    double py = S3D_NUMTODBL(p->y);
-    double pz = S3D_NUMTODBL(p->z);
+    double px = p->x;
+    double py = p->y;
+    double pz = p->z;
 
     // Roll angle:
-    newy = (py) * cos(rotr) + (pz) * sin(rotr);
-    newz = (pz) * cos(rotr) - (py) * sin(rotr);
-    p->z = S3D_DBLTONUM(newz);
-    p->y = S3D_DBLTONUM(newy);
+    newy = py * cos(rotr) + pz * sin(rotr);
+    newz = pz * cos(rotr) - py * sin(rotr);
+    p->z = newz;
+    p->y = newy;
 
     py = newy;
     pz = newz;
 
     // Vertical angle:
-    newz = (pz) * cos(rotv) + (px) * sin(rotv);
-    newx = (px) * cos(rotv) - (pz) * sin(rotv);
-    p->x = S3D_DBLTONUM(newx);
-    p->z = S3D_DBLTONUM(newz);
+    newz = pz * cos(rotv) + px * sin(rotv);
+    newx = px * cos(rotv) - pz * sin(rotv);
+    p->x = newx;
+    p->z = newz;
 
     px = newx;
     pz = newz;
 
     // Horizontal angle:
-    newy = (py) * cos(roth) + (px) * sin(roth);
-    newx = (px) * cos(roth) - (py) * sin(roth);
-    p->x = S3D_DBLTONUM(newx);
-    p->y = S3D_DBLTONUM(newy);
+    newy = py * cos(roth) + px * sin(roth);
+    newx = px * cos(roth) - py * sin(roth);
+    p->x = newx;
+    p->y = newy;
 }
 
 #endif  // SPEW3D_MATH3D_H_
