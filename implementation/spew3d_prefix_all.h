@@ -111,6 +111,7 @@ typedef double s3dnum_t;
 #define S3D_NUMTODBL(x) ((double)x)
 #define S3D_DBLTONUM(x) ((double)x)
 #else
+#include <stdint.h>
 typedef int64_t s3dnum_t;
 #ifndef S3D_METER
 // Default to 12 bits of fractional part:
