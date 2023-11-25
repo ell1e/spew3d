@@ -121,9 +121,12 @@ Available options:
   some amount of debug messages for internal diagnostics.
 
 - `SPEW3D_FIXED_POINT`: If defined, `s3dnum_t` will be set to
-  `int64_t` (instead of `double`) and `S3D_METER` will be set
-  to `4096` (instead of `1.0`). This gives you 64bit fixed point
-  coordinate math with a 12bit fractional number part.
+  `int64_t` (instead of `double`) and `S3D_METER` for a good
+  one meter unit as well as `S3D_ONE` for a value corresponding
+  to 1.0 will be set to `4096` (instead of `1.0`).
+
+  This gives you 64bit fixed point coordinate math with
+  a 12bit fractional number part.
 
 
 Run tests
