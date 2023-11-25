@@ -25,6 +25,9 @@ amalgamate: update-vendor-if-needed
 	rm -f .spew3d_ifdef
 	rm -f .spew3d_ifndef
 
+reset-deps:
+	git submodule foreach --recursive git reset --hard && git submodule foreach --recursive git clean -xfd && git submodule update --init
+
 build-tests:
 	cd examples && $(MAKE) clean && $(MAKE) CC="$(CC)"
 
