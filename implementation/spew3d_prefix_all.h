@@ -118,7 +118,7 @@ typedef int64_t s3dnum_t;
 #define S3D_METER (4096)
 #define S3D_NUMONE (4096)
 #define S3D_NUMTODBL(x) ((double)x / (double)S3D_NUMONE)
-#define S3D_DBLTONUM(x) ((s3d_num_t)((double)x * (double)S3D_NUMONE))
+#define S3D_DBLTONUM(x) ((s3dnum_t)((double)x * (double)S3D_NUMONE))
 #endif
 #endif
 #ifndef S3D_BIGNUM_MAXFRACTIONDIGITS
