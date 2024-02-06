@@ -58,10 +58,11 @@ START_TEST (test_utf8_str_to_lowercase)
     );
     ck_assert(result != NULL);
     ck_assert(strlen(input) == strlen(result));
-    ck_assert(memcmp(input, result, strlen(input) + 1) == 0);
+    ck_assert(memcmp(expected, result, strlen(input) + 1) == 0);
     free(result);
 }
 END_TEST
 
-TESTS_MAIN(test_s3dstrcasecmp)
+TESTS_MAIN(test_s3dstrcasecmp,
+    test_utf8_str_to_lowercase)
 
