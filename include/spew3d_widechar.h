@@ -70,6 +70,8 @@ S3DEXP void utf8_char_to_lowercase(
     char *out_lowercased
 );
 
+S3DEXP int s3dcmp(const char *s1, const char *s2);
+
 S3DEXP int s3dstrcasecmp(
     const char *s1, const char *s2
 );

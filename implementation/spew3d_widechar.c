@@ -364,6 +364,21 @@ S3DEXP void utf8_char_to_lowercase(
     }
 }
 
+S3DEXP int s3dcmp(const char *s1, const char *s2) {
+    size_t s1len = strlen(s1);
+    size_t s2len = strlen(s2);
+    if (S3DLIKELY(s1len == s2len)) {
+        return memcmp(s1, s2, s1len);
+    }
+    if (s1len > s2len) {
+        assert(s1[s2len] != 0);
+        return s1[s2len];
+    } else {
+        assert(s2[s1len] != 0);
+        return s2[s1len];
+    }
+}
+
 S3DHID int _s3dstrandmemcasecmp(
         const char *s1, size_t s1len,
         const char *s2, size_t s2len
