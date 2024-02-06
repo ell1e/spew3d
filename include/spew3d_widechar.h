@@ -57,6 +57,12 @@ S3DEXP int write_codepoint_as_utf8(
     char *out, int outbuflen, int *outlen
 );
 
+S3DEXP void utf8_str_to_lowercase(
+    const char *s, size_t slen,
+    size_t *out_bufsize,
+    char **out_s, size_t *out_slen
+);
+
 S3DEXP void utf8_char_to_lowercase(
     const char *s, size_t slen,
     int *out_origbyteslen,

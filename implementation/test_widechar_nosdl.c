@@ -1,4 +1,4 @@
-/* Copyright (c) 2023, ellie/@ell1e & Spew3D Team (see AUTHORS.md).
+/* Copyright (c) 2023-2024, ellie/@ell1e & Spew3D Team (see AUTHORS.md).
 
 Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions are met:
@@ -44,6 +44,22 @@ START_TEST (test_s3dstrcasecmp)
     ck_assert(s3dstrcasecmp(
         "aB", "A"
     ) == (int)('B'));
+}
+END_TEST
+
+START_TEST (test_utf8_str_to_lowercase)
+{
+    char input[] = "aBCtest❗Z";
+    char expected[] = "abctest❗z";
+    char *result = NULL;
+    utf8_str_to_lowercase(
+        input, strlen(input), NULL, &result,
+        NULL
+    );
+    ck_assert(result != NULL);
+    ck_assert(strlen(input) == strlen(result));
+    ck_assert(memcmp(input, result, strlen(input) + 1) == 0);
+    free(result);
 }
 END_TEST
 

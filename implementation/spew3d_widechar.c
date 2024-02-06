@@ -278,6 +278,64 @@ S3DEXP uint16_t *AS_U16(const char *s) {
     #endif
 }
 
+S3DEXP void utf8_str_to_lowercase(
+        const char *s, size_t slen,
+        size_t *out_bufsize,
+        char **out_s, size_t *out_slen) {
+    char buf[12];
+    int can_realloc = 0;
+    size_t writtentotal = 0;
+    size_t alloc_size = 0;
+    if (out_bufsize != NULL) alloc_size = *out_bufsize;
+    if (alloc_size == 0) {
+        can_realloc = 1;
+        alloc_size = slen * 5;
+        *out_s = malloc(alloc_size + 1);
+        if (!*out_s) {
+            if (out_slen) *out_slen = 0;
+            if (out_bufsize) *out_bufsize = 0;
+            return;
+        }
+        if (out_bufsize) *out_bufsize = alloc_size;
+    }
+    char *writeptr = *out_s;
+    const char *send = s + slen;
+    while (s < send) {
+        assert(slen > 0);
+        int bytesread = 0;
+        int byteswritten = 0;
+        utf8_char_to_lowercase(s, slen,
+            &bytesread, &byteswritten, buf);
+        assert(byteswritten > 0 && bytesread > 0);
+        if (writtentotal + (size_t)byteswritten + 1 >
+                alloc_size) {
+            free(*out_s);
+            *out_s = NULL;
+            if (out_slen) *out_slen = 0;
+            if (out_bufsize) *out_bufsize = 0;
+            return;
+        }
+        memcpy(writeptr, buf, byteswritten);
+        s += bytesread;
+        writeptr += byteswritten;
+        slen -= bytesread;
+        writtentotal += byteswritten;
+    }
+    *writeptr = '\0';
+    if (out_slen) *out_slen = writtentotal;
+    if (alloc_size > writtentotal + 15 && can_realloc) {
+        char *shrunk = realloc(*out_s, writtentotal + 1);
+        if (!shrunk) {
+            free(*out_s);
+            *out_s = NULL;
+            if (out_slen) *out_slen = 0;
+            if (out_bufsize) *out_bufsize = 0;
+            return;
+        }
+        if (out_bufsize) *out_bufsize = writtentotal + 1;
+    }
+}
+
 S3DEXP void utf8_char_to_lowercase(
         const char *s, size_t slen,
         int *out_origbyteslen,
