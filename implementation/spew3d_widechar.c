@@ -332,6 +332,7 @@ S3DEXP void utf8_str_to_lowercase(
             if (out_bufsize) *out_bufsize = 0;
             return;
         }
+        *out_s = shrunk;
         if (out_bufsize) *out_bufsize = writtentotal + 1;
     }
 }
