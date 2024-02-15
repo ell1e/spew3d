@@ -1,4 +1,4 @@
-/* Copyright (c) 2020-2022, ellie/@ell1e & Spew3D Team (see AUTHORS.md).
+/* Copyright (c) 2020-2024, ellie/@ell1e & Spew3D Team (see AUTHORS.md).
 
 Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions are met:
@@ -37,7 +37,7 @@ license, see accompanied LICENSE.md.
 #include <unistd.h>
 #endif
 
-uint64_t spew3d_time_Ticks() {
+S3DEXP uint64_t spew3d_time_Ticks() {
     #if defined(_WIN32) || defined(_WIN64)
     return GetTickCount64();
     #else
@@ -49,7 +49,7 @@ uint64_t spew3d_time_Ticks() {
     #endif
 }
 
-void spew3d_time_Sleep(uint64_t sleepms) {
+S3DEXP void spew3d_time_Sleep(uint64_t sleepms) {
     if (sleepms <= 0)
         return;
     #if defined(_WIN32) || defined(_WIN64)

@@ -51,13 +51,6 @@ S3DEXP spew3d_window *spew3d_window_New(
 
 #if !defined(SPEW3D_OPTION_DISABLE_SDL) &&\
         !defined(SPEW3D_OPTION_DISABLE_SDL_HEADER)
-S3DEXP spew3d_window *spew3d_window_NewFromSDLWindowAndRenderer(
-    uint32_t flags, SDL_Window *sdlwin, SDL_Renderer *sdlrenderer
-);
-#endif
-
-#if !defined(SPEW3D_OPTION_DISABLE_SDL) &&\
-        !defined(SPEW3D_OPTION_DISABLE_SDL_HEADER)
 S3DEXP void spew3d_window_GetSDLWindowAndRenderer(
     spew3d_window *win, SDL_Window **out_sdlwindow,
     SDL_Renderer **out_sdlrenderer
@@ -121,5 +114,17 @@ S3DEXP const char *spew3d_window_GetTitle(
 S3DEXP spew3d_point spew3d_window_GetWindowSize(
     spew3d_window *win
 );
+
+/// Destroy the given window. Obviously, don't use it anymore
+/// after that, since the data structure will eventually be
+/// free'd.
+S3DEXP void spew3d_window_Destroy(spew3d_window *win);
+
+/// Call this in your main loop on your main thread. Will cause
+/// crashes and worse if you calling this on any other thread
+/// than the main thread.
+S3DEXP void spew3d_window_MainThreadUpdate(void);
+
+S3DHID void spew3d_window_UpdateGeometryInfo(spew3d_window *win);
 
 #endif  // SPEW3D_WINDOW_H_

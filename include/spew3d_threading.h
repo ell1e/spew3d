@@ -1,4 +1,4 @@
-/* Copyright (c) 2020-2022, ellie/@ell1e & Spew3D Team (see AUTHORS.md).
+/* Copyright (c) 2020-2024, ellie/@ell1e & Spew3D Team (see AUTHORS.md).
 
 Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions are met:
@@ -28,7 +28,6 @@ license, see accompanied LICENSE.md.
 #ifndef SPEW3D_THREADING_H_
 #define SPEW3D_THREADING_H_
 
-
 typedef struct s3d_mutex s3d_mutex;
 
 typedef struct s3d_semaphore s3d_semaphore;
@@ -37,66 +36,56 @@ typedef struct s3d_threadinfo s3d_threadinfo;
 
 typedef struct s3d_tevent s3d_tevent;
 
+S3DEXP s3d_semaphore *semaphore_Create(int value);
 
-s3d_semaphore *semaphore_Create(int value);
+S3DEXP void semaphore_Wait(s3d_semaphore *s);
 
+S3DEXP void semaphore_Post(s3d_semaphore *s);
 
-void semaphore_Wait(s3d_semaphore *s);
+S3DEXP void semaphore_Destroy(s3d_semaphore *s);
 
+S3DEXP s3d_mutex *mutex_Create();
 
-void semaphore_Post(s3d_semaphore *s);
+S3DEXP void mutex_Lock(s3d_mutex *m);
 
+S3DEXP int mutex_TryLock(s3d_mutex *m);
 
-void semaphore_Destroy(s3d_semaphore *s);
+S3DEXP int mutex_IsLocked(s3d_mutex *m);
 
-
-s3d_mutex *mutex_Create();
-
-
-void mutex_Lock(s3d_mutex *m);
-
-
-int mutex_TryLock(s3d_mutex *m);
-
-
-int mutex_TryLockWithTimeout(
+S3DEXP int mutex_TryLockWithTimeout(
     s3d_mutex *m, int32_t timeoutms
 );
 
+S3DEXP void mutex_Release(s3d_mutex *m);
 
-void mutex_Release(s3d_mutex *m);
+S3DEXP void mutex_Destroy(s3d_mutex *m);
 
-
-void mutex_Destroy(s3d_mutex *m);
-
-
-s3d_threadinfo *thread_Spawn(
+S3DEXP s3d_threadinfo *thread_Spawn(
     void (*func)(void *userdata),
     void *userdata
 );
 
+#define S3DTHREAD_PRIO_LOW 1
+#define S3DTHREAD_PRIO_NORMAL 2
+#define S3DTHREAD_PRIO_HIGH 3
 
-#define THREAD_PRIO_LOW 1
-#define THREAD_PRIO_NORMAL 2
-#define THREAD_PRIO_HIGH 3
-
-s3d_threadinfo *thread_SpawnWithPriority(
+S3DEXP s3d_threadinfo *thread_SpawnWithPriority(
     int priority,
     void (*func)(void* userdata), void *userdata
 );
 
-s3d_tevent *threadevent_Create();
+S3DEXP s3d_tevent *threadevent_Create();
 
-void threadevent_Free(s3d_tevent *e);
+S3DEXP void threadevent_Free(s3d_tevent *e);
 
-void thread_Detach(s3d_threadinfo *t);
+S3DEXP void thread_Detach(s3d_threadinfo *t);
 
-void thread_Join(s3d_threadinfo *t);
+S3DEXP void thread_Join(s3d_threadinfo *t);
 
-int thread_InMainThread();
+S3DEXP int thread_InMainThread();
 
-void threadevent_Wait(s3d_tevent *e);
+S3DEXP void threadevent_Wait(s3d_tevent *e);
 
-void threadevent_Set(s3d_tevent *e);
+S3DEXP void threadevent_Set(s3d_tevent *e);
 
 #endif  // SPEW3D_THREADING_H_

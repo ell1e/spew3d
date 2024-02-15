@@ -227,7 +227,7 @@ spew3d_imgload_job *spew3d_imgload_NewJob(
     if (_imgloader_process_thread == NULL) {
         _imgloader_process_thread = (
             thread_SpawnWithPriority(
-                THREAD_PRIO_HIGH, _spew3d_imgload_JobThread,
+                S3DTHREAD_PRIO_LOW, _spew3d_imgload_JobThread,
                 NULL
             )
         );

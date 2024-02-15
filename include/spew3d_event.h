@@ -1,4 +1,4 @@
-/* Copyright (c) 2020-2024, ellie/@ell1e & Spew3D Team (see AUTHORS.md).
+/* Copyright (c) 2024, ellie/@ell1e & Spew3D Team (see AUTHORS.md).
 
 Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions are met:
@@ -25,14 +25,57 @@ Alternatively, at your option, this file is offered under the Apache 2
 license, see accompanied LICENSE.md.
 */
 
-#ifndef SPEW3D_TIME_H_
-#define SPEW3D_TIME_H_
+#ifndef SPEW3D_EVENT_H_
+#define SPEW3D_EVENT_H_
 
 #include <stdint.h>
 
-S3DEXP uint64_t spew3d_time_Ticks();
+enum S3DEventType {
+    S3DEV_INVALID = 0,
 
-S3DEXP void spew3d_time_Sleep(uint64_t sleepms);
+    S3DEV_WINDOW_CLOSED = 1,
+    S3DEV_WINDOW_RESIZED,
+    S3DEV_WINDOW_USER_CLOSE_REQUEST,
 
-#endif  // SPEW3D_TIME_H_
+    S3DEV_APP_QUIT_REQUEST = 30,
+
+    S3DEV_INTERNAL_CMD_WIN_OPEN = 10000,
+    S3DEV_INTERNAL_CMD_WIN_UPDATECANVAS,
+    S3DEV_INTERNAL_CMD_DRAWPRIMITIVE_WINFILL,
+    S3DEV_INTERNAL_CMD_WIN_CLOSE,
+    S3DEV_INTERNAL_CMD_WIN_DESTROY,
+
+    S3DEV_DUMMY = 99999
+};
+
+typedef struct s3devent {
+    int type;
+    union {
+        struct window {
+            uint32_t win_id;
+        } window;
+        struct drawprimitive {
+            uint32_t win_id;
+            double red, green, blue;
+        } drawprimitive;
+    };
+} s3devent;
+
+typedef struct s3dequeue s3dequeue;
+
+S3DEXP s3dequeue *s3devent_GetMainQueue();
+
+S3DHID s3dequeue *_s3devent_GetInternalQueue();
+
+s3dequeue *s3devent_q_Create();
+
+S3DEXP int s3devent_q_Insert(s3dequeue *eq, const s3devent *ev);
+
+S3DEXP int s3devent_q_IsEmpty(s3dequeue *eq);
+
+S3DEXP int s3devent_q_Pop(s3dequeue *eq, s3devent *writeto);
+
+void s3devent_q_Free(s3dequeue *ev);
+
+#endif  // SPEW3D_EVENT_H_
 
