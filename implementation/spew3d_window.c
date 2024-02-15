@@ -71,12 +71,17 @@ S3DHID __attribute__((constructor)) void _ensure_winid_mutex() {
     }
 }
 
+S3DHID uint32_t _spew3d_window_MakeNewID_nolock() {
+    _last_window_id += 1;
+    uint32_t result = _last_window_id;
+    return result;
+}
+
 S3DHID uint32_t spew3d_window_MakeNewID() {
     _ensure_winid_mutex();
     assert(_win_id_mutex != NULL);
     mutex_Lock(_win_id_mutex);
-    _last_window_id += 1;
-    uint32_t result = _last_window_id;
+    uint32_t result = _spew3d_window_MakeNewID_nolock();
     mutex_Release(_win_id_mutex);
     return result;
 }
@@ -123,7 +128,7 @@ S3DHID static spew3d_window *spew3d_window_NewExEx(
     }
     memset(win, 0, sizeof(*win));
 
-    win->id = spew3d_window_MakeNewID();
+    win->id = _spew3d_window_MakeNewID_nolock();
     if (width <= 0) width = 800;
     if (height <= 0) height = 500;
     win->width = width;
