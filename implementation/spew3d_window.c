@@ -232,7 +232,7 @@ S3DHID int _spew3d_window_HandleSDLEvent(SDL_Event *e) {
     if (e->type == SDL_QUIT) {
         s3devent e2 = {0};
         e2.type = S3DEV_APP_QUIT_REQUEST;
-        _s3devent_q_InsertForce(eq, &e2);
+        _s3devent_q_InsertForce(equser, &e2);
         mutex_Lock(_win_id_mutex);
         int i = 0;
         while (i < _global_win_registry_fill) {
@@ -243,7 +243,7 @@ S3DHID int _spew3d_window_HandleSDLEvent(SDL_Event *e) {
             memset(&e2, 0, sizeof(e2));
             e2.type = S3DEV_WINDOW_USER_CLOSE_REQUEST;
             e2.window.win_id = _global_win_registry[i]->id;
-            _s3devent_q_InsertForce(eq, &e2);
+            _s3devent_q_InsertForce(equser, &e2);
             i++;
         }
         mutex_Release(_win_id_mutex);
@@ -254,10 +254,11 @@ S3DHID int _spew3d_window_HandleSDLEvent(SDL_Event *e) {
             s3devent e2 = {0};
             e2.type = S3DEV_WINDOW_USER_CLOSE_REQUEST;
             e2.window.win_id = win->id;
-            _s3devent_q_InsertForce(eq, &e2);
+            _s3devent_q_InsertForce(equser, &e2);
         }
         return 1;
     }
+    return 0;
 }
 #endif
 
@@ -271,71 +272,71 @@ S3DHID int _spew3d_window_ProcessWinCloseReq(s3devent *ev);
 
 S3DHID int _spew3d_window_ProcessWinDestroyReq(s3devent *ev);
 
-S3DEXP void spew3d_window_MainThreadUpdate() {
+S3DEXP int spew3d_window_MainThreadProcessEvent(s3devent *e) {
     thread_MarkAsMainThread();
 
     _ensure_winid_mutex();
     assert(_win_id_mutex != NULL);
     s3dequeue *eq = _s3devent_GetInternalQueue();
-    assert(eq != NULL);
 
-    while (1) {
-        s3devent e = {0};
-        if (!s3devent_q_Pop(eq, &e))
-            break;
-
-        mutex_Lock(_win_id_mutex);
-        if (e.type == S3DEV_INTERNAL_CMD_WIN_OPEN) {
-            if (!_spew3d_window_ProcessWinOpenReq(&e)) {
-                mutex_Release(_win_id_mutex);
-                _s3devent_q_InsertForce(eq, &e);
-                continue;
-            }
-        } else if (e.type == S3DEV_INTERNAL_CMD_WIN_UPDATECANVAS) {
-            if (!_spew3d_window_ProcessWinUpdateCanvasReq(&e)) {
-                mutex_Release(_win_id_mutex);
-                s3devent_q_Insert(eq, &e);
-                continue;
-            }
-        } else if (e.type == S3DEV_INTERNAL_CMD_WIN_CLOSE) {
-            if (!_spew3d_window_ProcessWinCloseReq(&e)) {
-                mutex_Release(_win_id_mutex);
-                _s3devent_q_InsertForce(eq, &e);
-                continue;
-            }
-        } else if (e.type == S3DEV_INTERNAL_CMD_DRAWPRIMITIVE_WINFILL) {
-            if (!_spew3d_window_ProcessWinDrawFillReq(&e)) {
-                mutex_Release(_win_id_mutex);
-                s3devent_q_Insert(eq, &e);
-                continue;
-            }
-        } else if (e.type == S3DEV_INTERNAL_CMD_WIN_DESTROY) {
-            while (!_spew3d_window_ProcessWinCloseReq(&e)) {
-                mutex_Release(_win_id_mutex);
-                spew3d_time_Sleep(10);
-                mutex_Lock(_win_id_mutex);
-            }
-            int i = 0;
-            while (i < _global_win_registry_fill) {
-                if (_global_win_registry[i]->id == e.window.win_id) {
-                    _spew3d_window_FreeContents(
-                        _global_win_registry[i]);
-                    free(_global_win_registry[i]);
-                    if (i + 1 < _global_win_registry_fill)
-                        memmove(
-                            &_global_win_registry[i],
-                            &_global_win_registry[i + 1],
-                            sizeof(*_global_win_registry) *
-                                (_global_win_registry_fill - 2)
-                        );
-                    _global_win_registry_fill--;
-                    continue;
-                }
-                i++;
-            }
+    mutex_Lock(_win_id_mutex);
+    if (e->type == S3DEV_INTERNAL_CMD_WIN_OPEN) {
+        if (!_spew3d_window_ProcessWinOpenReq(e)) {
+            mutex_Release(_win_id_mutex);
+            _s3devent_q_InsertForce(eq, e);
         }
         mutex_Release(_win_id_mutex);
+        return 1;
+    } else if (e->type == S3DEV_INTERNAL_CMD_WIN_UPDATECANVAS) {
+        if (!_spew3d_window_ProcessWinUpdateCanvasReq(e)) {
+            mutex_Release(_win_id_mutex);
+            s3devent_q_Insert(eq, e);
+        }
+        mutex_Release(_win_id_mutex);
+        return 1;
+    } else if (e->type == S3DEV_INTERNAL_CMD_WIN_CLOSE) {
+        if (!_spew3d_window_ProcessWinCloseReq(e)) {
+            mutex_Release(_win_id_mutex);
+            _s3devent_q_InsertForce(eq, e);
+        }
+        mutex_Release(_win_id_mutex);
+        return 1;
+    } else if (e->type == S3DEV_INTERNAL_CMD_DRAWPRIMITIVE_WINFILL) {
+        if (!_spew3d_window_ProcessWinDrawFillReq(e)) {
+            mutex_Release(_win_id_mutex);
+            s3devent_q_Insert(eq, e);
+        }
+        mutex_Release(_win_id_mutex);
+        return 1;
+    } else if (e->type == S3DEV_INTERNAL_CMD_WIN_DESTROY) {
+        while (!_spew3d_window_ProcessWinCloseReq(e)) {
+            mutex_Release(_win_id_mutex);
+            spew3d_time_Sleep(10);
+            mutex_Lock(_win_id_mutex);
+        }
+        int i = 0;
+        while (i < _global_win_registry_fill) {
+            if (_global_win_registry[i]->id == e->window.win_id) {
+                _spew3d_window_FreeContents(
+                    _global_win_registry[i]);
+                free(_global_win_registry[i]);
+                if (i + 1 < _global_win_registry_fill)
+                    memmove(
+                        &_global_win_registry[i],
+                        &_global_win_registry[i + 1],
+                        sizeof(*_global_win_registry) *
+                            (_global_win_registry_fill - 2)
+                    );
+                _global_win_registry_fill--;
+                continue;
+            }
+            i++;
+        }
+        mutex_Release(_win_id_mutex);
+        return 1;
     }
+    mutex_Release(_win_id_mutex);
+    return 0;
 }
 
 S3DHID int _spew3d_window_ProcessWinOpenReq(s3devent *ev) {
@@ -348,8 +349,9 @@ S3DHID int _spew3d_window_ProcessWinOpenReq(s3devent *ev) {
 
     assert(mutex_IsLocked(_win_id_mutex));
     spew3d_window *win = _spew3d_window_GetByIDLocked(ev->window.win_id);
-    if (!win)
+    if (!win) {
         return 1;
+    }
 
     uint32_t flags = win->flags;
     if ((flags & SPEW3D_WINDOW_FLAG_FORCE_HIDDEN_VIRTUAL) == 0) {
@@ -613,18 +615,7 @@ S3DEXP void spew3d_window_PointToCanvasDrawPixels(
         int32_t *x, int32_t *y
         ) {
     mutex_Lock(_win_id_mutex);
-    if (win->canvaswidth == 0 || win->dpiscale == 0) {
-        while (1) {
-            mutex_Release(_win_id_mutex);
-            if (thread_InMainThread())
-                spew3d_window_MainThreadUpdate();
-            spew3d_time_Sleep(10);
-            mutex_Lock(_win_id_mutex);
-            if (win->canvaswidth != 0 && win->dpiscale != 0) {
-                break;
-            }
-        }
-    }
+    _spew3d_window_WaitForCanvasInfo(win);
     *x = round((double)point.x * win->dpiscale);
     *y = round((double)point.y * win->dpiscale);
     mutex_Release(_win_id_mutex);
@@ -634,12 +625,18 @@ S3DHID void spew3d_window_UpdateGeometryInfo(spew3d_window *win) {
     assert(mutex_IsLocked(_win_id_mutex));
 
     #ifndef SPEW3D_OPTION_DISABLE_SDL
-    if (win->_sdl_outputwindow == NULL) {
+    if (win->_sdl_outputwindow != NULL) {
         SDL_Renderer *renderer = NULL;
         SDL_Window *swin = win->_sdl_outputwindow;
         spew3d_window_GetSDLWindowAndRenderer(win, NULL, &renderer);
         if (!renderer) {
             win->dpiscale = 1;
+            int w = win->width;
+            int h = win->height;
+            if (w < 1)
+                w = 1;
+            if (h < 1)
+                h = 1;
             win->canvaswidth = win->width;
             win->canvasheight = win->height;
             return;
@@ -668,19 +665,35 @@ S3DHID void spew3d_window_UpdateGeometryInfo(spew3d_window *win) {
             wh = 1;
         win->width = ww;
         win->height = wh;
+    } else {
+        if (win->width < 1) win->width = 1;
+        if (win->height < 1) win->height = 1;
+        if (win->canvaswidth < 1) win->canvaswidth = 1;
+        if (win->canvasheight < 1) win->canvasheight = 1;
     }
     #endif  // #ifndef SPEW3D_OPTION_DISABLE_SDL
     win->dpiscale = (double)(((double)win->width) /
         (double)win->canvaswidth);
 }
 
-S3DEXP int32_t spew3d_window_GetCanvasDrawWidth(spew3d_window *win) {
-    mutex_Lock(_win_id_mutex);
+S3DHID void _spew3d_window_WaitForCanvasInfo(spew3d_window *win) {
+    assert(mutex_IsLocked(_win_id_mutex));
+    int showedwarning = 0;
+    uint64_t waitstart = spew3d_time_Ticks();
     if (win->canvaswidth == 0 || win->dpiscale == 0) {
         while (1) {
             mutex_Release(_win_id_mutex);
             if (thread_InMainThread())
-                spew3d_window_MainThreadUpdate();
+                s3devent_UpdateMainThread();
+            if (!showedwarning &&
+                    spew3d_time_Ticks() > waitstart + 2000) {
+                printf("spew3d_window.c: warning: "
+                    "Stuck waiting for canvas info for more than "
+                    "2 seconds, regarding window with id %d "
+                    "(main thread: %s)\n",
+                    (int)win->id, (thread_InMainThread() ? "yes" : "no"));
+                showedwarning = 1;
+            }
             spew3d_time_Sleep(10);
             mutex_Lock(_win_id_mutex);
             if (win->canvaswidth != 0 && win->dpiscale != 0) {
@@ -688,24 +701,18 @@ S3DEXP int32_t spew3d_window_GetCanvasDrawWidth(spew3d_window *win) {
             }
         }
     }
+}
+
+S3DEXP int32_t spew3d_window_GetCanvasDrawWidth(spew3d_window *win) {
+    mutex_Lock(_win_id_mutex);
+    _spew3d_window_WaitForCanvasInfo(win);
     mutex_Release(_win_id_mutex);
     return win->canvaswidth;
 }
 
 S3DEXP int32_t spew3d_window_GetCanvasDrawHeight(spew3d_window *win) {
     mutex_Lock(_win_id_mutex);
-    if (win->canvaswidth == 0 || win->dpiscale == 0) {
-        while (1) {
-            mutex_Release(_win_id_mutex);
-            if (thread_InMainThread())
-                spew3d_window_MainThreadUpdate();
-            spew3d_time_Sleep(10);
-            mutex_Lock(_win_id_mutex);
-            if (win->canvaswidth != 0 && win->dpiscale != 0) {
-                break;
-            }
-        }
-    }
+    _spew3d_window_WaitForCanvasInfo(win);
     mutex_Release(_win_id_mutex);
     return win->canvasheight;
 }

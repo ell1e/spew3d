@@ -107,7 +107,17 @@ S3DEXP int s3devent_q_Insert(s3dequeue *eq, const s3devent *ev) {
         eq->array = new_array;
         eq->alloc = newalloc;
     }
-    memcpy(&eq->array[eq->fill], eq, sizeof(*ev));
+    #if defined(DEBUG_SPEW3D_EVENT)
+    if (!S3DEV_TYPE_IS_INTERNAL(ev->type)) {
+        printf("spew3d_event.c: debug: "
+            "Inserted non-internal event (queue %p): "
+            "event type %d\n",
+            eq, (int)ev->type);
+    }
+    #endif
+    memcpy(&eq->array[eq->fill], ev, sizeof(*ev));
+    assert(eq->array[eq->fill].type == ev->type);
+    eq->fill++;
     mutex_Release(eq->accesslock);
     return 1;
 }
@@ -163,7 +173,19 @@ S3DEXP void s3devent_UpdateMainThread() {
         _spew3d_window_HandleSDLEvent(&e);
     }
     #endif
-    spew3d_window_MainThreadUpdate(); 
+    s3dequeue *eq = _s3devent_GetInternalQueue();
+    assert(eq != NULL);
+
+    while (1) {
+        s3devent e = {0};
+        if (!s3devent_q_Pop(eq, &e))
+            break;
+
+        assert(e.type != S3DEV_INVALID);
+        if (!spew3d_window_MainThreadProcessEvent(&e)) {
+            spew3d_texture_MainThreadProcessEvent(&e);
+        }
+    }
 }
 
 #endif  // SPEW3D_IMPLEMENTATION

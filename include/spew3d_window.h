@@ -1,4 +1,4 @@
-/* Copyright (c) 2020-2023, ellie/@ell1e & Spew3D Team (see AUTHORS.md).
+/* Copyright (c) 2020-2024, ellie/@ell1e & Spew3D Team (see AUTHORS.md).
 
 Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions are met:
@@ -129,8 +129,10 @@ S3DEXP void spew3d_window_Destroy(spew3d_window *win);
 /// Call this in your main loop on your main thread. Will cause
 /// crashes and worse if you calling this on any other thread
 /// than the main thread.
-S3DEXP void spew3d_window_MainThreadUpdate(void);
+S3DEXP int spew3d_window_MainThreadProcessEvent(s3devent *e);
 
 S3DHID void spew3d_window_UpdateGeometryInfo(spew3d_window *win);
+
+S3DHID void _spew3d_window_WaitForCanvasInfo(spew3d_window *win);
 
 #endif  // SPEW3D_WINDOW_H_

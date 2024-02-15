@@ -1,4 +1,5 @@
 
+#define DEBUG_SPEW3D_EVENT
 #define SPEW3D_IMPLEMENTATION
 #include <spew3d.h>
 #undef SPEW3D_IMPLEMENTATION

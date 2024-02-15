@@ -650,6 +650,8 @@ S3DEXP int spew3d_texture_DrawAtCanvasPixels(
     e.spritedraw.tint_red = tint_red;
     e.spritedraw.tint_green = tint_green;
     e.spritedraw.tint_blue = tint_blue;
+    e.spritedraw.transparency = transparency;
+    e.spritedraw.withalphachannel = withalphachannel;
     mutex_Release(_texlist_mutex);
     return s3devent_q_Insert(_s3devent_GetInternalQueue(), &e);
 }
@@ -713,13 +715,15 @@ S3DHID int _spew3d_texture_ProcessSpriteDrawReq(s3devent *e) {
     }
 
     double transparency_dbl = transparency;
-    if (transparency_dbl < (1.0 / 256.0) * 0.5)
+    if (transparency_dbl < (1.0 / 256.0) * 0.5) {
         return 1;
+    }
 
     uint8_t old_r, old_g, old_b, old_a;
     if (SDL_GetRenderDrawColor(renderer,
-            &old_r, &old_g, &old_b, &old_a) != 0)
+            &old_r, &old_g, &old_b, &old_a) != 0) {
         return 1;
+    }
     uint8_t draw_r = fmax(0, fmin(255, (double)tint_red * 256.0));
     uint8_t draw_g = fmax(0, fmin(255, (double)tint_green * 255.0));
     uint8_t draw_b = fmax(0, fmin(255, (double)tint_blue * 255.0));
@@ -861,38 +865,37 @@ S3DEXP spew3d_texture_t spew3d_texture_NewWritableFromFile(
             name, original_path, original_vfsflags, 0));
 }
 
-S3DEXP void spew3d_texture_MainThreadUpdate() {
+S3DEXP int spew3d_texture_MainThreadProcessEvent(s3devent *e) {
     thread_MarkAsMainThread();
 
     s3dequeue *eq = _s3devent_GetInternalQueue();
     assert(eq != NULL);
 
-    while (1) {
-        s3devent e = {0};
-        if (!s3devent_q_Pop(eq, &e))
-            break;
-    
-        mutex_Lock(_texlist_mutex);
-        if (e.type == S3DEV_INTERNAL_CMD_TEXTURELOCK_LOCKPIXELSTOFINISH) {
-            if (!_spew3d_window_ProcessTexLockPixelsReq(&e)) {
-                mutex_Release(_texlist_mutex);
-                _s3devent_q_InsertForce(eq, &e);
-                continue;
-            }
-        } else if (e.type == S3DEV_INTERNAL_CMD_SPRITEDRAW) {
-            if (!_spew3d_texture_ProcessSpriteDrawReq(&e)) {
-                mutex_Release(_texlist_mutex);
-                _s3devent_q_InsertForce(eq, &e);
-                continue;
-            }
-        } else if (e.type == S3DEV_INTERNAL_CMD_TEXDELETE) {
-            if (!_spew3d_texture_ProcessTexDestroyReq(&e)) {
-                mutex_Release(_texlist_mutex);
-                _s3devent_q_InsertForce(eq, &e);
-                continue;
-            }
+    mutex_Lock(_texlist_mutex);
+    if (e->type == S3DEV_INTERNAL_CMD_TEXTURELOCK_LOCKPIXELSTOFINISH) {
+        if (!_spew3d_window_ProcessTexLockPixelsReq(e)) {
+            mutex_Release(_texlist_mutex);
+            _s3devent_q_InsertForce(eq, e);
         }
+        mutex_Release(_texlist_mutex);
+        return 1;
+    } else if (e->type == S3DEV_INTERNAL_CMD_SPRITEDRAW) {
+        if (!_spew3d_texture_ProcessSpriteDrawReq(e)) {
+            mutex_Release(_texlist_mutex);
+            _s3devent_q_InsertForce(eq, e);
+        }
+        mutex_Release(_texlist_mutex);
+        return 1;
+    } else if (e->type == S3DEV_INTERNAL_CMD_TEXDELETE) {
+        if (!_spew3d_texture_ProcessTexDestroyReq(e)) {
+            mutex_Release(_texlist_mutex);
+            _s3devent_q_InsertForce(eq, e);
+        }
+        mutex_Release(_texlist_mutex);
+        return 1;
     }
+    mutex_Release(_texlist_mutex);
+    return 0;
 }
 
 #endif  // SPEW3D_IMPLEMENTATION

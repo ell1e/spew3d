@@ -51,6 +51,9 @@ enum S3DEventType {
     S3DEV_DUMMY = 99999
 };
 
+#define S3DEV_TYPE_IS_INTERNAL(x) \
+    (((int)x) >= (int)S3DEV_INTERNAL_CMD_WIN_OPEN)
+
 typedef uint64_t spew3d_texture_t;
 
 typedef struct s3devent {

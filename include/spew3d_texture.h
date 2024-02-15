@@ -102,7 +102,7 @@ S3DEXP void spew3d_texture_LockPixelsToFinishEdit(
     spew3d_texture_t tid
 );
 
-S3DEXP void spew3d_texture_MainThreadUpdate();
+S3DEXP int spew3d_texture_MainThreadProcessEvent(s3devent *e);
 
 S3DHID spew3d_texture_info *_internal_spew3d_texinfo_nolock(
     spew3d_texture_t id
