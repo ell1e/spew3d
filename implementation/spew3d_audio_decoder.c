@@ -1,4 +1,4 @@
-/* Copyright (c) 2023, ellie/@ell1e & Spew3D Team (see AUTHORS.md).
+/* Copyright (c) 2024, ellie/@ell1e & Spew3D Team (see AUTHORS.md).
 
 Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions are met:
@@ -44,7 +44,6 @@ license, see accompanied LICENSE.md.
 
 #define DECODEMIXTYPE s3d_asample_t
 
-
 typedef struct s3daudiodecoder {
     char *audiopath;
     int input_channels, input_samplerate,
@@ -64,18 +63,9 @@ typedef struct s3daudiodecoder {
     drmp3 *_mp3decode;
     drwav *_wavdecode;
     drflac *_flacdecode;
-    int _vorbiscachedsamplesbufsize,
-        _vorbiscachedsamplesbuffill;
-    char *_vorbiscachedsamplesbuf;
-    int _vorbisprereadbufsize;
-    char *_vorbisprereadbuf;
-    stb_vorbis *_vorbisdecode;
-    stb_vorbis_info _vorbisinfo;
 } s3daudiodecoder;
 
-
 static int s3d_audiodecoder_FillDecodeAhead(s3daudiodecoder *d);
-
 
 s3daudiodecoder *audiodecoder_NewFromFile(
         const char *filepath
@@ -111,7 +101,7 @@ int s3d_audiodecoder_GetSourceSampleRate(
     if (d->input_samplerate == 0 && !d->vfshandle &&
             !d->_mp3decode && !d->_wavdecode &&
             !d->_flacdecode &&
-            !d->_vorbisdecode && !d->vfserror) {
+            !d->vfserror) {
         // Probably was never even touched by decoders yet.
         // Do so, so we get the basic file info:
         if (!s3d_audiodecoder_FillDecodeAhead(d))
@@ -126,7 +116,7 @@ int s3d_audiodecoder_GetOutputChannels(
     if (d->output_channels == 0 && !d->vfshandle &&
             !d->_mp3decode && !d->_wavdecode &&
             !d->_flacdecode &&
-            !d->_vorbisdecode && !d->vfserror) {
+            !d->vfserror) {
         // Probably was never even touched by decoders yet.
         // Do so, so we get the basic file info:
         if (!s3d_audiodecoder_FillDecodeAhead(d))
@@ -142,7 +132,7 @@ int s3d_audiodecoder_GetSourceChannels(
     if (d->input_channels == 0 && !d->vfshandle &&
             !d->_mp3decode && !d->_wavdecode &&
             !d->_flacdecode &&
-            !d->_vorbisdecode && !d->vfserror) {
+            !d->vfserror) {
         // Probably was never even touched by decoders yet.
         // Do so, so we get the basic file info:
         if (!s3d_audiodecoder_FillDecodeAhead(d))
@@ -264,6 +254,7 @@ static int s3d_audiodecoder_FillDecodeAhead(s3daudiodecoder *d) {
         return 1;
     if (d->vfserror)
         return 0;
+
     if (!d->vfshandle && !d->vfserror) {
         d->vfshandle = spew3d_vfs_fopen(d->audiopath, "rb", d->vfsflags);
         if (!d->vfshandle) {
@@ -272,7 +263,7 @@ static int s3d_audiodecoder_FillDecodeAhead(s3daudiodecoder *d) {
         }
     }
     if (!d->_mp3decode && !d->_wavdecode &&
-            !d->_flacdecode && !d->_vorbisdecode) {
+            !d->_flacdecode) {
         d->_wavdecode = malloc(sizeof(*d->_wavdecode));
         if (!d->_wavdecode) {
             d->vfserror = 1;
@@ -326,7 +317,7 @@ static int s3d_audiodecoder_FillDecodeAhead(s3daudiodecoder *d) {
         }
     }
     if (!d->_mp3decode && !d->_wavdecode &&
-            !d->_flacdecode && !d->_vorbisdecode) {
+            !d->_flacdecode) {
         if (d->vfshandle)
             if (spew3d_vfs_fseek(d->vfshandle, 0) < 0) {
                 d->vfserror = 1;
@@ -366,95 +357,7 @@ static int s3d_audiodecoder_FillDecodeAhead(s3daudiodecoder *d) {
         }
     }
     if (!d->_mp3decode && !d->_wavdecode &&
-            !d->_flacdecode && !d->_vorbisdecode) {
-        if (d->vfshandle)
-            if (spew3d_vfs_fseek(d->vfshandle, 0) < 0) {
-                d->vfserror = 1;
-                return 0;
-            }
-        uint64_t fsize = 0;
-        int _fserr = 0;
-        if (!spew3d_vfs_Size(d->audiopath, 0, &fsize, &_fserr)) {
-            d->vfserror = 1;
-            return 0;
-        }
-        if (fsize <= 0) {
-            d->vfserror = 1;
-            return 0;
-        }
-        unsigned int input_size = 256;
-        while (input_size < 1024 * 1024) {
-            if (input_size > fsize)
-                input_size = fsize;
-            char *readbuf = malloc(input_size);
-            if (!readbuf) {
-                d->vfserror = 1;
-                return 0;
-            }
-            if (spew3d_vfs_fseek(d->vfshandle, 0) < 0 ||
-                    spew3d_vfs_fread(
-                        readbuf, 1, input_size, d->vfshandle
-                    ) < input_size) {
-                d->vfserror = 1;
-                free(readbuf);
-                return 0;
-            }
-            int consumed_bytes = 0;
-            int pushdata_error = 0;
-            assert(input_size > 0);
-            d->_vorbisdecode = stb_vorbis_open_pushdata(
-                (unsigned char*)readbuf, input_size,
-                &consumed_bytes, &pushdata_error,
-                NULL
-            );
-            free(readbuf);
-            if (!d->_vorbisdecode) {
-                if (pushdata_error != VORBIS_need_more_data ||
-                        input_size >= fsize)
-                    break;
-                input_size *= 2; // try again with more data
-                continue;
-            }
-            if (spew3d_vfs_fseek(d->vfshandle, consumed_bytes) < 0) {
-                d->vfserror = 1;
-                stb_vorbis_close(d->_vorbisdecode);
-                d->_vorbisdecode = NULL;
-                return 0;
-            }
-            d->_vorbisinfo = stb_vorbis_get_info(
-                d->_vorbisdecode);
-            #if defined(DEBUG_SPEW3D_AUDIO_DECODE)
-            printf(
-                "spew3d_audio_decoder.c: debug: decoder "
-                "addr=%p ogg: "
-                "opened for decoding: %s\n",
-                d, d->audiopath
-            );
-            #endif
-            if (d->_vorbisinfo.channels < 1) {
-                stb_vorbis_close(d->_vorbisdecode);
-                d->_vorbisdecode = NULL;
-                d->vfserror = 1;
-                return 0;
-            }
-            d->input_samplerate = d->_vorbisinfo.sample_rate;
-            if (d->input_samplerate < 10000 ||
-                    d->input_samplerate > 100000) {
-                stb_vorbis_close(d->_vorbisdecode);
-                d->_vorbisdecode = NULL;
-                d->vfserror = 1;
-                return 0;
-            }
-            if (d->output_channels == 0)
-                d->output_channels = d->_vorbisinfo.channels;
-            if (d->output_samplerate == 0)
-                d->output_samplerate = d->input_samplerate;
-            d->input_channels = d->_vorbisinfo.channels;
-            break;
-        }
-    }
-    if (!d->_mp3decode && !d->_wavdecode &&
-            !d->_flacdecode && !d->_vorbisdecode) {
+            !d->_flacdecode) {
         d->_mp3decode = malloc(sizeof(*d->_mp3decode));
         if (!d->_mp3decode) {
             d->vfserror = 1;
@@ -508,7 +411,7 @@ static int s3d_audiodecoder_FillDecodeAhead(s3daudiodecoder *d) {
         }
     }
     if (d->vfserror || (!d->_mp3decode && !d->_wavdecode &&
-            !d->_flacdecode && !d->_vorbisdecode)) {
+            !d->_flacdecode)) {
         d->vfserror = 1;
         return 0;
     }
@@ -587,12 +490,14 @@ static int s3d_audiodecoder_FillDecodeAhead(s3daudiodecoder *d) {
         // Debug print some contents:
         char *printstart = ((char *)d->decodeaheadbuf +
             d->decodeaheadbuf_fillbytes);
-        int printlen = (read_frames *
+        int gotbytes = (read_frames *
             sizeof(DECODEMIXTYPE) * d->input_channels);
+        int printlen = gotbytes;
         if (printlen > 32) printlen = 32;
         printf(
             "spew3d_audio_decoder.c: debug: decoder "
-            "addr=%p mp3: decoded bytes excerpt: ");
+            "addr=%p mp3: decoded %d bytes, an excerpt: ",
+            d, gotbytes);
         int k = 0;
         while (k < printlen) {
             uint8_t byte = *(printstart + k);
@@ -606,7 +511,7 @@ static int s3d_audiodecoder_FillDecodeAhead(s3daudiodecoder *d) {
             printf("%s", hexbuf);
             k++;
         }
-        printf("\n");
+        printf("[END]\n");
         #endif
     } else if (d->_wavdecode) {
         read_frames = drwav_read_pcm_frames_s16(
@@ -672,236 +577,6 @@ static int s3d_audiodecoder_FillDecodeAhead(s3daudiodecoder *d) {
             (int)(read_frames * sizeof(DECODEMIXTYPE) * d->input_channels),
             (int)(d->decodeaheadbuf_fillbytes +
             read_frames * sizeof(DECODEMIXTYPE) * d->input_channels),
-            (int)(d->input_samplerate * sizeof(DECODEMIXTYPE) *
-            d->input_channels)
-        );
-        #endif
-    } else if (d->_vorbisdecode) {
-        read_frames = 0;
-        DECODEMIXTYPE *writeto = (DECODEMIXTYPE *)(
-            ((char *)d->decodeaheadbuf +
-             d->decodeaheadbuf_fillbytes)
-        );
-        while (read_frames < (uint64_t)want_to_read_frames &&
-                d->_vorbiscachedsamplesbuffill >=
-                (int)sizeof(DECODEMIXTYPE) * (int)d->input_channels) {
-            memcpy(
-                writeto, d->_vorbiscachedsamplesbuf,
-                sizeof(DECODEMIXTYPE) * d->input_channels
-            );
-            writeto += d->input_channels;
-            d->_vorbiscachedsamplesbuffill -= (
-                sizeof(DECODEMIXTYPE) * d->input_channels
-            );
-            if (d->_vorbiscachedsamplesbuffill > 0)
-                memmove(
-                    d->_vorbiscachedsamplesbuf,
-                    ((char *)d->_vorbiscachedsamplesbuf) +
-                        sizeof(DECODEMIXTYPE) * d->input_channels,
-                    d->_vorbiscachedsamplesbuffill
-                );
-            read_frames++;
-            assert(
-                (char *)d->decodeaheadbuf +
-                read_frames * sizeof(DECODEMIXTYPE) *
-                d->input_channels +
-                d->decodeaheadbuf_fillbytes == (char *)writeto
-            );
-        }
-        int input_size = d->_vorbisprereadbufsize;
-        if (input_size < 1024)
-            input_size = 1024;
-        while (read_frames < (uint64_t)want_to_read_frames) {
-            assert(
-                (char *)d->decodeaheadbuf +
-                read_frames * sizeof(DECODEMIXTYPE) *
-                d->input_channels +
-                d->decodeaheadbuf_fillbytes == (char *)writeto
-            );
-            if (input_size > 1024 * 10) {
-                #if defined(DEBUG_SPEW3D_AUDIO_DECODE)
-                printf(
-                    "spew3d_audio_decoder.c: warning: decoder "
-                    "addr=%p ogg: "
-                    "couldn't read next packet even with "
-                    "pushdata size %d\n",
-                    d, (int)(input_size / 2)
-                );
-                #endif
-                // Ok, this is unreasonable. Assume buggy file.
-                goto vorbisfilefail;
-            }
-            char *readbuf = d->_vorbisprereadbuf;
-            if (!readbuf || d->_vorbisprereadbufsize != input_size) {
-                readbuf = malloc(input_size);
-                if (!readbuf) {
-                    d->vfserror = 1;
-                    return 0;
-                }
-                if (d->_vorbisprereadbuf)
-                    free(d->_vorbisprereadbuf);
-                d->_vorbisprereadbuf = readbuf;
-                d->_vorbisprereadbufsize = input_size;
-            }
-            int64_t offset = spew3d_vfs_ftell(d->vfshandle);
-            if (offset < 0)
-                goto vorbisfilefail;
-            int result = spew3d_vfs_fread(readbuf, 1,
-                input_size, d->vfshandle);
-            if ((result <= 0 || result < input_size) &&
-                    (!spew3d_vfs_feof(d->vfshandle) ||
-                    spew3d_vfs_ferror(d->vfshandle))) {
-                vorbisfilefail:
-                stb_vorbis_close(d->_vorbisdecode);
-                d->_vorbisdecode = NULL;
-                d->vfserror = 1;
-                if (d->_vorbisprereadbuf)
-                    free(d->_vorbisprereadbuf);
-                d->_vorbisprereadbuf = NULL;
-                d->_vorbisprereadbufsize = 0;
-                return 0;
-            } else if (result <= 0) {
-                assert(spew3d_vfs_feof(d->vfshandle));
-                break;
-            }
-            if (spew3d_vfs_fseek(d->vfshandle, offset) < 0)
-                goto vorbisfilefail;
-            int channels_found = 0;
-            int samples_found = 0;
-            float **outputs = NULL;
-            stb_vorbis_get_error(d->_vorbisdecode);  // clear error
-            int bytes_used = stb_vorbis_decode_frame_pushdata(
-                d->_vorbisdecode, (unsigned char*)readbuf, result,
-                (int *)&channels_found, &outputs,
-                (int *)&samples_found
-            );
-            int pushdata_error = (
-                stb_vorbis_get_error(d->_vorbisdecode)
-            );
-            if (bytes_used == 0 && samples_found == 0) {
-                if (pushdata_error != VORBIS_need_more_data) {
-                    #if defined(DEBUG_SPEW3D_AUDIO_DECODE)
-                    printf(
-                        "spew3d_audio_decoder.c: warning: decoder "
-                        "addr=%p ogg: "
-                        "failed with pushdata error: %d\n",
-                        d, pushdata_error
-                    );
-                    #endif
-                    stb_vorbis_close(d->_vorbisdecode);
-                    d->_vorbisdecode = NULL;
-                    d->vfserror = 1;
-                    free(readbuf);
-                    return 0;
-                }
-                if (result < input_size && spew3d_vfs_feof(d->vfshandle)) {
-                    #if defined(DEBUG_SPEW3D_AUDIO_DECODE)
-                    printf(
-                        "spew3d_audio_decoder.c: debug: decoder "
-                        "addr=%p ogg: "
-                        "end of file\n", d
-                    );
-                    #endif
-                    break;  // hit the maximum block already
-                }
-                input_size *= 2; // try again with more data
-                continue;
-            }
-            if (samples_found == 0 && bytes_used > 0) {
-                // Keep reading as per stb_vorbis documentation.
-                // (Block that didn't generate data, apparently can happen)
-                continue;
-            }
-            if (spew3d_vfs_fseek(d->vfshandle, offset +
-                    (int64_t)bytes_used) < 0)
-                goto vorbisfilefail;
-            if (channels_found != d->input_channels)
-                goto vorbisfilefail;
-            DECODEMIXTYPE *channelbuf = alloca(
-                sizeof(*channelbuf) * channels_found
-            );
-            if (!channelbuf)
-                goto vorbisfilefail;
-            unsigned int i = 0;
-            while (i < (unsigned int)samples_found) {
-                unsigned int k = 0;
-                while (k < (unsigned int)d->input_channels) {
-                    int64_t value = (outputs[k][i] *
-                        (((double)S3D_ASAMPLE_MAX) + 1.0));
-                    if (value > (int64_t)S3D_ASAMPLE_MAX)
-                        value = (int64_t)S3D_ASAMPLE_MAX;
-                    if (value < (int64_t)S3D_ASAMPLE_MIN)
-                        value = (int64_t)S3D_ASAMPLE_MIN;
-                    channelbuf[k] = value;
-                    k++;
-                }
-                k = 0;
-                while (k < (unsigned int)d->input_channels) {
-                    if (read_frames < (uint64_t)want_to_read_frames) {
-                        assert(
-                            ((char *)writeto) <
-                            (char *)d->decodeaheadbuf +
-                            (d->input_samplerate * sizeof(DECODEMIXTYPE) *
-                             d->input_channels)
-                        );
-                        *writeto = channelbuf[k];
-                        writeto++;
-                        k++;
-                        continue;
-                    }
-                    int newfill = d->_vorbiscachedsamplesbuffill +
-                        sizeof(DECODEMIXTYPE);
-                    if (newfill >
-                            d->_vorbiscachedsamplesbufsize) {
-                        char *newbuf = realloc(
-                            d->_vorbiscachedsamplesbuf,
-                            newfill
-                        );
-                        if (!newbuf)
-                            goto vorbisfilefail;
-                        d->_vorbiscachedsamplesbuf = newbuf;
-                        d->_vorbiscachedsamplesbufsize = newfill;
-                    }
-                    DECODEMIXTYPE *bufptr = (DECODEMIXTYPE *)(
-                        (char*)d->_vorbiscachedsamplesbuf +
-                        d->_vorbiscachedsamplesbuffill
-                    );
-                    d->_vorbiscachedsamplesbuffill = newfill;
-                    *bufptr = channelbuf[k];
-                    k++;
-                }
-                if (read_frames < (uint64_t)want_to_read_frames)
-                    read_frames++;
-
-                assert(
-                    (char *)d->decodeaheadbuf +
-                    read_frames * sizeof(DECODEMIXTYPE) *
-                    d->input_channels +
-                    d->decodeaheadbuf_fillbytes == (char *)writeto
-                );
-
-                i++;
-            }
-        }
-        assert((
-            (char *)d->decodeaheadbuf +
-            read_frames * sizeof(DECODEMIXTYPE) *
-            d->input_channels +
-            d->decodeaheadbuf_fillbytes == (char *)writeto
-        ) && (read_frames == (uint64_t)want_to_read_frames ||
-              spew3d_vfs_feof(d->vfshandle)));
-
-        #if defined(DEBUG_SPEW3D_AUDIO_DECODE_DATA)
-        printf(
-            "spew3d_audio_decoder.c: debug: "
-            "decoder addr=%p ogg: "
-            "frames=%d(%dB) fillbytes(after)=%d/%d\n",
-            d, (int)read_frames,
-            (int)(read_frames * sizeof(DECODEMIXTYPE) *
-            d->input_channels),
-            (int)(d->decodeaheadbuf_fillbytes +
-            read_frames * sizeof(DECODEMIXTYPE) *
-            d->input_channels),
             (int)(d->input_samplerate * sizeof(DECODEMIXTYPE) *
             d->input_channels)
         );
@@ -1124,6 +799,18 @@ int s3d_audiodecoder_Decode(
         s3daudiodecoder *d, char *output, int frames,
         int *out_haderror
         ) {
+    // Ensure basic data is set on our source stream:
+    if (d->input_samplerate == 0) {
+        if (d->vfserror ||
+                !s3d_audiodecoder_FillDecodeAheadResampled(
+                d) || d->input_samplerate == 0) {
+            // We failed to obtain basic data.
+            *out_haderror = 1;
+            return 0;
+        }
+    }
+
+    // Determine what we want to do:
     char *output_unadjusted_channels = output;
     if (d->input_channels != d->output_channels) {
         int needed_channeladjust_bytes = (
@@ -1135,6 +822,7 @@ int s3d_audiodecoder_Decode(
     const int resampling = (d->input_samplerate !=
         d->output_samplerate);
     int frames_written = 0;
+
     while (frames_written < frames) {
         if (d->vfserror ||
                 !s3d_audiodecoder_FillDecodeAheadResampled(
@@ -1192,22 +880,20 @@ int s3d_audiodecoder_Decode(
             assert(copyframes > 0);
             if (copyframes + frames_written >= frames)
                 copyframes = frames - frames_written;
+            int copybytes = copyframes * d->output_channels *
+                sizeof(DECODEMIXTYPE);
             memcpy(
                 output + frames_written *
                 d->output_channels * sizeof(DECODEMIXTYPE),
-                d->decodeaheadbuf,
-                copyframes * d->output_channels * sizeof(DECODEMIXTYPE));
-            if (copyframes < fullcopyframes) {
+                d->decodeaheadbuf, copybytes
+                );
+            if (copybytes < d->decodeaheadbuf_fillbytes) {
                 // We did a partial copy, cut it out of the source:
                 memmove(
                     d->decodeaheadbuf,
-                    d->decodeaheadbuf + sizeof(DECODEMIXTYPE) *
-                    d->output_channels * copyframes,
-                    sizeof(DECODEMIXTYPE) *
-                    d->output_channels * (fullcopyframes - copyframes));
-                d->decodeaheadbuf_fillbytes -= (
-                    (fullcopyframes - copyframes) *
-                    sizeof(DECODEMIXTYPE) * d->output_channels);
+                    d->decodeaheadbuf + copybytes,
+                    (d->decodeaheadbuf_fillbytes - copybytes));
+                d->decodeaheadbuf_fillbytes -= copybytes;
             } else {
                 // We did a full copy, wipe source.
                 d->decodeaheadbuf_fillbytes = 0;
@@ -1223,6 +909,39 @@ int s3d_audiodecoder_Decode(
                 (int)(d->output_channels * sizeof(DECODEMIXTYPE) *
                 copyframes));
     }
+
+    #ifdef DEBUG_SPEW3D_AUDIO_DECODE_DATA
+    // Debug print some contents:
+    char *printstart = ((char *)output +
+        d->decodeaheadbuf_fillbytes);
+    int gotbytes = (frames_written *
+        d->output_channels * sizeof(DECODEMIXTYPE));
+    int printlen = gotbytes;
+    if (printlen > 32) printlen = 32;
+    printf(
+        "spew3d_audio_decoder.c: debug: decoder "
+        "addr=%p s3d_audiodecoder_Decode(): "
+        "decoded %d bytes (wanted %d, "
+        "d->decodeahadbuf_fillbytes %d), an excerpt: ",
+        d, (int)gotbytes, (int)frames * d->output_channels *
+            sizeof(DECODEMIXTYPE),
+        (int)d->decodeaheadbuf_fillbytes);
+    int k = 0;
+    while (k < printlen) {
+        uint8_t byte = *(printstart + k);
+        char hexbuf[3];
+        snprintf(hexbuf, sizeof(hexbuf), "%x", (int)byte);
+        if (strlen(hexbuf) < 2) {
+            hexbuf[2] = '\0';
+            hexbuf[1] = hexbuf[0];
+            hexbuf[0] = '0';
+        }
+        printf("%s", hexbuf);
+        k++;
+    }
+    printf("[END]\n");
+    #endif
+
     *out_haderror = 0;
     return frames_written;
 }
@@ -1241,17 +960,8 @@ void s3d_audiodecoder_ResetToStart(s3daudiodecoder *d) {
     }
     if (d->_flacdecode)
         drflac_close(d->_flacdecode);
-    if (d->_vorbisdecode)
-        stb_vorbis_close(d->_vorbisdecode);
     d->decodeaheadbuf_fillbytes = 0;
     d->decodeaheadbuf_resampled_fillbytes = 0;
-    d->_vorbiscachedsamplesbufsize = 0;
-    d->_vorbiscachedsamplesbuffill = 0;
-    free(d->_vorbiscachedsamplesbuf);
-    d->_vorbiscachedsamplesbuf = NULL;
-    d->_vorbisprereadbufsize = 0;
-    free(d->_vorbisprereadbuf);
-    d->_vorbisprereadbuf = NULL;
 
     if (d->vfshandle)
         if (spew3d_vfs_fseek(d->vfshandle, 0) < 0)
@@ -1269,12 +979,6 @@ void s3d_audiodecoder_Destroy(s3daudiodecoder *d) {
     }
     if (d->_flacdecode)
         drflac_close(d->_flacdecode);
-    if (d->_vorbisdecode)
-        stb_vorbis_close(d->_vorbisdecode);
-    if (d->_vorbisprereadbuf)
-        free(d->_vorbisprereadbuf);
-    if (d->_vorbiscachedsamplesbuf)
-        free(d->_vorbiscachedsamplesbuf);
     if (d->audiopath)
         free(d->audiopath);
     if (d->decodeaheadbuf)

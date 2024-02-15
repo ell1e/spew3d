@@ -1,4 +1,4 @@
-/* Copyright (c) 2020-2023, ellie/@ell1e & Spew3D Team (see AUTHORS.md).
+/* Copyright (c) 2020-2024, ellie/@ell1e & Spew3D Team (see AUTHORS.md).
 
 Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions are met:
@@ -33,8 +33,7 @@ license, see accompanied LICENSE.md.
 #endif
 #include <string.h>
 
-
-int _internal_spew3d_geometry_AddVertexPolyAlloc(
+S3DHID int _internal_spew3d_geometry_AddVertexPolyAlloc(
         spew3d_geometry *geometry,
         int add_vertex, int add_polygon
         ) {
@@ -89,7 +88,7 @@ int _internal_spew3d_geometry_AddVertexPolyAlloc(
     return 1;
 }
 
-spew3d_geometry *spew3d_geometry_Create() {
+S3DEXP spew3d_geometry *spew3d_geometry_Create() {
     spew3d_geometry *geometry = malloc(sizeof(*geometry));
     if (!geometry)
         return NULL;
@@ -236,7 +235,7 @@ S3DEXP int spew3d_geometry_AddCube(
     return 1;
 }
 
-int spew3d_geometry_AddCubeSimple(
+S3DEXP int spew3d_geometry_AddCubeSimple(
         spew3d_geometry *geometry,
         s3dnum_t edge_width,
         spew3d_texture_t texture,
@@ -274,7 +273,7 @@ int spew3d_geometry_AddCubeSimple(
     );
 }
 
-void spew3d_geometry_Destroy(spew3d_geometry *geometry) {
+S3DEXP void spew3d_geometry_Destroy(spew3d_geometry *geometry) {
     if (!geometry)
         return;
     int32_t i = 0;

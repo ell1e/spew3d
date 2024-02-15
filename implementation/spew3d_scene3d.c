@@ -1,4 +1,4 @@
-/* Copyright (c) 2023-2024, ellie/@ell1e & Spew3D Team (see AUTHORS.md).
+/* Copyright (c) 2020-2024, ellie/@ell1e & Spew3D Team (see AUTHORS.md).
 
 Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions are met:
@@ -20,56 +20,13 @@ INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
 CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE.
-    
+
 Alternatively, at your option, this file is offered under the Apache 2
 license, see accompanied LICENSE.md.
 */
-    
-#ifndef SPEW3D_AUDIO_DECODER_H_
-#define SPEW3D_AUDIO_DECODER_H_
 
-#include <stdint.h>
+#ifdef SPEW3D_IMPLEMENTATION
 
-typedef struct s3daudiodecoder s3daudiodecoder;
 
-s3daudiodecoder *audiodecoder_NewFromFile(
-    const char *filepath
-);
 
-s3daudiodecoder *audiodecoder_NewFromFileEx(
-    const char *filepath, int vfsflags
-);
-
-int s3d_audiodecoder_SetChannelAdjustTo(
-    s3daudiodecoder *d, int channels
-);
-
-int s3d_audiodecoder_GetSourceSampleRate(
-    s3daudiodecoder *d
-);
-
-int s3d_audiodecoder_GetSourceChannels(
-    s3daudiodecoder *d
-);
-
-int s3d_audiodecoder_GetOutputChannels(
-    s3daudiodecoder *d
-);
-
-int s3d_audiodecoder_SetResampleTo(
-    s3daudiodecoder *d, int samplerate
-);
-
-int s3d_audiodecoder_Decode(
-    s3daudiodecoder *d, char *output, int frames,
-    int *out_haderror
-);
-
-void s3d_audiodecoder_ResetToStart(s3daudiodecoder *d);
-
-void s3d_audiodecoder_Destroy(s3daudiodecoder *d);
-
-int s3d_audiodecoder_HadError(s3daudiodecoder *d);
-
-#endif  // SPEW3D_AUDIO_DECODER_H_
-
+#endif  // SPEW3D_IMPLEMENTATION

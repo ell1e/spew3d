@@ -21,7 +21,7 @@ amalgamate: update-vendor-if-needed
 	echo "" >> .spew3d_ifdef
 	echo "#endif  // SPEW3D_IMPLEMENTATION" > .spew3d_ifndef
 	echo "" >> .spew3d_ifndef
-	cat implementation/spew3d_prefix_all.h .spew3d_ifdef vendor/siphash.c .spew3d_ifndef vendor/miniz/include/miniz/miniz.h implementation/spew3d_prefix_miniz_c.h vendor/miniz/include/miniz/miniz.c implementation/spew3d_postfix_miniz_c.h implementation/spew3d_prefix_drlibsstbvorbis.h vendor/stb/stb_vorbis.c vendor/dr_libs/dr_flac.h vendor/dr_libs/dr_mp3.h vendor/dr_libs/dr_wav.h implementation/spew3d_postfix_drlibsstbvorbis.h vendor/stb/stb_image.h $(HEADERS) $(SOURCES) > include/spew3d.h
+	cat implementation/spew3d_prefix_all.h .spew3d_ifdef vendor/siphash.c .spew3d_ifndef vendor/miniz/include/miniz/miniz.h implementation/spew3d_prefix_miniz_c.h vendor/miniz/include/miniz/miniz.c implementation/spew3d_postfix_miniz_c.h implementation/spew3d_prefix_drlibsstbvorbis.h vendor/dr_libs/dr_flac.h vendor/dr_libs/dr_mp3.h vendor/dr_libs/dr_wav.h implementation/spew3d_postfix_drlibsstbvorbis.h vendor/stb/stb_image.h $(HEADERS) $(SOURCES) > include/spew3d.h
 	rm -f .spew3d_ifdef
 	rm -f .spew3d_ifndef
 

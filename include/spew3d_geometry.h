@@ -1,4 +1,4 @@
-/* Copyright (c) 2020-2023, ellie/@ell1e & Spew3D Team (see AUTHORS.md).
+/* Copyright (c) 2020-2024, ellie/@ell1e & Spew3D Team (see AUTHORS.md).
 
 Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions are met:
@@ -43,7 +43,6 @@ typedef uint32_t spew3d_material_t;
 #define SPEW3D_MATERIAL_BULLETSHOTPASSABLE ((uint32_t)1 << 3)
 #define SPEW3D_MATERIAL_AISIGHTPASSABLE ((uint32_t)1 << 4)
 
-
 typedef struct spew3d_geometry {
     int32_t vertex_count;
     spew3d_pos *vertex;
@@ -58,9 +57,7 @@ typedef struct spew3d_geometry {
     spew3d_texture_t *owned_texture;
 } spew3d_geometry;
 
-
-spew3d_geometry *spew3d_geometry_Create();
-
+S3DEXP spew3d_geometry *spew3d_geometry_Create();
 
 S3DEXP int spew3d_geometry_AddCube(
     spew3d_geometry *geometry,
@@ -72,14 +69,14 @@ S3DEXP int spew3d_geometry_AddCube(
     int *side_texture_owned
 );
 
-int spew3d_geometry_AddCubeSimple(
+S3DEXP int spew3d_geometry_AddCubeSimple(
     spew3d_geometry *geometry,
     s3dnum_t edge_width,
     spew3d_texture_t texture,
     int texture_owned
 );
 
-void spew3d_geometry_Destroy(spew3d_geometry *geometry);
+S3DEXP void spew3d_geometry_Destroy(spew3d_geometry *geometry);
 
 #endif  // SPEW3D_GEOMETRY_H_
 
