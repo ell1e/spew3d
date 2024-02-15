@@ -27,6 +27,8 @@ license, see accompanied LICENSE.md.
 
 #ifdef SPEW3D_IMPLEMENTATION
 
+typedef struct scene3d {
 
+} scene3d;
 
 #endif  // SPEW3D_IMPLEMENTATION

@@ -25,51 +25,35 @@ Alternatively, at your option, this file is offered under the Apache 2
 license, see accompanied LICENSE.md.
 */
     
-#ifndef SPEW3D_AUDIO_DECODER_H_
-#define SPEW3D_AUDIO_DECODER_H_
+#ifndef SPEW3D_AUDIO_RESAMPLER_H_
+#define SPEW3D_AUDIO_RESAMPLER_H_
 
-#include <stdint.h>
+typedef struct s3d_audio_resampler_internal
+    s3d_audio_resampler_internal;
 
-typedef struct s3daudiodecoder s3daudiodecoder;
+typedef struct s3d_audio_resampler {
+    char *resampledbuf;
+    int resampledbuf_size, resampledbuf_fillbytes;
 
-S3DEXP s3daudiodecoder *audiodecoder_NewFromFile(
-    const char *filepath
+    s3d_audio_resampler_internal *extra;
+} s3d_audio_resampler;
+
+S3DEXP s3d_audio_resampler *s3daudioresampler_New(
+    char **sourcebufptr, int *sourceallocsizeptr,
+    int *sourcefillbytesptr, int input_samplerate,
+    int output_samplerate, int output_channels
 );
 
-S3DEXP s3daudiodecoder *audiodecoder_NewFromFileEx(
-    const char *filepath, int vfsflags
+S3DEXP void s3d_audioresampler_SetNewTargetSamplerate(
+    s3d_audio_resampler *d, int sample_rate
 );
 
-S3DEXP int s3d_audiodecoder_SetChannelAdjustTo(
-    s3daudiodecoder *d, int channels
+S3DEXP int s3d_audioresampler_FillBufResampled(
+    s3d_audio_resampler *d
 );
 
-S3DEXP int s3d_audiodecoder_GetSourceSampleRate(
-    s3daudiodecoder *d
+S3DEXP void s3d_audioresampler_Free(
+    s3d_audio_resampler *d
 );
 
-S3DEXP int s3d_audiodecoder_GetSourceChannels(
-    s3daudiodecoder *d
-);
-
-S3DEXP int s3d_audiodecoder_GetOutputChannels(
-    s3daudiodecoder *d
-);
-
-S3DEXP int s3d_audiodecoder_SetResampleTo(
-    s3daudiodecoder *d, int samplerate
-);
-
-S3DEXP int s3d_audiodecoder_Decode(
-    s3daudiodecoder *d, char *output, int frames,
-    int *out_haderror
-);
-
-S3DEXP void s3d_audiodecoder_ResetToStart(s3daudiodecoder *d);
-
-S3DEXP void s3d_audiodecoder_Destroy(s3daudiodecoder *d);
-
-S3DEXP int s3d_audiodecoder_HadError(s3daudiodecoder *d);
-
-#endif  // SPEW3D_AUDIO_DECODER_H_
-
+#endif  // SPEW3D_AUDIO_RESAMPLER_H_
