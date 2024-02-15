@@ -30,4 +30,15 @@ license, see accompanied LICENSE.md.
 
 #include <stdint.h>
 
+enum Obj3dType {
+    OBJ3D_INVALID = 0,
+    OBJ3D_INVISIBLE = 1,
+    OBJ3D_GEOMETRY,
+    OBJ3D_SPRITE
+};
+
+typedef struct obj3d obj3d;
+
+typedef struct scene3d scene3d;
+
 #endif  // SPEW3D_SCENE3D_H_

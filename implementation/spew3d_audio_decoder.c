@@ -880,6 +880,7 @@ int s3d_audiodecoder_Decode(
             assert(copyframes > 0);
             if (copyframes + frames_written >= frames)
                 copyframes = frames - frames_written;
+            assert(copyframes > 0);
             int copybytes = copyframes * d->output_channels *
                 sizeof(DECODEMIXTYPE);
             memcpy(
@@ -900,14 +901,6 @@ int s3d_audiodecoder_Decode(
             }
             frames_written += copyframes;
         }
-        if (resampling)
-            d->decodeaheadbuf_resampled_fillbytes -= (
-                (int)(d->output_channels * sizeof(DECODEMIXTYPE) *
-                copyframes));
-        else
-            d->decodeaheadbuf_fillbytes -= (
-                (int)(d->output_channels * sizeof(DECODEMIXTYPE) *
-                copyframes));
     }
 
     #ifdef DEBUG_SPEW3D_AUDIO_DECODE_DATA
