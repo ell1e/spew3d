@@ -1,4 +1,4 @@
-/* Copyright (c) 2020-2023, ellie/@ell1e & Spew3D Team (see AUTHORS.md).
+/* Copyright (c) 2020-2024, ellie/@ell1e & Spew3D Team (see AUTHORS.md).
 
 Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions are met:
@@ -40,7 +40,8 @@ typedef struct spew3d_window spew3d_window;
 typedef struct spew3d_texture_info {
     char *idstring, *diskpath;
     int vfsflags;
-    uint8_t loaded, loadingfailed, correspondstofile;
+    uint8_t loaded, loadingfailed;
+    uint8_t correspondstofile;
 
     void *_internal;
 } spew3d_texture_info;
@@ -50,8 +51,8 @@ S3DEXP spew3d_texture_t spew3d_texture_FromFile(
     const char *path, int vfsflags
 );
 
-S3DEXP spew3d_texture_info *spew3d_texinfo(
-    spew3d_texture_t id
+S3DEXP void spew3d_texinfo(
+    spew3d_texture_t id, spew3d_texture_info *write_to
 );
 
 S3DEXP spew3d_texture_t spew3d_texture_NewWritable(
@@ -99,6 +100,12 @@ S3DEXP char *spew3d_texture_UnlockPixelsToEdit(
 
 S3DEXP void spew3d_texture_LockPixelsToFinishEdit(
     spew3d_texture_t tid
+);
+
+S3DEXP void spew3d_texture_MainThreadUpdate();
+
+S3DHID spew3d_texture_info *_internal_spew3d_texinfo_nolock(
+    spew3d_texture_t id
 );
 
 #endif  // SPEW3D_TEXTURE_H_

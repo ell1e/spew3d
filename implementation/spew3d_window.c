@@ -64,20 +64,21 @@ S3DHID __attribute__((constructor)) void _ensure_winid_mutex() {
     if (_win_id_mutex != NULL)
         return;
     _win_id_mutex = mutex_Create();
+    if (!_win_id_mutex) {
+        fprintf(stderr, "spew3d_window.c: error: "
+            "Failed to allocate event queues.\n");
+        _exit(1);
+    }
 }
 
 S3DHID uint32_t spew3d_window_MakeNewID() {
     _ensure_winid_mutex();
-    if (!_win_id_mutex) {
-        _last_window_id += 1;
-        return _last_window_id;
-    } else {
-        mutex_Lock(_win_id_mutex);
-        _last_window_id += 1;
-        uint32_t result = _last_window_id;
-        mutex_Release(_win_id_mutex);
-        return result;
-    }
+    assert(_win_id_mutex != NULL);
+    mutex_Lock(_win_id_mutex);
+    _last_window_id += 1;
+    uint32_t result = _last_window_id;
+    mutex_Release(_win_id_mutex);
+    return result;
 }
 
 S3DHID void _spew3d_window_FreeContents(spew3d_window *win) {
@@ -95,11 +96,9 @@ S3DHID static spew3d_window *spew3d_window_NewExEx(
         int dontinitactualwindow, int32_t width, int32_t height
         ) {
     s3dequeue *eq = _s3devent_GetInternalQueue();
-    if (!eq)
-        return NULL;
+    assert(eq != NULL);
     _ensure_winid_mutex();
-    if (_win_id_mutex == NULL)
-        return NULL;
+    assert(_win_id_mutex != NULL);
 
     mutex_Lock(_win_id_mutex);
     if (_global_win_registry_fill + 1 >
@@ -162,6 +161,10 @@ S3DHID static spew3d_window *spew3d_window_NewExEx(
     return win;
 }
 
+S3DEXP uint32_t spew3d_window_GetID(spew3d_window *w) {
+    return w->id;
+}
+
 S3DHID spew3d_window *_spew3d_window_GetByIDLocked(uint32_t id) {
     int i = 0;
     while (i < _global_win_registry_fill) {
@@ -175,8 +178,7 @@ S3DHID spew3d_window *_spew3d_window_GetByIDLocked(uint32_t id) {
 
 S3DEXP spew3d_window *spew3d_window_GetByID(uint32_t id) {
     _ensure_winid_mutex();
-    if (_win_id_mutex == NULL)
-        return NULL;
+    assert(_win_id_mutex != NULL);
 
     mutex_Lock(_win_id_mutex);
     int i = 0;
@@ -216,14 +218,11 @@ S3DHID int _spew3d_window_HandleSDLEvent(SDL_Event *e) {
     thread_MarkAsMainThread();
 
     _ensure_winid_mutex();
-    if (_win_id_mutex == NULL)
-        return 9;
+    assert(_win_id_mutex != NULL);
     s3dequeue *eq = _s3devent_GetInternalQueue();
-    if (!eq)
-        return 0;
+    assert(eq != NULL);
     s3dequeue *equser = s3devent_GetMainQueue();
-    if (!equser)
-        return 0;
+    assert(equser != NULL);
 
     if (e->type == SDL_QUIT) {
         s3devent e2 = {0};
@@ -271,11 +270,9 @@ S3DEXP void spew3d_window_MainThreadUpdate() {
     thread_MarkAsMainThread();
 
     _ensure_winid_mutex();
-    if (_win_id_mutex == NULL)
-        return;
+    assert(_win_id_mutex != NULL);
     s3dequeue *eq = _s3devent_GetInternalQueue();
-    if (!eq)
-        return;
+    assert(eq != NULL);
 
     while (1) {
         s3devent e = {0};
@@ -338,13 +335,11 @@ S3DEXP void spew3d_window_MainThreadUpdate() {
 
 S3DHID int _spew3d_window_ProcessWinOpenReq(s3devent *ev) {
     _ensure_winid_mutex();
-    if (_win_id_mutex == NULL)
-        return 0;
+    assert(_win_id_mutex != NULL);
     if (!_internal_spew3d_InitSDLGraphics())
         return 0;
     s3dequeue *eq = _s3devent_GetInternalQueue();
-    if (!eq)
-        return 0;
+    assert(eq != NULL);
 
     assert(mutex_IsLocked(_win_id_mutex));
     spew3d_window *win = _spew3d_window_GetByIDLocked(ev->window.win_id);
@@ -541,8 +536,12 @@ S3DEXP void spew3d_window_FillWithColor(
     if (!eq)
         return;
 
-    if (win->wasclosed)
+    mutex_Lock(_win_id_mutex);
+
+    if (win->wasclosed) {
+        mutex_Release(_win_id_mutex);
         return;
+    }
 
     s3devent e = {0};
     e.type = S3DEV_INTERNAL_CMD_DRAWPRIMITIVE_WINFILL;
@@ -551,6 +550,7 @@ S3DEXP void spew3d_window_FillWithColor(
     e.drawprimitive.green = green;
     e.drawprimitive.blue = blue;
     _s3devent_q_InsertForce(eq, &e);
+    mutex_Release(_win_id_mutex);
 }
 
 S3DEXP spew3d_window *spew3d_window_New(
@@ -589,9 +589,11 @@ S3DEXP void spew3d_window_GetSDLWindowAndRenderer(
 S3DEXP spew3d_point spew3d_window_GetWindowSize(
         spew3d_window *win
         ) {
+    mutex_Lock(_win_id_mutex);
     spew3d_point result;
     result.x = ((s3dnum_t)win->width);
     result.y = ((s3dnum_t)win->height);
+    mutex_Release(_win_id_mutex);
     return result;
 }
 
@@ -605,11 +607,14 @@ S3DEXP void spew3d_window_PointToCanvasDrawPixels(
         spew3d_window *win, spew3d_point point,
         int32_t *x, int32_t *y
         ) {
+    mutex_Lock(_win_id_mutex);
     if (win->canvaswidth == 0 || win->dpiscale == 0) {
         while (1) {
+            mutex_Release(_win_id_mutex);
             if (thread_InMainThread())
                 spew3d_window_MainThreadUpdate();
             spew3d_time_Sleep(10);
+            mutex_Lock(_win_id_mutex);
             if (win->canvaswidth != 0 && win->dpiscale != 0) {
                 break;
             }
@@ -617,9 +622,12 @@ S3DEXP void spew3d_window_PointToCanvasDrawPixels(
     }
     *x = round((double)point.x * win->dpiscale);
     *y = round((double)point.y * win->dpiscale);
+    mutex_Release(_win_id_mutex);
 }
 
 S3DHID void spew3d_window_UpdateGeometryInfo(spew3d_window *win) {
+    assert(mutex_IsLocked(_win_id_mutex));
+
     #ifndef SPEW3D_OPTION_DISABLE_SDL
     if (win->_sdl_outputwindow == NULL) {
         SDL_Renderer *renderer = NULL;
@@ -662,30 +670,38 @@ S3DHID void spew3d_window_UpdateGeometryInfo(spew3d_window *win) {
 }
 
 S3DEXP int32_t spew3d_window_GetCanvasDrawWidth(spew3d_window *win) {
+    mutex_Lock(_win_id_mutex);
     if (win->canvaswidth == 0 || win->dpiscale == 0) {
         while (1) {
+            mutex_Release(_win_id_mutex);
             if (thread_InMainThread())
                 spew3d_window_MainThreadUpdate();
             spew3d_time_Sleep(10);
+            mutex_Lock(_win_id_mutex);
             if (win->canvaswidth != 0 && win->dpiscale != 0) {
                 break;
             }
         }
     }
+    mutex_Release(_win_id_mutex);
     return win->canvaswidth;
 }
 
 S3DEXP int32_t spew3d_window_GetCanvasDrawHeight(spew3d_window *win) {
+    mutex_Lock(_win_id_mutex);
     if (win->canvaswidth == 0 || win->dpiscale == 0) {
         while (1) {
+            mutex_Release(_win_id_mutex);
             if (thread_InMainThread())
                 spew3d_window_MainThreadUpdate();
             spew3d_time_Sleep(10);
+            mutex_Lock(_win_id_mutex);
             if (win->canvaswidth != 0 && win->dpiscale != 0) {
                 break;
             }
         }
     }
+    mutex_Release(_win_id_mutex);
     return win->canvasheight;
 }
 

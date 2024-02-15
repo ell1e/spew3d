@@ -1,4 +1,4 @@
-/* Copyright (c) 2020-2023, ellie/@ell1e & Spew3D Team (see AUTHORS.md).
+/* Copyright (c) 2020-2024, ellie/@ell1e & Spew3D Team (see AUTHORS.md).
 
 Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions are met:
@@ -40,6 +40,7 @@ static inline uint16_t spew3d_simplehash(const char *k);
 // Some global variables:
 uint64_t _internal_spew3d_texlist_count;
 spew3d_texture_info *_internal_spew3d_texlist;
+s3d_mutex *_texlist_mutex = NULL;
 
 // Global hash map:
 #define SPEW3D_TEXLIST_IDHASHMAP_SIZE 2048
@@ -57,6 +58,7 @@ typedef struct spew3d_texture_extrainfo {
     spew3d_imgload_job *loadingjob;
     spew3d_texture_info *parent;
     uint8_t editlocked;
+    uint64_t editlocked_id;
 
     char *pixels;
     uint32_t width, height;
@@ -89,39 +91,51 @@ static void __attribute__((constructor)) _internal_spew3d_ensure_texhash() {
     );
     if (!_internal_spew3d_texlist_hashmap) {
         fprintf(stderr, "spew3d_texture.c: error: "
-            "failed to allocate _internal_spew3d_texlist_hashmap\n");
+            "Failed to allocate _internal_spew3d_texlist_hashmap.\n");
         _exit(1);
     }
     memset(_internal_spew3d_texlist_hashmap, 0,
         sizeof(*_internal_spew3d_texlist_hashmap) *
         SPEW3D_TEXLIST_IDHASHMAP_SIZE
     );
+
+    _texlist_mutex = mutex_Create();
+    if (!_texlist_mutex) {
+        fprintf(stderr, "spew3d_texture.c: error: "
+            "Failed to allocate tex list access mutex.\n");
+        _exit(1);
+    }
 }
 
-static inline spew3d_texture_info *_fast_spew3d_texinfo(
+S3DHID spew3d_texture_info *_internal_spew3d_texinfo_nolock(
         spew3d_texture_t id
         ) {
     assert(id > 0 && id <= _internal_spew3d_texlist_count);
     return &_internal_spew3d_texlist[id - 1];
 }
 
-S3DEXP spew3d_texture_info *spew3d_texinfo(
-        spew3d_texture_t id
+S3DEXP void spew3d_texinfo(
+        spew3d_texture_t id, spew3d_texture_info *writeto
         ) {
+    mutex_Lock(_texlist_mutex);
     assert(id > 0 && id <= _internal_spew3d_texlist_count);
-    return &_internal_spew3d_texlist[id - 1];
+    spew3d_texture_info *i = &_internal_spew3d_texlist[id - 1];
+    memcpy(i, writeto, sizeof(*writeto));
+    mutex_Release(_texlist_mutex);
 }
 
 static inline spew3d_texture_extrainfo *spew3d_extrainfo(
         spew3d_texture_t tid
         ) {
-    spew3d_texture_info *tinfo = spew3d_texinfo(tid);
+    assert(mutex_IsLocked(_texlist_mutex));
+    spew3d_texture_info *tinfo = _internal_spew3d_texinfo_nolock(tid);
     return ((spew3d_texture_extrainfo *)
         tinfo->_internal);
 }
 
 static int _spew3d_check_texidstring_used(
         const char *id) {
+    assert(mutex_IsLocked(_texlist_mutex));
     uint16_t hash = spew3d_simplehash(id);
     spew3d_texlist_idhashmap_bucket *bucket =
         _internal_spew3d_texlist_hashmap[hash %
@@ -140,7 +154,8 @@ static int _spew3d_check_texidstring_used(
 }
 
 static int _internal_spew3d_ForceLoadTexture(spew3d_texture_t tid) {
-    spew3d_texture_info *tinfo = _fast_spew3d_texinfo(tid);
+    assert(mutex_IsLocked(_texlist_mutex));
+    spew3d_texture_info *tinfo = _internal_spew3d_texinfo_nolock(tid);
     spew3d_texture_extrainfo *extrainfo = (
         spew3d_extrainfo(tid)
     );
@@ -201,9 +216,10 @@ static int _internal_spew3d_TextureToGPU(
         spew3d_texture_t tid, int alpha,
         SDL_Texture **out_tex
         ) {
+    assert(mutex_IsLocked(_texlist_mutex));
     if (!_internal_spew3d_ForceLoadTexture(tid))
         return 0;
-    spew3d_texture_info *tinfo = _fast_spew3d_texinfo(tid);
+    spew3d_texture_info *tinfo = _internal_spew3d_texinfo_nolock(tid);
     if (tinfo->loadingfailed)
         return 0;
     assert(tinfo != NULL && tinfo->idstring != NULL);
@@ -263,32 +279,70 @@ static int _internal_spew3d_TextureToGPU(
 S3DEXP const char *spew3d_texture_GetReadonlyPixels(
         spew3d_texture_t tid
         ) {
-    spew3d_texture_info *tinfo = spew3d_texinfo(tid);
-    if (!_internal_spew3d_ForceLoadTexture(tid))
+    mutex_Lock(_texlist_mutex);
+    spew3d_texture_info *tinfo = _internal_spew3d_texinfo_nolock(tid);
+    if (!_internal_spew3d_ForceLoadTexture(tid)) {
+        mutex_Release(_texlist_mutex);
         return NULL;
-    return spew3d_extrainfo(tid)->pixels;
+    }
+    const char *pixels = spew3d_extrainfo(tid)->pixels;
+    mutex_Release(_texlist_mutex);
+    return pixels;
 }
+
+uint64_t _last_lock_req_id = 0;
 
 S3DEXP char *spew3d_texture_UnlockPixelsToEdit(
         spew3d_texture_t tid
         ) {
-    spew3d_texture_info *tinfo = spew3d_texinfo(tid);
-    if (!_internal_spew3d_ForceLoadTexture(tid))
+    s3dequeue *eq = _s3devent_GetInternalQueue();
+    assert(eq != NULL);
+
+    mutex_Lock(_texlist_mutex);
+    _last_lock_req_id++;
+    uint64_t lock_req_id = _last_lock_req_id;
+    spew3d_texture_info *tinfo = _internal_spew3d_texinfo_nolock(tid);
+    spew3d_texture_extrainfo *einfo = spew3d_extrainfo(tid);
+    if (!_internal_spew3d_ForceLoadTexture(tid)) {
+        mutex_Release(_texlist_mutex);
         return NULL;
+    }
     assert(!tinfo->correspondstofile);
     assert(tinfo->loaded);
-    spew3d_texture_extrainfo *einfo = spew3d_extrainfo(tid);
-    #ifndef NDEBUG
-    assert(!einfo->editlocked);
-    #endif
-    einfo->editlocked = 1;
-    return einfo->pixels;
+    while (1) {
+        if (einfo->editlocked) {
+            mutex_Release(_texlist_mutex);
+            spew3d_time_Sleep(10);
+            mutex_Lock(_texlist_mutex);
+            continue;
+        }
+        einfo->editlocked = 1;
+        einfo->editlocked_id = lock_req_id;
+    }
+    char *pixels = einfo->pixels;
+    mutex_Release(_texlist_mutex);
+    return pixels;
 }
 
 S3DEXP void spew3d_texture_LockPixelsToFinishEdit(
         spew3d_texture_t tid
         ) {
-    spew3d_texture_extrainfo *einfo = spew3d_extrainfo(tid);
+    mutex_Lock(_texlist_mutex);
+    _last_lock_req_id++;
+    uint64_t lock_req_id = _last_lock_req_id;
+    s3devent e = {0};
+    e.type = S3DEV_INTERNAL_CMD_TEXTURELOCK_LOCKPIXELSTOFINISH;
+    e.texturelock.tid = tid;
+    e.texturelock.lock_request_id = lock_req_id;
+    mutex_Release(_texlist_mutex);
+
+    _s3devent_q_InsertForce(_s3devent_GetInternalQueue(), &e);
+}
+
+S3DHID int _spew3d_window_ProcessTexLockPixelsReq(s3devent *ev) {
+    assert(mutex_IsLocked(_texlist_mutex));
+    spew3d_texture_extrainfo *einfo = spew3d_extrainfo(
+        ev->texturelock.tid);
     #ifndef NDEBUG
     assert(!einfo->editlocked);
     #endif
@@ -303,13 +357,16 @@ S3DEXP void spew3d_texture_LockPixelsToFinishEdit(
         einfo->sdltexture_noalpha = NULL;
     }
     #endif
+    return 1;
 }
 
 S3DEXP int spew3d_texture_GetSize(
         spew3d_texture_t tid, int32_t *out_width,
         int32_t *out_height
         ) {
+    mutex_Lock(_texlist_mutex);
     if (!_internal_spew3d_ForceLoadTexture(tid)) {
+        mutex_Release(_texlist_mutex);
         return 0;
     }
     spew3d_texture_extrainfo *extrainfo = (
@@ -317,12 +374,14 @@ S3DEXP int spew3d_texture_GetSize(
     );
     *out_width = extrainfo->width;
     *out_height = extrainfo->height;
+    mutex_Release(_texlist_mutex);
     return 1;
 }
 
 static int _unregister_texid_from_hashmap(
         const char *id, int wascorrespondstofile
         ) {
+    assert(mutex_IsLocked(_texlist_mutex));
     int unregistercount = 0;
     uint16_t hash = spew3d_simplehash(id);
     spew3d_texlist_idhashmap_bucket *bucket =
@@ -367,8 +426,9 @@ S3DHID spew3d_texture_t _internal_spew3d_texture_NewEx(
     char *normpath = (
         fromfile ? spew3d_vfs_NormalizePath(path) : NULL
     );
-    if (!normpath)
+    if (!normpath) {
         return 0;
+    }
     uint32_t idlen = (
         fromfile ? strlen(normpath) + 2 : strlen(name) + 2
     );
@@ -407,6 +467,8 @@ S3DHID spew3d_texture_t _internal_spew3d_texture_NewEx(
         id, path, name, vfsflags);
     #endif
 
+    mutex_Lock(_texlist_mutex);
+
     if (idlen >= _internal_tex_get_buf_size) {
         uint32_t newsize = (
             idlen + 20
@@ -416,6 +478,7 @@ S3DHID spew3d_texture_t _internal_spew3d_texture_NewEx(
         );
         if (!_internal_tex_get_buf_new) {
             free(id);
+            mutex_Release(_texlist_mutex);
             return 0;
         }
         _internal_tex_get_buf =
@@ -428,6 +491,7 @@ S3DHID spew3d_texture_t _internal_spew3d_texture_NewEx(
     free(id);
     id = NULL;
     if (strlen(_internal_tex_get_buf) == 0) {
+        mutex_Release(_texlist_mutex);
         return 0;
     }
 
@@ -446,6 +510,7 @@ S3DHID spew3d_texture_t _internal_spew3d_texture_NewEx(
                 (fromfile != 0) &&
                 strcmp(_internal_spew3d_texlist[idx].idstring,
                    _internal_tex_get_buf) == 0) {
+            mutex_Release(_texlist_mutex);
             return idx + 1;
         }
         assert(bucket != bucket->next);
@@ -457,9 +522,10 @@ S3DHID spew3d_texture_t _internal_spew3d_texture_NewEx(
     #ifndef NDEBUG
     // Sanity check:
     if (_spew3d_check_texidstring_used(_internal_tex_get_buf)) {
+        mutex_Release(_texlist_mutex);
         fprintf(stderr, "spew3d_texture.c: error: critical "
             "programming error by application, name clash "
-            "between a writable texture and another "
+            "between a writable texture and another different "
             "writable or non-writable texture (which is "
             "not allowed");
         assert(!_spew3d_check_texidstring_used(_internal_tex_get_buf));
@@ -470,8 +536,10 @@ S3DHID spew3d_texture_t _internal_spew3d_texture_NewEx(
     // Allocate new slot in hash map:
     spew3d_texlist_idhashmap_bucket *newbucket = malloc(
         sizeof(*newbucket));
-    if (!newbucket)
+    if (!newbucket) {
+        mutex_Release(_texlist_mutex);
         return 0;
+    }
     memset(newbucket, 0, sizeof(*newbucket));
     newbucket->next = (
         _internal_spew3d_texlist_hashmap[idhash %
@@ -487,6 +555,7 @@ S3DHID spew3d_texture_t _internal_spew3d_texture_NewEx(
     );
     if (!new_texlist) {
         free(newbucket);
+        mutex_Release(_texlist_mutex);
         return 0;
     }
     _internal_spew3d_texlist = new_texlist;
@@ -495,12 +564,14 @@ S3DHID spew3d_texture_t _internal_spew3d_texture_NewEx(
     char *iddup = strdup(_internal_tex_get_buf);
     if (!iddup) {
         free(newbucket);
+        mutex_Release(_texlist_mutex);
         return 0;
     }
     char *pathdup = strdup(_internal_tex_get_buf);
     if ((fromfile || path != NULL) && !pathdup) {
         free(newbucket);
         free(iddup);
+        mutex_Release(_texlist_mutex);
         return 0;
     }
     spew3d_texture_extrainfo *extrainfo = malloc(
@@ -510,6 +581,7 @@ S3DHID spew3d_texture_t _internal_spew3d_texture_NewEx(
         free(pathdup);
         free(newbucket);
         free(iddup);
+        mutex_Release(_texlist_mutex);
         return 0;
     }
     memset(extrainfo, 0, sizeof(*extrainfo));
@@ -532,7 +604,9 @@ S3DHID spew3d_texture_t _internal_spew3d_texture_NewEx(
 
     _internal_spew3d_texlist_count += 1;
     assert(_spew3d_check_texidstring_used(iddup));
-    return _internal_spew3d_texlist_count;
+    uint64_t result_id = _internal_spew3d_texlist_count;
+    mutex_Release(_texlist_mutex);
+    return result_id;
 }
 
 S3DEXP int spew3d_texture_Draw(
@@ -549,8 +623,8 @@ S3DEXP int spew3d_texture_Draw(
     );
     return spew3d_texture_DrawAtCanvasPixels(
         win, tid, x, y, centered, scale, angle,
-        tint_red, tint_green, tint_blue,
-        transparency, withalphachannel
+        tint_red, tint_green, tint_blue, transparency,
+        withalphachannel
     );
 }
 
@@ -563,12 +637,45 @@ S3DEXP int spew3d_texture_DrawAtCanvasPixels(
         s3dnum_t transparency,
         int withalphachannel
         ) {
-    spew3d_texture_info *tinfo = _fast_spew3d_texinfo(tid);
+    mutex_Lock(_texlist_mutex);
+    s3devent e = {0};
+    e.type = S3DEV_INTERNAL_CMD_SPRITEDRAW;
+    e.spritedraw.win_id = spew3d_window_GetID(win);
+    e.spritedraw.tid = tid;
+    e.spritedraw.pixel_x = x;
+    e.spritedraw.pixel_y = y;
+    e.spritedraw.centered = centered;
+    e.spritedraw.scale = scale;
+    e.spritedraw.angle = angle;
+    e.spritedraw.tint_red = tint_red;
+    e.spritedraw.tint_green = tint_green;
+    e.spritedraw.tint_blue = tint_blue;
+    mutex_Release(_texlist_mutex);
+    return s3devent_q_Insert(_s3devent_GetInternalQueue(), &e);
+}
+
+S3DHID int _spew3d_texture_ProcessSpriteDrawReq(s3devent *e) {
+    assert(mutex_IsLocked(_texlist_mutex));
+
+    spew3d_window *win = spew3d_window_GetByID(e->spritedraw.win_id);
+    spew3d_texture_t tid = e->spritedraw.win_id;
+    int32_t x = e->spritedraw.pixel_x;
+    int32_t y = e->spritedraw.pixel_y;
+    int centered = e->spritedraw.centered;
+    s3dnum_t scale = e->spritedraw.scale;
+    s3dnum_t angle = e->spritedraw.angle;
+    s3dnum_t tint_red = e->spritedraw.tint_red;
+    s3dnum_t tint_green = e->spritedraw.tint_green;
+    s3dnum_t tint_blue = e->spritedraw.tint_blue;
+    s3dnum_t transparency = e->spritedraw.transparency;
+    int withalphachannel = e->spritedraw.withalphachannel;
+
+    spew3d_texture_info *tinfo = _internal_spew3d_texinfo_nolock(tid);
     spew3d_texture_extrainfo *extrainfo = (
         spew3d_extrainfo(tid)
     );
     if (!_internal_spew3d_ForceLoadTexture(tid))
-        return 0;
+        return 1;
 
     if (
             #ifndef SPEW3D_OPTION_DISABLE_SDL
@@ -581,7 +688,7 @@ S3DEXP int spew3d_texture_DrawAtCanvasPixels(
             return 1;
 
         // FIXME: implement this.
-        return 0;
+        return 1;
     }
     #ifndef SPEW3D_OPTION_DISABLE_SDL
     SDL_Renderer *renderer = NULL;
@@ -600,9 +707,9 @@ S3DEXP int spew3d_texture_DrawAtCanvasPixels(
             "spew3d_texture.c: debug: "
             "spew3d_texture_DrawToCanvas(): "
             "failed to access, decode, or "
-            "GPU upload texture\n");
+            "do GPU upload of texture\n");
         #endif
-        return 0;
+        return 1;
     }
 
     double transparency_dbl = transparency;
@@ -612,7 +719,7 @@ S3DEXP int spew3d_texture_DrawAtCanvasPixels(
     uint8_t old_r, old_g, old_b, old_a;
     if (SDL_GetRenderDrawColor(renderer,
             &old_r, &old_g, &old_b, &old_a) != 0)
-        return 0;
+        return 1;
     uint8_t draw_r = fmax(0, fmin(255, (double)tint_red * 256.0));
     uint8_t draw_g = fmax(0, fmin(255, (double)tint_green * 255.0));
     uint8_t draw_b = fmax(0, fmin(255, (double)tint_blue * 255.0));
@@ -623,7 +730,7 @@ S3DEXP int spew3d_texture_DrawAtCanvasPixels(
             draw_r, draw_g, draw_b, draw_a) != 0 ||
             SDL_SetRenderDrawBlendMode(renderer,
             SDL_BLENDMODE_BLEND) != 0) {
-        return 0;
+        return 1;
     }
     SDL_Rect r = {0};
     r.x = x - (centered ?
@@ -634,10 +741,10 @@ S3DEXP int spew3d_texture_DrawAtCanvasPixels(
     r.h = round(extrainfo->height * scale);
     if (SDL_RenderCopyEx(renderer, tex, NULL, &r,
             -angle, NULL, SDL_FLIP_NONE) != 0)
-        return 0;
+        return 1;
     if (SDL_SetRenderDrawColor(renderer,
             old_r, old_g, old_b, old_a) != 0)
-        return 0;
+        return 1;
     return 1;
     #endif  // #ifndef SPEW3D_OPTION_DISABLE_SDL
 }
@@ -658,8 +765,9 @@ S3DEXP spew3d_texture_t spew3d_texture_NewWritable(
     );
     if (tex == 0)
         return 0;
+    mutex_Lock(_texlist_mutex);
     spew3d_texture_info *tinfo = (
-        _fast_spew3d_texinfo(tex)
+        _internal_spew3d_texinfo_nolock(tex)
     );
     spew3d_texture_extrainfo *extrainfo = (
         spew3d_extrainfo(tex)
@@ -683,24 +791,39 @@ S3DEXP spew3d_texture_t spew3d_texture_NewWritable(
             free(tinfo->idstring);
             free(tinfo->diskpath);
             _internal_spew3d_texlist_count--;
+            mutex_Release(_texlist_mutex);
             return 0;
         }
         memset(extrainfo->pixels, 0, 4 * pixelcount);
         tinfo->loaded = 1;
     }
+    mutex_Release(_texlist_mutex);
     return tex;
 }
 
 S3DEXP void spew3d_texture_Destroy(spew3d_texture_t tid) {
+    mutex_Lock(_texlist_mutex);
+    s3devent e = {0};
+    e.type = S3DEV_INTERNAL_CMD_TEXDELETE;
+    e.texdelete.tid = tid;
+    mutex_Release(_texlist_mutex);
+    _s3devent_q_InsertForce(_s3devent_GetInternalQueue(), &e);
+}
+
+S3DHID int _spew3d_texture_ProcessTexDestroyReq(s3devent *ev) {
+    assert(mutex_IsLocked(_texlist_mutex));
+    spew3d_texture_t tid = ev->texdelete.tid;
     assert(tid >= 0 && tid <= _internal_spew3d_texlist_count);
-    if (tid == 0)
-        return;
-    spew3d_texture_info *tinfo = _fast_spew3d_texinfo(tid);
+    if (tid == 0) {
+        return 1;
+    }
+    spew3d_texture_info *tinfo = _internal_spew3d_texinfo_nolock(tid);
     assert(tinfo != NULL);
     assert(!tinfo->correspondstofile);
     assert(tinfo->idstring != NULL);
-    if (!tinfo->loaded)
-        return;
+    if (!tinfo->loaded) {
+        return 1;
+    }
     int uregcount = (
         _unregister_texid_from_hashmap(tinfo->idstring, 0)
     );
@@ -725,6 +848,7 @@ S3DEXP void spew3d_texture_Destroy(spew3d_texture_t tid) {
     tinfo->diskpath = NULL;
     tinfo->_internal = NULL;
     tinfo->loaded = 0;
+    return 1;
 }
 
 S3DEXP spew3d_texture_t spew3d_texture_NewWritableFromFile(
@@ -735,6 +859,40 @@ S3DEXP spew3d_texture_t spew3d_texture_NewWritableFromFile(
     return (
         _internal_spew3d_texture_NewEx(
             name, original_path, original_vfsflags, 0));
+}
+
+S3DEXP void spew3d_texture_MainThreadUpdate() {
+    thread_MarkAsMainThread();
+
+    s3dequeue *eq = _s3devent_GetInternalQueue();
+    assert(eq != NULL);
+
+    while (1) {
+        s3devent e = {0};
+        if (!s3devent_q_Pop(eq, &e))
+            break;
+    
+        mutex_Lock(_texlist_mutex);
+        if (e.type == S3DEV_INTERNAL_CMD_TEXTURELOCK_LOCKPIXELSTOFINISH) {
+            if (!_spew3d_window_ProcessTexLockPixelsReq(&e)) {
+                mutex_Release(_texlist_mutex);
+                _s3devent_q_InsertForce(eq, &e);
+                continue;
+            }
+        } else if (e.type == S3DEV_INTERNAL_CMD_SPRITEDRAW) {
+            if (!_spew3d_texture_ProcessSpriteDrawReq(&e)) {
+                mutex_Release(_texlist_mutex);
+                _s3devent_q_InsertForce(eq, &e);
+                continue;
+            }
+        } else if (e.type == S3DEV_INTERNAL_CMD_TEXDELETE) {
+            if (!_spew3d_texture_ProcessTexDestroyReq(&e)) {
+                mutex_Release(_texlist_mutex);
+                _s3devent_q_InsertForce(eq, &e);
+                continue;
+            }
+        }
+    }
 }
 
 #endif  // SPEW3D_IMPLEMENTATION

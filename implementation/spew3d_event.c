@@ -67,6 +67,11 @@ S3DHID __attribute__((constructor)) static void _make_main_queue() {
         _main_event_queue = s3devent_q_Create();
     if (!_internal_event_queue)
         _internal_event_queue = s3devent_q_Create();
+    if (!_main_event_queue || !_internal_event_queue) {
+        fprintf(stderr, "spew3d_event.c: error: "
+            "Failed to allocate event queues.\n");
+        _exit(1);
+    }
 }
 
 S3DEXP s3dequeue *s3devent_GetMainQueue() {

@@ -60,7 +60,13 @@ S3DEXP void spew3d_window_GetSDLWindowAndRenderer(
 typedef struct spew3d_point spew3d_point;
 typedef struct spew3d_ctx spew3d_ctx;
 
-/// Fill the inner area of the window with a solid color.
+/// Get ID from window;
+S3DEXP uint32_t spew3d_window_GetID(spew3d_window *w);
+
+/// Get back a window by ID.
+S3DEXP spew3d_window *spew3d_window_GetByID(uint32_t id);
+
+/// Fill the inner canvas of the window with a solid color.
 S3DEXP void spew3d_window_FillWithColor(
     spew3d_window *window,
     s3dnum_t red, s3dnum_t green, s3dnum_t blue
