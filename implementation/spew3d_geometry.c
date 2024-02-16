@@ -34,10 +34,10 @@ license, see accompanied LICENSE.md.
 #include <string.h>
 
 S3DHID int _internal_spew3d_geometry_AddVertexPolyAlloc(
-        spew3d_geometry *geometry,
+        s3d_geometry *geometry,
         int add_vertex, int add_polygon
         ) {
-    spew3d_pos *new_vertex = realloc(
+    s3d_pos *new_vertex = realloc(
         geometry->vertex,
         sizeof(*new_vertex) *
         (geometry->vertex_count + add_vertex)
@@ -45,7 +45,7 @@ S3DHID int _internal_spew3d_geometry_AddVertexPolyAlloc(
     if (!new_vertex)
         return 0;
     geometry->vertex = new_vertex;
-    spew3d_pos *new_normal = realloc(
+    s3d_pos *new_normal = realloc(
         geometry->polygon_normal,
         sizeof(*new_normal) *
         (geometry->polygon_count + add_polygon * 3)
@@ -69,7 +69,7 @@ S3DHID int _internal_spew3d_geometry_AddVertexPolyAlloc(
     if (!new_material)
         return 0;
     geometry->polygon_material = new_material;
-    spew3d_point *new_texcoord = realloc(
+    s3d_point *new_texcoord = realloc(
         geometry->polygon_texcoord,
         sizeof(*new_texcoord) *
         (geometry->polygon_count + add_polygon * 3)
@@ -77,7 +77,7 @@ S3DHID int _internal_spew3d_geometry_AddVertexPolyAlloc(
     if (!new_texcoord)
         return 0;
     geometry->polygon_texcoord = new_texcoord;
-    spew3d_texture_t *new_texture = realloc(
+    s3d_texture_t *new_texture = realloc(
         geometry->polygon_texture,
         sizeof(*new_texture) *
         (geometry->polygon_count + add_polygon)
@@ -88,8 +88,8 @@ S3DHID int _internal_spew3d_geometry_AddVertexPolyAlloc(
     return 1;
 }
 
-S3DEXP spew3d_geometry *spew3d_geometry_Create() {
-    spew3d_geometry *geometry = malloc(sizeof(*geometry));
+S3DEXP s3d_geometry *spew3d_geometry_Create() {
+    s3d_geometry *geometry = malloc(sizeof(*geometry));
     if (!geometry)
         return NULL;
 
@@ -98,12 +98,12 @@ S3DEXP spew3d_geometry *spew3d_geometry_Create() {
 }
 
 S3DEXP int spew3d_geometry_AddCube(
-        spew3d_geometry *geometry,
+        s3d_geometry *geometry,
         s3dnum_t edge_width,
-        spew3d_pos *offset,
-        spew3d_rotation *rotation,
-        spew3d_point *side_texcoord,
-        spew3d_texture_t *side_texture,
+        s3d_pos *offset,
+        s3d_rotation *rotation,
+        s3d_point *side_texcoord,
+        s3d_texture_t *side_texture,
         int *side_texture_owned
         ) {
     if (!_internal_spew3d_geometry_AddVertexPolyAlloc(
@@ -120,7 +120,7 @@ S3DEXP int spew3d_geometry_AddCube(
     const int viterstart = viter;
     while (viter < geometry->vertex_count) {
         const int relidx = (viter - viterstart);
-        spew3d_pos finaloffset = {0};
+        s3d_pos finaloffset = {0};
         finaloffset.z = (
             (relidx >= 4) ? -halfedgewidth : halfedgewidth
         );
@@ -140,7 +140,7 @@ S3DEXP int spew3d_geometry_AddCube(
 
     int poffset = geometry->polygon_count - 12;
     int32_t *vindex = geometry->polygon_vertexindex;
-    spew3d_point *txcoord = geometry->polygon_texcoord;
+    s3d_point *txcoord = geometry->polygon_texcoord;
 
     // Forward / X+ side
     vindex[poffset * 3 + 0] = 3;  // bottom left
@@ -236,14 +236,14 @@ S3DEXP int spew3d_geometry_AddCube(
 }
 
 S3DEXP int spew3d_geometry_AddCubeSimple(
-        spew3d_geometry *geometry,
+        s3d_geometry *geometry,
         s3dnum_t edge_width,
-        spew3d_texture_t texture,
+        s3d_texture_t texture,
         int texture_owned
         ) {
-    spew3d_point coords[4 * 6];
+    s3d_point coords[4 * 6];
     int texture_owned_flag[6];
-    spew3d_texture_t textures[6];
+    s3d_texture_t textures[6];
     int i = 0;
     while (i < 6) {
         texture_owned_flag[i] = (texture_owned != 0);
@@ -264,8 +264,8 @@ S3DEXP int spew3d_geometry_AddCubeSimple(
 
         i++;
     }
-    spew3d_pos offset = {0};
-    spew3d_rotation rotation = {0};
+    s3d_pos offset = {0};
+    s3d_rotation rotation = {0};
 
     return spew3d_geometry_AddCube(
         geometry, edge_width, &offset, &rotation,
@@ -273,7 +273,7 @@ S3DEXP int spew3d_geometry_AddCubeSimple(
     );
 }
 
-S3DEXP void spew3d_geometry_Destroy(spew3d_geometry *geometry) {
+S3DEXP void spew3d_geometry_Destroy(s3d_geometry *geometry) {
     if (!geometry)
         return;
     int32_t i = 0;

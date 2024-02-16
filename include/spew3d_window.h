@@ -34,46 +34,45 @@ license, see accompanied LICENSE.md.
 #include <SDL2/SDL.h>
 #endif
 
-typedef struct spew3d_window spew3d_window;
-typedef struct spew3d_point spew3d_point;
+typedef struct s3d_window s3d_window;
+typedef struct s3d_point s3d_point;
 
 #define SPEW3D_WINDOW_FLAG_FORCE_HIDDEN_VIRTUAL (0x1)
 #define SPEW3D_WINDOW_FLAG_FULLSCREEN (0x2)
 #define SPEW3D_WINDOW_FLAG_FORCE_NO_3D_ACCEL (0x4)
-S3DEXP spew3d_window *spew3d_window_NewEx(
+S3DEXP s3d_window *spew3d_window_NewEx(
     const char *title, uint32_t flags,
     int32_t width, int32_t height
 );
 
-S3DEXP spew3d_window *spew3d_window_New(
+S3DEXP s3d_window *spew3d_window_New(
     const char *title, uint32_t flags
 );
 
 #if !defined(SPEW3D_OPTION_DISABLE_SDL) &&\
         !defined(SPEW3D_OPTION_DISABLE_SDL_HEADER)
 S3DEXP void spew3d_window_GetSDLWindowAndRenderer(
-    spew3d_window *win, SDL_Window **out_sdlwindow,
+    s3d_window *win, SDL_Window **out_sdlwindow,
     SDL_Renderer **out_sdlrenderer
 );
 #endif
 
-typedef struct spew3d_point spew3d_point;
-typedef struct spew3d_ctx spew3d_ctx;
+typedef struct s3d_point s3d_point;
 
 /// Get ID from window;
-S3DEXP uint32_t spew3d_window_GetID(spew3d_window *w);
+S3DEXP uint32_t spew3d_window_GetID(s3d_window *w);
 
 /// Get back a window by ID.
-S3DEXP spew3d_window *spew3d_window_GetByID(uint32_t id);
+S3DEXP s3d_window *spew3d_window_GetByID(uint32_t id);
 
 /// Fill the inner canvas of the window with a solid color.
 S3DEXP void spew3d_window_FillWithColor(
-    spew3d_window *window,
+    s3d_window *window,
     s3dnum_t red, s3dnum_t green, s3dnum_t blue
 );
 
 /// Show the latest drawn contents to the user.
-S3DEXP void spew3d_window_PresentToScreen(spew3d_window *win);
+S3DEXP void spew3d_window_PresentToScreen(s3d_window *win);
 
 /// Convert coordinates from high-level event coordinates
 /// used for any mouse or touch events or any widgets, to
@@ -84,7 +83,7 @@ S3DEXP void spew3d_window_PresentToScreen(spew3d_window *win);
 /// This conversion is needed e.g. with a window DPI scale
 /// other than 1.0.
 S3DEXP void spew3d_window_PointToCanvasDrawPixels(
-    spew3d_window *win, spew3d_point point,
+    s3d_window *win, s3d_point point,
     int32_t *x, int32_t *y
 );
 
@@ -95,7 +94,7 @@ S3DEXP void spew3d_window_PointToCanvasDrawPixels(
 /// This might differ from spew3d_window_GetWindowWidth/Height
 /// if any window DPI scaling other than 1.0 which is common.
 S3DEXP int32_t spew3d_window_GetCanvasDrawWidth(
-    spew3d_window *win
+    s3d_window *win
 );
 
 /// Helper function for how tall the 2d canvas is (that may
@@ -105,34 +104,34 @@ S3DEXP int32_t spew3d_window_GetCanvasDrawWidth(
 /// This might differ from spew3d_window_GetWindowSize
 /// if any window DPI scaling other than 1.0 which is common.
 S3DEXP int32_t spew3d_window_GetCanvasDrawHeight(
-    spew3d_window *win
+    s3d_window *win
 );
 
 /// Get the titlebar string of a Spew3D window.
 S3DEXP const char *spew3d_window_GetTitle(
-    spew3d_window *win
+    s3d_window *win
 );
 
 /// Get the inner width of a window. Please note this is
 /// in high-level event coordinates and therefore for any window
 /// DPI scaling other than 1.0 will not be pixels. If you want
 /// the pixel size then use spew3d_window_CanvasDrawWidth/Height.
-S3DEXP spew3d_point spew3d_window_GetWindowSize(
-    spew3d_window *win
+S3DEXP s3d_point spew3d_window_GetWindowSize(
+    s3d_window *win
 );
 
 /// Destroy the given window. Obviously, don't use it anymore
 /// after that, since the data structure will eventually be
 /// free'd.
-S3DEXP void spew3d_window_Destroy(spew3d_window *win);
+S3DEXP void spew3d_window_Destroy(s3d_window *win);
 
 /// Call this in your main loop on your main thread. Will cause
 /// crashes and worse if you calling this on any other thread
 /// than the main thread.
 S3DEXP int spew3d_window_MainThreadProcessEvent(s3devent *e);
 
-S3DHID void spew3d_window_UpdateGeometryInfo(spew3d_window *win);
+S3DHID void spew3d_window_UpdateGeometryInfo(s3d_window *win);
 
-S3DHID void _spew3d_window_WaitForCanvasInfo(spew3d_window *win);
+S3DHID void _spew3d_window_WaitForCanvasInfo(s3d_window *win);
 
 #endif  // SPEW3D_WINDOW_H_

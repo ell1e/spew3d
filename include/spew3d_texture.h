@@ -34,50 +34,50 @@ license, see accompanied LICENSE.md.
 #include <SDL2/SDL.h>
 #endif
 
-typedef uint64_t spew3d_texture_t;
-typedef struct spew3d_window spew3d_window;
+typedef uint64_t s3d_texture_t;
+typedef struct s3d_window s3d_window;
 
-typedef struct spew3d_texture_info {
+typedef struct s3d_texture_info {
     char *idstring, *diskpath;
     int vfsflags;
     uint8_t loaded, loadingfailed;
     uint8_t correspondstofile;
 
     void *_internal;
-} spew3d_texture_info;
+} s3d_texture_info;
 
 
-S3DEXP spew3d_texture_t spew3d_texture_FromFile(
+S3DEXP s3d_texture_t spew3d_texture_FromFile(
     const char *path, int vfsflags
 );
 
 S3DEXP void spew3d_texinfo(
-    spew3d_texture_t id, spew3d_texture_info *write_to
+    s3d_texture_t id, s3d_texture_info *write_to
 );
 
-S3DEXP spew3d_texture_t spew3d_texture_NewWritable(
+S3DEXP s3d_texture_t spew3d_texture_NewWritable(
     const char *name, uint32_t w, uint32_t h
 );
 
-S3DEXP spew3d_texture_t spew3d_texture_NewWritableFromFile(
+S3DEXP s3d_texture_t spew3d_texture_NewWritableFromFile(
     const char *name, const char *original_path,
     int original_vfsflags
 );
 
-S3DEXP void spew3d_texture_Destroy(spew3d_texture_t tid);
+S3DEXP void spew3d_texture_Destroy(s3d_texture_t tid);
 
 S3DEXP int spew3d_texture_Draw(
-    spew3d_window *win,
-    spew3d_texture_t tid,
-    spew3d_point point, int centered, s3dnum_t scale, s3dnum_t angle,
+    s3d_window *win,
+    s3d_texture_t tid,
+    s3d_point point, int centered, s3dnum_t scale, s3dnum_t angle,
     s3dnum_t tint_red, s3dnum_t tint_green, s3dnum_t tint_blue,
     s3dnum_t transparency,
     int withalphachannel
 );
 
 S3DEXP int spew3d_texture_DrawAtCanvasPixels(
-    spew3d_window *win,
-    spew3d_texture_t tid,
+    s3d_window *win,
+    s3d_texture_t tid,
     int32_t x, int32_t y, int centered,
     s3dnum_t scale, s3dnum_t angle,
     s3dnum_t tint_red, s3dnum_t tint_green, s3dnum_t tint_blue,
@@ -86,26 +86,26 @@ S3DEXP int spew3d_texture_DrawAtCanvasPixels(
 );
 
 S3DEXP int spew3d_texture_GetSize(
-    spew3d_texture_t tid, int32_t *out_width,
+    s3d_texture_t tid, int32_t *out_width,
     int32_t *out_height
 );
 
 S3DEXP const char *spew3d_texture_GetReadonlyPixels(
-    spew3d_texture_t tid
+    s3d_texture_t tid
 );
 
 S3DEXP char *spew3d_texture_UnlockPixelsToEdit(
-    spew3d_texture_t tid
+    s3d_texture_t tid
 );
 
 S3DEXP void spew3d_texture_LockPixelsToFinishEdit(
-    spew3d_texture_t tid
+    s3d_texture_t tid
 );
 
 S3DEXP int spew3d_texture_MainThreadProcessEvent(s3devent *e);
 
-S3DHID spew3d_texture_info *_internal_spew3d_texinfo_nolock(
-    spew3d_texture_t id
+S3DHID s3d_texture_info *_internal_spew3d_texinfo_nolock(
+    s3d_texture_t id
 );
 
 #endif  // SPEW3D_TEXTURE_H_

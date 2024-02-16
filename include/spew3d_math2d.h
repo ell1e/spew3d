@@ -1,4 +1,4 @@
-/* Copyright (c) 2020-2023, ellie/@ell1e & Spew3D Team (see AUTHORS.md).
+/* Copyright (c) 2020-2024, ellie/@ell1e & Spew3D Team (see AUTHORS.md).
 
 Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions are met:
@@ -30,17 +30,17 @@ license, see accompanied LICENSE.md.
 
 #include <math.h>
 
-struct spew3d_point {
+struct s3d_point {
     s3dnum_t x, y;
 };
-typedef struct spew3d_point spew3d_point;
+typedef struct s3d_point s3d_point;
 
 #ifndef M_PI
 #define M_PI (3.14159265358979323846)
 #endif
 
 static inline void spew3d_math2d_rotate(
-        spew3d_point *p, s3dnum_t degree
+        s3d_point *p, s3dnum_t degree
         ) {
     /// Rotate a given point around its origin by the given degree.
     /// Positive angle gives CW (clockwise) rotation.
@@ -55,8 +55,8 @@ static inline void spew3d_math2d_rotate(
 }
 
 static inline void spew3d_math2d_rotatecenter(
-        spew3d_point *p, s3dnum_t degree,
-        spew3d_point center
+        s3d_point *p, s3dnum_t degree,
+        s3d_point center
         ) {
     p->x -= center.x;
     p->y -= center.y;
@@ -66,7 +66,7 @@ static inline void spew3d_math2d_rotatecenter(
 }
 
 static inline s3dnum_t spew3d_math2d_angle(
-        spew3d_point *p
+        s3d_point *p
         ) {
     /// Return the angle of a point's origin to the point.
     /// Angles: (1.0, 0.0) returns 0 degrees angle,

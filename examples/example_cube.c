@@ -10,7 +10,7 @@
 
 int main(int argc, const char **argv) {
     printf("Initializing Spew3D with window and renderer\n");
-    spew3d_window *win = spew3d_window_New(
+    s3d_window *win = spew3d_window_New(
         "Spew 3D Cube Example", 0
     );
     if (!win) {
@@ -19,7 +19,7 @@ int main(int argc, const char **argv) {
     }
 
     printf("Creating a cube\n");
-    spew3d_geometry *cube = spew3d_geometry_Create();
+    s3d_geometry *cube = spew3d_geometry_Create();
     if (cube) {
         if (!spew3d_geometry_AddCubeSimple(
                 cube, 1.0 * S3D_METER,

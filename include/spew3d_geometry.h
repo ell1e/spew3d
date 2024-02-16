@@ -30,10 +30,10 @@ license, see accompanied LICENSE.md.
 
 #include <stdint.h>
 
-typedef uint64_t spew3d_texture_t;
-typedef struct spew3d_pos spew3d_pos;
-typedef struct spew3d_point spew3d_point;
-typedef struct spew3d_rotation spew3d_rotation;
+typedef uint64_t s3d_texture_t;
+typedef struct s3d_pos s3d_pos;
+typedef struct s3d_point s3d_point;
+typedef struct s3d_rotation s3d_rotation;
 
 typedef uint32_t spew3d_material_t;
 
@@ -43,40 +43,40 @@ typedef uint32_t spew3d_material_t;
 #define SPEW3D_MATERIAL_BULLETSHOTPASSABLE ((uint32_t)1 << 3)
 #define SPEW3D_MATERIAL_AISIGHTPASSABLE ((uint32_t)1 << 4)
 
-typedef struct spew3d_geometry {
+typedef struct s3d_geometry {
     int32_t vertex_count;
-    spew3d_pos *vertex;
+    s3d_pos *vertex;
     int32_t polygon_count;
-    spew3d_pos *polygon_normal;
+    s3d_pos *polygon_normal;
     spew3d_material_t *polygon_material;
     int32_t *polygon_vertexindex;
-    spew3d_point *polygon_texcoord;
-    spew3d_texture_t *polygon_texture;
+    s3d_point *polygon_texcoord;
+    s3d_texture_t *polygon_texture;
 
     int32_t owned_texture_count;
-    spew3d_texture_t *owned_texture;
-} spew3d_geometry;
+    s3d_texture_t *owned_texture;
+} s3d_geometry;
 
-S3DEXP spew3d_geometry *spew3d_geometry_Create();
+S3DEXP s3d_geometry *spew3d_geometry_Create();
 
 S3DEXP int spew3d_geometry_AddCube(
-    spew3d_geometry *geometry,
+    s3d_geometry *geometry,
     s3dnum_t edge_width,
-    spew3d_pos *offset,
-    spew3d_rotation *rotation,
-    spew3d_point *side_texcoord,
-    spew3d_texture_t *side_texture,
+    s3d_pos *offset,
+    s3d_rotation *rotation,
+    s3d_point *side_texcoord,
+    s3d_texture_t *side_texture,
     int *side_texture_owned
 );
 
 S3DEXP int spew3d_geometry_AddCubeSimple(
-    spew3d_geometry *geometry,
+    s3d_geometry *geometry,
     s3dnum_t edge_width,
-    spew3d_texture_t texture,
+    s3d_texture_t texture,
     int texture_owned
 );
 
-S3DEXP void spew3d_geometry_Destroy(spew3d_geometry *geometry);
+S3DEXP void spew3d_geometry_Destroy(s3d_geometry *geometry);
 
 #endif  // SPEW3D_GEOMETRY_H_
 

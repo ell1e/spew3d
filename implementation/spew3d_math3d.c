@@ -1,4 +1,4 @@
-/* Copyright (c) 2020-2023, ellie/@ell1e & Spew3D Team (see AUTHORS.md).
+/* Copyright (c) 2020-2024, ellie/@ell1e & Spew3D Team (see AUTHORS.md).
 
 Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions are met:
@@ -35,8 +35,8 @@ license, see accompanied LICENSE.md.
 #ifndef NDEBUG
 static void __attribute__((constructor))
         _spew3d_math3dtest() {
-    spew3d_rotation r;
-    spew3d_pos p;
+    s3d_rotation r;
+    s3d_pos p;
     p.x = 1;
     p.y = 0;
     p.z = 0;

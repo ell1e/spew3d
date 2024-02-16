@@ -12,7 +12,7 @@
 
 int main(int argc, const char **argv) {
     printf("Initializing Spew3D with window and renderer\n");
-    spew3d_window *win = spew3d_window_New(
+    s3d_window *win = spew3d_window_New(
         "Spew 3D Sprite Example", 0
     );
     if (!win) {
@@ -29,7 +29,7 @@ int main(int argc, const char **argv) {
     }
 
     printf("Loading sprite texture\n");
-    spew3d_texture_t spritetex = spew3d_texture_FromFile(
+    s3d_texture_t spritetex = spew3d_texture_FromFile(
         "hello_world.png", 0
     );
     if (!spritetex) {
@@ -53,7 +53,7 @@ int main(int argc, const char **argv) {
         }
         spew3d_window_FillWithColor(win, 1.0, 1.0, 1.0);
 
-        spew3d_point p = spew3d_window_GetWindowSize(win);
+        s3d_point p = spew3d_window_GetWindowSize(win);
         p.x /= 2.0;
         p.y /= 2.0;
         int32_t imagewidth, imageheight;

@@ -54,7 +54,7 @@ enum S3DEventType {
 #define S3DEV_TYPE_IS_INTERNAL(x) \
     (((int)x) >= (int)S3DEV_INTERNAL_CMD_WIN_OPEN)
 
-typedef uint64_t spew3d_texture_t;
+typedef uint64_t s3d_texture_t;
 
 typedef struct s3devent {
     int type;
@@ -67,15 +67,15 @@ typedef struct s3devent {
             double red, green, blue;
         } drawprimitive;
         struct texturelock {
-            spew3d_texture_t tid;
+            s3d_texture_t tid;
             uint64_t lock_request_id;
         } texturelock;
         struct texdelete {
-            spew3d_texture_t tid;
+            s3d_texture_t tid;
         } texdelete;
         struct spritedraw {
             uint32_t win_id;
-            spew3d_texture_t tid;
+            s3d_texture_t tid;
             int32_t pixel_x, pixel_y;
             int centered;
             s3dnum_t scale, angle, tint_red, tint_green, tint_blue;

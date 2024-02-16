@@ -37,11 +37,11 @@ license, see accompanied LICENSE.md.
 
 uint32_t _last_window_id = 0;
 s3d_mutex *_win_id_mutex = NULL;
-spew3d_window **_global_win_registry = NULL;
+s3d_window **_global_win_registry = NULL;
 int _global_win_registry_fill =  0;
 int _global_win_registry_alloc = 0;
 
-typedef struct spew3d_window {
+typedef struct s3d_window {
     uint32_t id;
     uint32_t flags;
     char *title;
@@ -55,10 +55,10 @@ typedef struct spew3d_window {
     SDL_Renderer *_sdl_outputrenderer;
     #endif
     struct virtualwin {
-        spew3d_texture_t canvas;
+        s3d_texture_t canvas;
     } virtualwin;
     int32_t width, height;
-} spew3d_window;
+} s3d_window;
 
 S3DHID __attribute__((constructor)) void _ensure_winid_mutex() {
     if (_win_id_mutex != NULL)
@@ -86,7 +86,7 @@ S3DHID uint32_t spew3d_window_MakeNewID() {
     return result;
 }
 
-S3DHID void _spew3d_window_FreeContents(spew3d_window *win) {
+S3DHID void _spew3d_window_FreeContents(s3d_window *win) {
     if (win == NULL)
         return;
 
@@ -96,7 +96,7 @@ S3DHID void _spew3d_window_FreeContents(spew3d_window *win) {
     free(win->title);
 }
 
-S3DHID static spew3d_window *spew3d_window_NewExEx(
+S3DHID static s3d_window *spew3d_window_NewExEx(
         const char *title, uint32_t flags,
         int dontinitactualwindow, int32_t width, int32_t height
         ) {
@@ -109,7 +109,7 @@ S3DHID static spew3d_window *spew3d_window_NewExEx(
     if (_global_win_registry_fill + 1 >
             _global_win_registry_alloc) {
         int newalloc = _global_win_registry_alloc * 2 + 256;
-        spew3d_window **new_registry = realloc(
+        s3d_window **new_registry = realloc(
             _global_win_registry,
             sizeof(*_global_win_registry) * newalloc
         );
@@ -121,7 +121,7 @@ S3DHID static spew3d_window *spew3d_window_NewExEx(
         _global_win_registry_alloc = newalloc;
     }
 
-    spew3d_window *win = malloc(sizeof(*win));
+    s3d_window *win = malloc(sizeof(*win));
     if (!win) {
         mutex_Release(_win_id_mutex);
         return NULL;
@@ -166,11 +166,11 @@ S3DHID static spew3d_window *spew3d_window_NewExEx(
     return win;
 }
 
-S3DEXP uint32_t spew3d_window_GetID(spew3d_window *w) {
+S3DEXP uint32_t spew3d_window_GetID(s3d_window *w) {
     return w->id;
 }
 
-S3DHID spew3d_window *_spew3d_window_GetByIDLocked(uint32_t id) {
+S3DHID s3d_window *_spew3d_window_GetByIDLocked(uint32_t id) {
     int i = 0;
     while (i < _global_win_registry_fill) {
         if (_global_win_registry[i]->id == id) {
@@ -181,7 +181,7 @@ S3DHID spew3d_window *_spew3d_window_GetByIDLocked(uint32_t id) {
     return NULL;
 }
 
-S3DEXP spew3d_window *spew3d_window_GetByID(uint32_t id) {
+S3DEXP s3d_window *spew3d_window_GetByID(uint32_t id) {
     _ensure_winid_mutex();
     assert(_win_id_mutex != NULL);
 
@@ -201,7 +201,7 @@ S3DEXP spew3d_window *spew3d_window_GetByID(uint32_t id) {
 S3DHID void thread_MarkAsMainThread(void);  // Used below.
 
 #ifndef SPEW3D_OPTION_DISABLE_SDL
-S3DHID spew3d_window *spew3d_window_GetBySDLWindowID(uint32_t sdlid) {
+S3DHID s3d_window *spew3d_window_GetBySDLWindowID(uint32_t sdlid) {
     mutex_Lock(_win_id_mutex);
     int i = 0;
     while (i < _global_win_registry_fill) {
@@ -249,7 +249,7 @@ S3DHID int _spew3d_window_HandleSDLEvent(SDL_Event *e) {
         mutex_Release(_win_id_mutex);
         return 1;
     } else if (e->type == SDL_WINDOWEVENT) {
-        spew3d_window *win = spew3d_window_GetBySDLWindowID(e->window.windowID);
+        s3d_window *win = spew3d_window_GetBySDLWindowID(e->window.windowID);
         if (win != NULL && e->window.event == SDL_WINDOWEVENT_CLOSE) {
             s3devent e2 = {0};
             e2.type = S3DEV_WINDOW_USER_CLOSE_REQUEST;
@@ -348,7 +348,7 @@ S3DHID int _spew3d_window_ProcessWinOpenReq(s3devent *ev) {
     assert(eq != NULL);
 
     assert(mutex_IsLocked(_win_id_mutex));
-    spew3d_window *win = _spew3d_window_GetByIDLocked(ev->window.win_id);
+    s3d_window *win = _spew3d_window_GetByIDLocked(ev->window.win_id);
     if (!win) {
         return 1;
     }
@@ -434,7 +434,7 @@ S3DHID int _spew3d_window_ProcessWinOpenReq(s3devent *ev) {
     return 1;
 }
 
-S3DEXP void spew3d_window_PresentToScreen(spew3d_window *win) {
+S3DEXP void spew3d_window_PresentToScreen(s3d_window *win) {
     s3dequeue *eq = _s3devent_GetInternalQueue();
     if (!eq)
         return;
@@ -450,7 +450,7 @@ S3DHID int _spew3d_window_ProcessWinUpdateCanvasReq(s3devent *ev) {
     if (!_internal_spew3d_InitSDLGraphics())
         return 0;
 
-    spew3d_window *win = _spew3d_window_GetByIDLocked(ev->window.win_id);
+    s3d_window *win = _spew3d_window_GetByIDLocked(ev->window.win_id);
     if (!win)
         return 1;
 
@@ -464,7 +464,7 @@ S3DHID int _spew3d_window_ProcessWinUpdateCanvasReq(s3devent *ev) {
     return 1;
 }
 
-S3DEXP void spew3d_window_Destroy(spew3d_window *win) {
+S3DEXP void spew3d_window_Destroy(s3d_window *win) {
     s3dequeue *eq = _s3devent_GetInternalQueue();
     if (!eq)
         return;
@@ -485,7 +485,7 @@ S3DHID int _spew3d_window_ProcessWinCloseReq(s3devent *ev) {
     if (!_internal_spew3d_InitSDLGraphics())
         return 0;
 
-    spew3d_window *win = _spew3d_window_GetByIDLocked(ev->window.win_id);
+    s3d_window *win = _spew3d_window_GetByIDLocked(ev->window.win_id);
     if (!win)
         return 1;
 
@@ -510,7 +510,7 @@ S3DHID int _spew3d_window_ProcessWinDrawFillReq(s3devent *ev) {
     if (!_internal_spew3d_InitSDLGraphics())
         return 0;
 
-    spew3d_window *win = _spew3d_window_GetByIDLocked(
+    s3d_window *win = _spew3d_window_GetByIDLocked(
         ev->drawprimitive.win_id);
     if (!win)
         return 1;
@@ -536,7 +536,7 @@ S3DHID int _spew3d_window_ProcessWinDrawFillReq(s3devent *ev) {
 }
 
 S3DEXP void spew3d_window_FillWithColor(
-        spew3d_window *win,
+        s3d_window *win,
         s3dnum_t red, s3dnum_t green, s3dnum_t blue
         ) {
     s3dequeue *eq = _s3devent_GetInternalQueue();
@@ -560,13 +560,13 @@ S3DEXP void spew3d_window_FillWithColor(
     mutex_Release(_win_id_mutex);
 }
 
-S3DEXP spew3d_window *spew3d_window_New(
+S3DEXP s3d_window *spew3d_window_New(
         const char *title, uint32_t flags
         ) {
     return spew3d_window_NewExEx(title, flags, 0, 0, 0);
 }
 
-S3DEXP spew3d_window *spew3d_window_NewEx(
+S3DEXP s3d_window *spew3d_window_NewEx(
         const char *title, uint32_t flags,
         int32_t width, int32_t height
         ) {
@@ -578,14 +578,14 @@ S3DEXP spew3d_window *spew3d_window_NewEx(
         defined(SPEW3D_OPTION_DISABLE_SDL_HEADER)
 // This won't be in the header, so define it here:
 S3DEXP void spew3d_window_GetSDLWindowAndRenderer(
-    spew3d_window *win, SDL_Window **out_w,
+    s3d_window *win, SDL_Window **out_w,
     SDL_Renderer **out_r
 );
 #endif
 
 #ifndef SPEW3D_OPTION_DISABLE_SDL
 S3DEXP void spew3d_window_GetSDLWindowAndRenderer(
-        spew3d_window *win, SDL_Window **out_w,
+        s3d_window *win, SDL_Window **out_w,
         SDL_Renderer **out_r
         ) {
     if (out_w) *out_w = win->_sdl_outputwindow;
@@ -593,11 +593,11 @@ S3DEXP void spew3d_window_GetSDLWindowAndRenderer(
 }
 #endif
 
-S3DEXP spew3d_point spew3d_window_GetWindowSize(
-        spew3d_window *win
+S3DEXP s3d_point spew3d_window_GetWindowSize(
+        s3d_window *win
         ) {
     mutex_Lock(_win_id_mutex);
-    spew3d_point result;
+    s3d_point result;
     result.x = ((s3dnum_t)win->width);
     result.y = ((s3dnum_t)win->height);
     mutex_Release(_win_id_mutex);
@@ -605,13 +605,13 @@ S3DEXP spew3d_point spew3d_window_GetWindowSize(
 }
 
 S3DEXP const char *spew3d_window_GetTitle(
-        spew3d_window *win
+        s3d_window *win
         ) {
     return win->title;
 }
 
 S3DEXP void spew3d_window_PointToCanvasDrawPixels(
-        spew3d_window *win, spew3d_point point,
+        s3d_window *win, s3d_point point,
         int32_t *x, int32_t *y
         ) {
     mutex_Lock(_win_id_mutex);
@@ -621,7 +621,7 @@ S3DEXP void spew3d_window_PointToCanvasDrawPixels(
     mutex_Release(_win_id_mutex);
 }
 
-S3DHID void spew3d_window_UpdateGeometryInfo(spew3d_window *win) {
+S3DHID void spew3d_window_UpdateGeometryInfo(s3d_window *win) {
     assert(mutex_IsLocked(_win_id_mutex));
 
     #ifndef SPEW3D_OPTION_DISABLE_SDL
@@ -676,7 +676,7 @@ S3DHID void spew3d_window_UpdateGeometryInfo(spew3d_window *win) {
         (double)win->canvaswidth);
 }
 
-S3DHID void _spew3d_window_WaitForCanvasInfo(spew3d_window *win) {
+S3DHID void _spew3d_window_WaitForCanvasInfo(s3d_window *win) {
     assert(mutex_IsLocked(_win_id_mutex));
     int showedwarning = 0;
     uint64_t waitstart = spew3d_time_Ticks();
@@ -703,14 +703,14 @@ S3DHID void _spew3d_window_WaitForCanvasInfo(spew3d_window *win) {
     }
 }
 
-S3DEXP int32_t spew3d_window_GetCanvasDrawWidth(spew3d_window *win) {
+S3DEXP int32_t spew3d_window_GetCanvasDrawWidth(s3d_window *win) {
     mutex_Lock(_win_id_mutex);
     _spew3d_window_WaitForCanvasInfo(win);
     mutex_Release(_win_id_mutex);
     return win->canvaswidth;
 }
 
-S3DEXP int32_t spew3d_window_GetCanvasDrawHeight(spew3d_window *win) {
+S3DEXP int32_t spew3d_window_GetCanvasDrawHeight(s3d_window *win) {
     mutex_Lock(_win_id_mutex);
     _spew3d_window_WaitForCanvasInfo(win);
     mutex_Release(_win_id_mutex);

@@ -1,4 +1,4 @@
-/* Copyright (c) 2020-2023, ellie/@ell1e & Spew3D Team (see AUTHORS.md).
+/* Copyright (c) 2020-2024, ellie/@ell1e & Spew3D Team (see AUTHORS.md).
 
 Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions are met:
@@ -35,7 +35,7 @@ license, see accompanied LICENSE.md.
 #ifndef NDEBUG
 static void __attribute__((constructor))
         _spew3d_math2dtest() {
-    spew3d_point p = {0};
+    s3d_point p = {0};
     p.x = 1;
     p.y = 0;
     assert(S3D_ABS(spew3d_math2d_angle(&p) - (0.0))

@@ -30,26 +30,28 @@ license, see accompanied LICENSE.md.
 
 typedef struct s3d_obj3d s3d_obj3d;
 typedef struct s3d_spatialstore3d s3d_spatialstore3d;
-typedef struct spew3d_pos spew3d_pos;
+typedef struct s3d_pos s3d_pos;
 
 typedef struct s3d_spatialstore3d {
     int (*Add)(s3d_spatialstore3d *store, s3d_obj3d *obj, 
-        spew3d_pos pos, double extent_outer_radius);
+        s3d_pos pos, double extent_outer_radius);
     int (*Remove)(s3d_spatialstore3d *store, s3d_obj3d *obj);
-    int (*Find)(s3d_spatialstore3d *store, spew3d_pos searchpos,
+    int (*Find)(s3d_spatialstore3d *store, s3d_pos searchpos,
         double searchrange, int expand_scan_by_collision_size,
-        s3d_obj3d **out_list, int *out_count);
-    int (*FindByCustomTypeNo)(s3d_spatialstore3d *store, spew3d_pos searchpos,
+        s3d_obj3d **out_list, uint32_t *out_count);
+    int (*FindByCustomTypeNo)(s3d_spatialstore3d *store, s3d_pos searchpos,
         double searchrange, int expand_scan_by_collision_size,
-        int *custom_type_no_list, int custom_type_no_list_len,
-        s3d_obj3d **out_list, int *out_count);
-    int (*FindEx)(s3d_spatialstore3d *store, spew3d_pos searchpos,
+        int *custom_type_no_list, uint32_t custom_type_no_list_len,
+        s3d_obj3d **out_list, uint32_t *out_count);
+    int (*FindEx)(s3d_spatialstore3d *store, s3d_pos searchpos,
         double searchrange, int expand_scan_by_collision_size,
-        int *custom_type_no_list, int custom_type_no_list_len,
+        int *custom_type_no_list, uint32_t custom_type_no_list_len,
         s3d_obj3d **buffer_for_list,
         int buffer_alloc, s3d_obj3d **out_list,
-        int *out_count, int *out_buffer_alloc);
-    int (*FindClosest)(s3d_spatialstore3d *store, s3d_obj3d *out_obj);
+        uint32_t *out_count, uint32_t *out_buffer_alloc);
+    int (*FindClosest)(s3d_spatialstore3d *store, s3d_pos searchpos,
+        double searchrange, int expand_scan_by_collision_size,
+        s3d_obj3d *out_obj);
     void *internal_data;
 } s3d_spatialstore3d;
 

@@ -1,4 +1,4 @@
-/* Copyright (c) 2020-2023, ellie/@ell1e & Spew3D Team (see AUTHORS.md).
+/* Copyright (c) 2020-2024, ellie/@ell1e & Spew3D Team (see AUTHORS.md).
 
 Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions are met:
@@ -30,24 +30,33 @@ license, see accompanied LICENSE.md.
 
 #include <math.h>
 
-typedef struct spew3d_pos {
+typedef struct s3d_pos {
     s3dnum_t x, y, z;
-} spew3d_pos;
+} s3d_pos;
 
-typedef struct spew3d_rotation {
+typedef struct s3d_rotation {
     s3dnum_t hori, verti, roll;
-} spew3d_rotation;
+} s3d_rotation;
 
 static inline void spew3d_math3d_add(
-        spew3d_pos *p, spew3d_pos *p2
+        s3d_pos *p, s3d_pos *p2
         ) {
     p->x += p2->x;
     p->y += p2->y;
     p->z += p2->z;
 }
 
+static inline s3dnum_t spew3d_math3d_dist(
+        s3d_pos *p1, s3d_pos *p2
+        ) {
+    double x_exp = (p1->x - p2->x) * (p1->x - p2->x);
+    double y_exp = (p1->y - p2->y) * (p1->y - p2->y);
+    double z_exp = (p1->z - p2->z) * (p1->z - p2->z);
+    return sqrt(x_exp + y_exp + z_exp);
+}
+
 static inline void spew3d_math3d_rotate(
-        spew3d_pos *p, spew3d_rotation *r
+        s3d_pos *p, s3d_rotation *r
         ) {
     /// Rotate a given pos around its origin by the given degrees.
     /// Positive angle gives CW (clockwise) rotation.
