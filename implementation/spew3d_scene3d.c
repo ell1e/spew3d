@@ -27,12 +27,52 @@ license, see accompanied LICENSE.md.
 
 #ifdef SPEW3D_IMPLEMENTATION
 
-typedef struct scene3d {
+typedef struct s3d_scene3d {
     
-} scene3d;
+} s3d_scene3d;
 
-scene3d *scene3d_New(double max_coord_range) {
-    
+typedef struct s3d_obj3d {
+    s3d_pos pos;
+    int32_t custom_type_nums[8];
+} s3d_obj3d;
+
+S3DEXP s3d_scene3d *spew3d_scene3d_New(double max_coord_range) {
+    return NULL;
+}
+
+S3DEXP s3d_pos spew3d_obj3d_GetPos(s3d_obj3d *obj) {
+    return obj->pos;
+}
+
+S3DEXP int spew3d_obj3d_AddCustomTypeNum(
+        s3d_obj3d *obj, int32_t typeno
+        ) {
+    if (typeno < 0)
+        return 0;
+    int k = 0;
+    while (k < 8) {
+        if (obj->custom_type_nums[k] < 0) {
+            obj->custom_type_nums[k] = typeno;
+            return 1;
+        }
+        k++;
+    }
+    return 1;
+}
+
+S3DEXP int spew3d_obj3d_HasCustomTypeNum(
+        s3d_obj3d *obj, int32_t typeno
+        ) {
+    if (typeno < 0)
+        return 0;
+    int k = 0;
+    while (k < 8) {
+        if (obj->custom_type_nums[k] == typeno) {
+            return 1;
+        }
+        k++;
+    }
+    return 0;
 }
 
 #endif  // SPEW3D_IMPLEMENTATION

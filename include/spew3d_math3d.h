@@ -55,6 +55,15 @@ static inline s3dnum_t spew3d_math3d_dist(
     return sqrt(x_exp + y_exp + z_exp);
 }
 
+static inline s3dnum_t spew3d_math3d_upperbounddist(
+        s3d_pos *p1, s3d_pos *p2
+        ) {
+    double result = fmax(fabs(p1->x - p2->x),
+        fabs(p1->y - p2->y));
+    result = fmax(result, fabs(p1->z - p2->z));
+    return result;
+}
+
 static inline void spew3d_math3d_rotate(
         s3d_pos *p, s3d_rotation *r
         ) {

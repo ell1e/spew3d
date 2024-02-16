@@ -27,6 +27,11 @@ license, see accompanied LICENSE.md.
 
 #ifdef SPEW3D_IMPLEMENTATION
 
+typedef struct s3d_gridobjentry {
+    s3d_obj3d *obj;
+    double extent_outer_radius;
+} s3d_gridobjentry;
+
 typedef struct s3d_spatialstore3d_gridcell {
     s3d_obj3d *objlist;
     uint32_t objlist_alloc;
@@ -44,9 +49,40 @@ typedef struct s3d_spatialstore3d_griddata {
     s3d_spatialstore3d_gridcell *contents;
 } s3d_spatialstore3d_griddata;
 
+S3DHID static int s3d_spatialstore3d_GridTestObjAgainstQuery(
+        s3d_gridobjentry *entry, s3d_pos searchpos, double searchrange,
+        int expand_search_by_collision_size,
+        int32_t *custom_type_num_list, uint32_t custom_type_num_list_len) {
+    s3d_obj3d *obj = entry->obj;
+    s3d_pos opos = spew3d_obj3d_GetPos(obj);
+    if (custom_type_num_list_len > 0) {
+        int match = 0;
+        uint32_t i = 0;
+        while (i < custom_type_num_list_len) {
+            if (spew3d_obj3d_HasCustomTypeNum(obj, custom_type_num_list[i])) {
+                match = 1;
+                break;
+            }
+            i++;
+        }
+        if (!match)
+            return 0;
+    }
+    double maxdist = searchrange;
+    if (expand_search_by_collision_size) {
+        maxdist += entry->extent_outer_radius;
+    }
+    if (spew3d_math3d_upperbounddist(&opos, &searchpos) > maxdist)
+        return 0;
+    if (spew3d_math3d_dist(&opos, &searchpos) > maxdist)
+        return 0;
+    return 1;
+}
+
 S3DHID int s3d_spatialstore3d_GridAdd(
         s3d_spatialstore3d *store, s3d_obj3d *obj, 
-        s3d_pos pos, double extent_outer_radius
+        s3d_pos pos, double extent_outer_radius,
+        int is_static
         ) {
     s3d_spatialstore3d_griddata *gdata = store->internal_data;
 }
@@ -59,7 +95,7 @@ S3DHID int s3d_spatialstore3d_GridRemove(
 S3DHID int s3d_spatialstore3d_GridFindEx(
         s3d_spatialstore3d *store, s3d_pos searchpos,
         double searchrange, int expand_scan_by_collision_size,
-        int *custom_type_no_list, uint32_t custom_type_no_list_len,
+        int32_t *custom_type_no_list, uint32_t custom_type_no_list_len,
         s3d_obj3d **buffer_for_list,
         int buffer_alloc, s3d_obj3d **out_list,
         uint32_t *out_count, uint32_t *out_buffer_alloc) {
@@ -70,7 +106,7 @@ S3DHID int s3d_spatialstore3d_GridFindByCustomTypeNo(
         s3d_spatialstore3d *store,
         s3d_pos searchpos,
         double searchrange, int expand_scan_by_collision_size,
-        int *custom_type_no_list, int custom_type_no_list_len,
+        int32_t *custom_type_no_list, int custom_type_no_list_len,
         s3d_obj3d **out_list, uint32_t *out_count) {
     return s3d_spatialstore3d_GridFindEx(
         store, searchpos, searchrange,
@@ -91,11 +127,21 @@ S3DHID int s3d_spatialstore3d_GridFind(
     );
 }
 
+S3DHID int s3d_spatialstore3d_GridFindClosestByCustomTypeNo(
+        s3d_spatialstore3d *store, s3d_pos searchpos,
+        double searchrange, int expand_scan_by_collision_size,
+        int32_t *custom_type_no_list, int custom_type_no_list_len,
+        s3d_obj3d *out_obj) {
+    s3d_spatialstore3d_griddata *gdata = store->internal_data;
+}
+
 S3DHID int s3d_spatialstore3d_GridFindClosest(
         s3d_spatialstore3d *store, s3d_pos searchpos,
         double searchrange, int expand_scan_by_collision_size,
         s3d_obj3d *out_obj) {
-    s3d_spatialstore3d_griddata *gdata = store->internal_data;
+    return s3d_spatialstore3d_GridFindClosestByCustomTypeNo(
+        store, searchpos, searchrange, expand_scan_by_collision_size,
+        NULL, 0, out_obj);
 }
 
 S3DEXP s3d_spatialstore3d *s3d_spatialstore3d_NewGridEx(
