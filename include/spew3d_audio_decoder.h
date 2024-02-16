@@ -30,46 +30,46 @@ license, see accompanied LICENSE.md.
 
 #include <stdint.h>
 
-typedef struct s3daudiodecoder s3daudiodecoder;
+typedef struct s3d_audio_decoder s3d_audio_decoder;
 
-S3DEXP s3daudiodecoder *audiodecoder_NewFromFile(
+S3DEXP s3d_audio_decoder *audiodecoder_NewFromFile(
     const char *filepath
 );
 
-S3DEXP s3daudiodecoder *audiodecoder_NewFromFileEx(
+S3DEXP s3d_audio_decoder *audiodecoder_NewFromFileEx(
     const char *filepath, int vfsflags
 );
 
 S3DEXP int s3d_audiodecoder_SetChannelAdjustTo(
-    s3daudiodecoder *d, int channels
+    s3d_audio_decoder *d, int channels
 );
 
 S3DEXP int s3d_audiodecoder_GetSourceSampleRate(
-    s3daudiodecoder *d
+    s3d_audio_decoder *d
 );
 
 S3DEXP int s3d_audiodecoder_GetSourceChannels(
-    s3daudiodecoder *d
+    s3d_audio_decoder *d
 );
 
 S3DEXP int s3d_audiodecoder_GetOutputChannels(
-    s3daudiodecoder *d
+    s3d_audio_decoder *d
 );
 
 S3DEXP int s3d_audiodecoder_SetResampleTo(
-    s3daudiodecoder *d, int samplerate
+    s3d_audio_decoder *d, int samplerate
 );
 
 S3DEXP int s3d_audiodecoder_Decode(
-    s3daudiodecoder *d, char *output, int frames,
+    s3d_audio_decoder *d, char *output, int frames,
     int *out_haderror
 );
 
-S3DEXP void s3d_audiodecoder_ResetToStart(s3daudiodecoder *d);
+S3DEXP void s3d_audiodecoder_ResetToStart(s3d_audio_decoder *d);
 
-S3DEXP void s3d_audiodecoder_Destroy(s3daudiodecoder *d);
+S3DEXP void s3d_audiodecoder_Destroy(s3d_audio_decoder *d);
 
-S3DEXP int s3d_audiodecoder_HadError(s3daudiodecoder *d);
+S3DEXP int s3d_audiodecoder_HadError(s3d_audio_decoder *d);
 
 #endif  // SPEW3D_AUDIO_DECODER_H_
 

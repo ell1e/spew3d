@@ -28,14 +28,16 @@ license, see accompanied LICENSE.md.
 #ifdef SPEW3D_IMPLEMENTATION
 
 S3DEXP s3d_spatialstore3d *s3d_spatialstore3d_NewGrid(
-    double max_coord_range, double max_regular_collision_size
+    double max_coord_range, double max_regular_collision_size,
+    s3d_pos center
 );
 
 S3DEXP s3d_spatialstore3d *s3d_spatial3d_NewDefault(
-        double max_coord_range, double max_regular_collision_size
+        double max_coord_range, double max_regular_collision_size,
+        s3d_pos center
         ) {
     return s3d_spatialstore3d_NewGrid(
-        max_coord_range, max_regular_collision_size
+        max_coord_range, max_regular_collision_size, center
     );
 }
 

@@ -142,7 +142,7 @@ S3DEXP int s3d_audioresampler_FillBufResampled(
             d->resampledbuf_size = buf_size;
         }
 
-        #if defined(DEBUG_SPEW3D_AUDIO_DECODE_RESAMPLE)
+        #if defined(DEBUG_SPEW3D_AUDIO_RESAMPLE_DATA)
         assert(buf_size >= 0);
         assert(d->resampledbuf_fillbytes >= 0);
         printf(
@@ -200,7 +200,7 @@ S3DEXP int s3d_audioresampler_FillBufResampled(
                     AUDIO_S32), e->channels,
                 e->output_samplerate
             );
-            #if defined(DEBUG_SPEW3D_AUDIO_DECODE_RESAMPLE)
+            #if defined(DEBUG_SPEW3D_AUDIO_RESAMPLE_DATA)
             printf(
                 "spew3d_audio_decoder.c: debug: "
                 "decoder addr=%p sdl2 resample step %d->%d, "

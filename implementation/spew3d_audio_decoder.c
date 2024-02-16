@@ -44,7 +44,7 @@ license, see accompanied LICENSE.md.
 
 #define DECODEMIXTYPE s3d_asample_t
 
-typedef struct s3daudiodecoder {
+typedef struct s3d_audio_decoder {
     char *audiopath;
     int input_channels, input_samplerate,
         output_samplerate, output_channels;
@@ -61,19 +61,19 @@ typedef struct s3daudiodecoder {
     drmp3 *_mp3decode;
     drwav *_wavdecode;
     drflac *_flacdecode;
-} s3daudiodecoder;
+} s3d_audio_decoder;
 
-static int s3d_audiodecoder_FillDecodeAhead(s3daudiodecoder *d);
+static int s3d_audiodecoder_FillDecodeAhead(s3d_audio_decoder *d);
 
-static int s3d_audiodecoder_FillDecodeAheadResampled(s3daudiodecoder *d);
+static int s3d_audiodecoder_FillDecodeAheadResampled(s3d_audio_decoder *d);
 
-S3DEXP s3daudiodecoder *audiodecoder_NewFromFile(
+S3DEXP s3d_audio_decoder *audiodecoder_NewFromFile(
         const char *filepath
         ) {
     return audiodecoder_NewFromFileEx(filepath, 0);
 }
 
-S3DEXP s3daudiodecoder *audiodecoder_NewFromFileEx(
+S3DEXP s3d_audio_decoder *audiodecoder_NewFromFileEx(
         const char *filepath, int vfsflags
         ) {
     int _exists = 0;
@@ -82,7 +82,7 @@ S3DEXP s3daudiodecoder *audiodecoder_NewFromFileEx(
             &_exists, &_existsfserr) || !_exists) {
         return NULL;
     }
-    s3daudiodecoder *d = malloc(sizeof(*d));
+    s3d_audio_decoder *d = malloc(sizeof(*d));
     if (!d)
         return NULL;
     memset(d, 0, sizeof(*d));
@@ -96,7 +96,7 @@ S3DEXP s3daudiodecoder *audiodecoder_NewFromFileEx(
 }
 
 S3DEXP int s3d_audiodecoder_GetSourceSampleRate(
-        s3daudiodecoder *d
+        s3d_audio_decoder *d
         ) {
     if (d->input_samplerate == 0 && !d->vfshandle &&
             !d->_mp3decode && !d->_wavdecode &&
@@ -111,7 +111,7 @@ S3DEXP int s3d_audiodecoder_GetSourceSampleRate(
 }
 
 S3DEXP int s3d_audiodecoder_GetOutputChannels(
-        s3daudiodecoder *d
+        s3d_audio_decoder *d
         ) {
     if (d->output_channels == 0 && !d->vfshandle &&
             !d->_mp3decode && !d->_wavdecode &&
@@ -127,7 +127,7 @@ S3DEXP int s3d_audiodecoder_GetOutputChannels(
 }
 
 S3DEXP int s3d_audiodecoder_GetSourceChannels(
-        s3daudiodecoder *d
+        s3d_audio_decoder *d
         ) {
     if (d->input_channels == 0 && !d->vfshandle &&
             !d->_mp3decode && !d->_wavdecode &&
@@ -142,7 +142,7 @@ S3DEXP int s3d_audiodecoder_GetSourceChannels(
 }
 
 S3DEXP int s3d_audiodecoder_SetChannelAdjustTo(
-        s3daudiodecoder *d, int channels
+        s3d_audio_decoder *d, int channels
         ) {
     if (channels < 1 || channels > 10)
         return 0;
@@ -155,7 +155,7 @@ S3DEXP int s3d_audiodecoder_SetChannelAdjustTo(
 }
 
 S3DEXP int s3d_audiodecoder_SetResampleTo(
-        s3daudiodecoder *d, int samplerate
+        s3d_audio_decoder *d, int samplerate
         ) {
     if (samplerate < 10000 || samplerate > 100000)
         return 0;
@@ -170,7 +170,7 @@ S3DEXP int s3d_audiodecoder_SetResampleTo(
 S3DHID size_t _drmp3drwavdrflac_read_cb(
         void *ud, void *pBufferOut,
         size_t bytesToRead) {
-    s3daudiodecoder *d = ud;
+    s3d_audio_decoder *d = ud;
     if (!d->vfshandle || d->vfserror)
         return 0;
     size_t result = spew3d_vfs_fread(
@@ -183,7 +183,7 @@ S3DHID size_t _drmp3drwavdrflac_read_cb(
 
 S3DHID uint32_t _drmp3_seek_cb(void *ud,
         int offset, drmp3_seek_origin origin) {
-    s3daudiodecoder *d = ud;
+    s3d_audio_decoder *d = ud;
     if (!d->vfshandle || d->vfserror)
         return 0;
     if (origin == drmp3_seek_origin_start) {
@@ -198,7 +198,7 @@ S3DHID uint32_t _drmp3_seek_cb(void *ud,
 
 S3DHID uint32_t _drwav_seek_cb(void *ud,
         int offset, drwav_seek_origin origin) {
-    s3daudiodecoder *d = ud;
+    s3d_audio_decoder *d = ud;
     if (!d->vfshandle || d->vfserror)
         return 0;
     if (origin == drwav_seek_origin_start) {
@@ -213,7 +213,7 @@ S3DHID uint32_t _drwav_seek_cb(void *ud,
 
 S3DHID uint32_t _drflac_seek_cb(void *ud,
         int offset, drflac_seek_origin origin) {
-    s3daudiodecoder *d = ud;
+    s3d_audio_decoder *d = ud;
     if (!d->vfshandle || d->vfserror)
         return 0;
     if (origin == drflac_seek_origin_start) {
@@ -256,7 +256,9 @@ S3DHID static void _expand_s16_to_s32(char *buf, uint64_t samples) {
     }
 }
 
-S3DHID static int s3d_audiodecoder_FillDecodeAhead(s3daudiodecoder *d) {
+S3DHID static int s3d_audiodecoder_FillDecodeAhead(
+        s3d_audio_decoder *d
+        ) {
     if (d->decode_endoffile)
         return 1;
     if (d->vfserror)
@@ -622,7 +624,7 @@ S3DHID static int s3d_audiodecoder_FillDecodeAhead(s3daudiodecoder *d) {
 }
 
 S3DHID static int s3d_audiodecoder_FillDecodeAheadResampled(
-        s3daudiodecoder *d) {
+        s3d_audio_decoder *d) {
     if (d->vfserror ||
             !s3d_audiodecoder_FillDecodeAhead(d))
         return 0;
@@ -645,7 +647,7 @@ S3DHID static int s3d_audiodecoder_FillDecodeAheadResampled(
 }
 
 S3DEXP int s3d_audiodecoder_Decode(
-        s3daudiodecoder *d, char *output, int frames,
+        s3d_audio_decoder *d, char *output, int frames,
         int *out_haderror
         ) {
     // Ensure basic data is set on our source stream:
@@ -658,16 +660,12 @@ S3DEXP int s3d_audiodecoder_Decode(
             return 0;
         }
     }
+    if (frames <= 0) {
+        *out_haderror = 0;
+        return 0;
+    }
 
     // Determine what we want to do:
-    char *output_unadjusted_channels = output;
-    if (d->input_channels != d->output_channels) {
-        int needed_channeladjust_bytes = (
-            (int)(d->input_channels *
-            sizeof(DECODEMIXTYPE) * frames)
-        );
-        //output_unadjusted_channels =
-    }
     const int resampling = (d->input_samplerate !=
         d->output_samplerate);
     int frames_written = 0;
@@ -687,8 +685,11 @@ S3DEXP int s3d_audiodecoder_Decode(
             s3d_audio_resampler *res = d->resampler;
             assert(res != NULL);
             if (res->resampledbuf_fillbytes <
-                    (int)(d->output_channels * sizeof(DECODEMIXTYPE)))
+                    (int)(d->output_channels * sizeof(DECODEMIXTYPE))) {
+                if (frames_written == 0)
+                    d->decode_endoffile = 1;
                 break;
+            }
             assert(res->resampledbuf_fillbytes <=
                 res->resampledbuf_size);
             copyframes = (
@@ -721,8 +722,11 @@ S3DEXP int s3d_audiodecoder_Decode(
             // We're taking original unresampled audio as-is.
             // Get our audio data directly from d->decodeaheadbuf:
             if (d->decodeaheadbuf_fillbytes < (int)(
-                    d->output_channels * sizeof(DECODEMIXTYPE)))
+                    d->output_channels * sizeof(DECODEMIXTYPE))) {
+                if (frames_written == 0)
+                    d->decode_endoffile = 1;
                 break;
+            }
             copyframes = (
                 d->decodeaheadbuf_fillbytes /
                 (d->output_channels * sizeof(DECODEMIXTYPE)));
@@ -789,31 +793,34 @@ S3DEXP int s3d_audiodecoder_Decode(
     return frames_written;
 }
 
-S3DEXP void s3d_audiodecoder_ResetToStart(s3daudiodecoder *d) {
+S3DEXP void s3d_audiodecoder_ResetToStart(s3d_audio_decoder *d) {
     if (d->vfserror)
         return;
 
-    if (d->_mp3decode) {
+    if (d->_mp3decode != NULL) {
         drmp3_uninit(d->_mp3decode);
         free(d->_mp3decode);
     }
-    if (d->_wavdecode) {
+    if (d->_wavdecode != NULL) {
         drwav_uninit(d->_wavdecode);
         free(d->_wavdecode);
     }
-    if (d->_flacdecode)
+    if (d->_flacdecode != NULL) {
         drflac_close(d->_flacdecode);
+    }
     d->decodeaheadbuf_fillbytes = 0;
-    if (d->resampler) {
+    if (d->resampler != NULL) {
         d->resampler->resampledbuf_fillbytes = 0;
     }
 
-    if (d->vfshandle)
+    if (d->vfshandle != NULL) {
         if (spew3d_vfs_fseek(d->vfshandle, 0) < 0)
             d->vfserror = 1;
+    }
+    d->decode_endoffile = 0;
 }
 
-S3DEXP void s3d_audiodecoder_Destroy(s3daudiodecoder *d) {
+S3DEXP void s3d_audiodecoder_Destroy(s3d_audio_decoder *d) {
     if (!d)
         return;
     if (d->vfshandle)
@@ -834,7 +841,7 @@ S3DEXP void s3d_audiodecoder_Destroy(s3daudiodecoder *d) {
     free(d);
 }
 
-S3DEXP int s3d_audiodecoder_HadError(s3daudiodecoder *d) {
+S3DEXP int s3d_audiodecoder_HadError(s3d_audio_decoder *d) {
     if (d->vfserror) {
         return 1;
     }

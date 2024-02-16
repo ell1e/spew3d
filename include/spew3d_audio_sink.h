@@ -33,13 +33,15 @@ license, see accompanied LICENSE.md.
 #include <SDL2/SDL.h>
 #endif
 
+typedef struct s3d_audio_mixer s3d_audio_mixer;
+
 typedef enum s3d_audio_sink_type {
     AUDIO_SINK_OUTPUT_UNSPECIFIED = 0,
     AUDIO_SINK_OUTPUT_VOID = 1,
     AUDIO_SINK_OUTPUT_SDL = 2,
 } s3d_audio_sink_type;
 
-typedef struct spew3d_audio_sink {
+typedef struct s3d_audio_sink {
     int samplerate;
     int channels;
     char *soundcard_name;
@@ -49,7 +51,7 @@ typedef struct spew3d_audio_sink {
     char *ringbuffer;
 
     void *internalptr;  // Read-only, don't touch!
-} spew3d_audio_sink;
+} s3d_audio_sink;
 
 /** This function must be called from the main thread regularly.
  *  It processes some sink creation and deletion parts that must happen
@@ -66,8 +68,14 @@ S3DEXP void spew3d_audio_sink_MainThreadUpdate();
  *  functions on the returned sink from multiple threads.
  *  Remember you need to call audio_sink_MainThreadUpdate() on
  *  the main thread continuously for audio to keep working.
+ *
+ *  **Partially thread-safe.**
+ *  While creating a sink is thread-safe, otherwise it can only
+ *  ever safely be operated and eventually closed down by a
+ *  single thread. The exception is if you attach a mixer,
+ *  which is thread-safe.
  */
-S3DEXP spew3d_audio_sink *spew3d_audio_sink_CreateOutputEx(
+S3DEXP s3d_audio_sink *spew3d_audio_sink_CreateOutputEx(
     const char *soundcard_name, int wantsinktype,
     int samplerate, int channels, int buffers
 );
@@ -78,8 +86,11 @@ S3DEXP spew3d_audio_sink *spew3d_audio_sink_CreateOutputEx(
  *  functions on the returned sink from multiple threads.
  *  Remember you need to call audio_sink_MainThreadUpdate() on
  *  the main thread continuously for audio to keep working.
+ *
+ *  **Partially thread-safe.**
+ *  See @{spew3d_audio_sink_CreateOutputEx} for details.
  */
-S3DEXP spew3d_audio_sink *
+S3DEXP s3d_audio_sink *
     spew3d_audio_sink_CreateStereoOutput(int samplerate);
 
 /** List the available sound card names for any audio sink to use.
@@ -87,19 +98,34 @@ S3DEXP spew3d_audio_sink *
  *  is NULL. You must free the array, for which you can use
  *  spew3d_stringutil_FreeArray().
  */
-S3DEXP char **spew3d_audio_sink_GetSoundcardListOutput(int sinktype);
+S3DEXP char **s3d_audio_sink_GetSoundcardListOutput(int sinktype);
 
 /** Close the audio sink. Make sure no other threads are still using it
  *  before you do that. */
-S3DEXP void spew3d_audio_sink_Close(spew3d_audio_sink *sink);
+S3DEXP void spew3d_audio_sink_Close(s3d_audio_sink *sink);
 
-/** Set a sink to play audio coming from a decoder.
+/** Set a sink to play audio coming from a decoder. (This is
+ * ADVANCED EXPERT functionality.)
  * The audio will be resampled and channel adjusted automatically
  * for the given sink. Please note an audio decoder can only feed
  * into one sink at a time or things will break badly.
  */
 S3DEXP int spew3d_audio_sink_FeedFromDecoder(
-    spew3d_audio_sink *sink, s3daudiodecoder *decoder
+    s3d_audio_sink *sink, s3d_audio_decoder *decoder
+);
+
+/** Set the sink to use a mixer if it doesn't yet, and return
+ *  the audio mixer. This is what you would usually want to do
+ *  with a sink. A mixer can be used to simulate a complex, rich
+ *  audio world with multiple sound sources.
+ *
+ *  **Fully thread-safe.**
+ *  This function is thread-safe, as in you can call it from
+ *  multiple differen threads at any time with no synchronization.
+ *  Mixers themselves are also thread-safe to use.
+ **/
+S3DEXP s3d_audio_mixer *spew3d_audio_sink_GetMixer(
+    s3d_audio_sink *sink
 );
 
 /** For sinks that automatically close after all other things using it
@@ -114,12 +140,12 @@ S3DEXP int spew3d_audio_sink_FeedFromDecoder(
  *  operating on sinks after creation you must use some synchronization
  *  if you use it from multiple threads.
  */
-S3DEXP void spew3d_audio_sink_AddRef(spew3d_audio_sink *sink);
+S3DEXP void spew3d_audio_sink_AddRef(s3d_audio_sink *sink);
 
 /** For sinks that automatically close once unused/disowned.
  *  Also see audio_sink_AddRef().
  */
-S3DEXP void spew3d_audio_sink_DelRef(spew3d_audio_sink *sink);
+S3DEXP void spew3d_audio_sink_DelRef(s3d_audio_sink *sink);
 
 #endif  // SPEW3D_AUDIO_SINK_H_
 

@@ -10,6 +10,12 @@
 
 
 int main(int argc, const char **argv) {
+    // WARNING, this is a specialized example using a decoder directly,
+    // which doesn't easily allow you to play multiple sounds at once.
+    // This is only a special example to show how to use decoders
+    // directly, which isn't needed for the average game.
+    // Check out this example instead: example_audio.c
+
     printf("Initializing Spew3D audio pipeline\n");
     s3d_audio_sink *sink = spew3d_audio_sink_CreateStereoOutput(48000);
     if (!sink) {
@@ -27,14 +33,17 @@ int main(int argc, const char **argv) {
         return 1;
     }
 
-    // Then open mixer to play file:
-    printf("Opening mixer for managed game audio\n");
-    s3d_audio_mixer *mixer = spew3d_audio_sink_GetMixer(sink);
-    if (!mixer) {
-        fprintf(stderr, "Failed to set up a mixer.\n");
+    // Then open decoder to play file:
+    printf("Opening file to directly feed into output sink\n");
+    s3d_audio_decoder *decoder = audiodecoder_NewFromFile(
+        playfilename
+    );
+    if (!decoder || !spew3d_audio_sink_FeedFromDecoder(
+            sink, decoder
+            )) {
+        fprintf(stderr, "Failed to set up decoded file.\n");
         return 1;
     }
-    spew3d_audio_mixer_PlayFile(mixer, playfilename, 1.0, 0);
 
     // Main event loop:
     printf("Entering main loop\n");

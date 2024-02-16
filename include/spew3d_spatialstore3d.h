@@ -56,7 +56,8 @@ typedef struct s3d_spatialstore3d {
 } s3d_spatialstore3d;
 
 S3DEXP s3d_spatialstore3d *s3d_spatial3d_NewDefault(
-    double max_coord_range, double max_regular_collision_size
+    double max_coord_range, double max_regular_collision_size,
+    s3d_pos center
 );
 
 #endif  // SPEW3D_SPATIALSTORE3D_H_
