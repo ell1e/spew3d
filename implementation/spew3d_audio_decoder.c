@@ -157,9 +157,10 @@ S3DEXP int s3d_audiodecoder_SetChannelAdjustTo(
 S3DEXP int s3d_audiodecoder_SetResampleTo(
         s3d_audio_decoder *d, int samplerate
         ) {
+    assert(d != NULL);
     if (samplerate < 10000 || samplerate > 100000)
         return 0;
-    if (d->resampler) {
+    if (d->resampler != NULL) {
         s3d_audioresampler_SetNewTargetSamplerate(
             d->resampler, samplerate);
     }

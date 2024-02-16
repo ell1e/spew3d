@@ -170,11 +170,13 @@ S3DHID void _internal_spew3d_audio_sink_ProcessInput(
             nocopyneeded = 1;
             break;
         }
-        /*printf("sink input: "
+        /*printf("spew3d_audio_sink.c: debug: sink input: "
             "sink %p fill %d play %d next %d segments %d\n", sink,
             (int)SINKIDATA(sink)->ringbufferfillnum,
             (int)SINKIDATA(sink)->ringbufferplaynum,
             nextnum, (int)sink->ringbuffersegmentcount);*/
+        char *writeto = (sink->ringbuffer +
+            nextnum * SPEW3D_SINK_AUDIOBUF_BYTES * channels);
         if (SINKIDATA(sink)->sinksrc_type == SINKSRC_DECODER) {
             assert(SINKIDATA(sink)->sinksrc_decoder != NULL);
             assert(SINKIDATA(sink)->sinksrc_decoder->output_channels ==
@@ -185,16 +187,15 @@ S3DHID void _internal_spew3d_audio_sink_ProcessInput(
             int haderror = 0;
             int result = s3d_audiodecoder_Decode(
                 SINKIDATA(sink)->sinksrc_decoder,
-                sink->ringbuffer +
-                nextnum * SPEW3D_SINK_AUDIOBUF_BYTES * channels,
-                framecount, &haderror
+                writeto, framecount, &haderror
             );
             if (result < framecount)
                 memset(sink->ringbuffer +
                     nextnum * SPEW3D_SINK_AUDIOBUF_BYTES * channels +
                     result * (channels * sizeof(s3d_asample_t)),
                     0,
-                    (framecount - result) * (2 * sizeof(s3d_asample_t)));
+                    (framecount - result) *
+                    (channels * sizeof(s3d_asample_t)));
             SINKIDATA(sink)->ringbufferfillnum = nextnum;
             didcopy = 1;
         } else if (SINKIDATA(sink)->sinksrc_type == SINKSRC_MIXER) {
@@ -204,9 +205,7 @@ S3DHID void _internal_spew3d_audio_sink_ProcessInput(
             assert(framecount > 0);
             spew3d_audio_mixer_Render(
                 SINKIDATA(sink)->sinksrc_mixer,
-                sink->ringbuffer +
-                nextnum * SPEW3D_SINK_AUDIOBUF_BYTES * channels,
-                framecount
+                writeto, framecount
             );
             SINKIDATA(sink)->ringbufferfillnum = nextnum;
             didcopy = 1;

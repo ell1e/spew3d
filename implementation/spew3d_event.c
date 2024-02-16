@@ -165,6 +165,8 @@ S3DHID void thread_MarkAsMainThread(void);  // Used below.
 S3DHID int _spew3d_window_HandleSDLEvent(SDL_Event *e);
 #endif
 
+S3DHID void spew3d_audio_mixer_UpdateAllOnMainThread();
+
 S3DEXP void s3devent_UpdateMainThread() {
     thread_MarkAsMainThread();
     #ifndef SPEW3D_OPTION_DISABLE_SDL
@@ -177,6 +179,9 @@ S3DEXP void s3devent_UpdateMainThread() {
     assert(eq != NULL);
 
     while (1) {
+        spew3d_audio_mixer_UpdateAllOnMainThread();
+        spew3d_audio_sink_MainThreadUpdate();
+
         s3devent e = {0};
         if (!s3devent_q_Pop(eq, &e))
             break;

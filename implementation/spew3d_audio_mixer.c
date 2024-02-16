@@ -65,22 +65,86 @@ typedef struct s3d_audio_mixer {
     s3d_pos lastcampos;
     s3d_rotation lastcamangle;
     
+    double anticlipfactor, anticlipthreshold;
+    int64_t last_anticlip_ts;
+
     char *temp_mix_buf;
     int temp_mix_buf_alloc;
 
     int64_t *effective_vol_ints_buf;
 } s3d_audio_mixer;
 
+s3d_audio_mixer **_global_mixer_list = NULL;
+int _global_mixer_list_fill = 0;
+int _global_mixer_list_alloc = 0;
+s3d_mutex *_global_mixer_list_mutex = NULL;
+
+S3DHID __attribute__((constructor)) void _ensure_global_mixer_mutex() {
+    if (_global_mixer_list_mutex != NULL)
+        return;
+    _global_mixer_list_mutex = mutex_Create();
+    if (_global_mixer_list_mutex == NULL) {
+        fprintf(stderr,
+            "spew3d_audio_mixer.c: error: FATAL ERROR, "
+            "couldn't allocate mutex.\n");
+        _exit(1);
+    }
+}
+
+S3DHID void spew3d_audio_mixer_UpdateAllOnMainThread() {
+    uint64_t now = spew3d_time_Ticks();
+    mutex_Lock(_global_mixer_list_mutex);
+    int i = 0;
+    while (i < _global_mixer_list_fill) {
+        s3d_audio_mixer *m = _global_mixer_list[i];
+        mutex_Lock(m->m);
+        if (now > m->last_anticlip_ts + 5000)
+            m->last_anticlip_ts = now - 100;
+        while (m->last_anticlip_ts < now) {
+            if (m->anticlipfactor < 0.99) {
+                double inversefac = 1.0 - m->anticlipfactor;
+                inversefac = inversefac * inversefac * 0.1 + 0.9 * inversefac;
+                m->anticlipfactor = 1.0 - inversefac;
+            } else {
+                m->anticlipfactor = 1.0;
+            }
+            m->last_anticlip_ts += 50;
+        }
+        mutex_Release(m->m);
+        i++;
+    }
+    mutex_Release(_global_mixer_list_mutex);
+}
+
 S3DEXP s3d_audio_mixer *spew3d_audio_mixer_New(
         int samplerate, int speaker_channels
         ) {
+    _ensure_global_mixer_mutex();
+    mutex_Lock(_global_mixer_list_mutex);
+    if (_global_mixer_list_fill + 1 >
+            _global_mixer_list_alloc) {
+        int newalloc = _global_mixer_list_fill + 1 + 32;
+        s3d_audio_mixer **newlist = realloc(
+            _global_mixer_list, sizeof(*_global_mixer_list) *
+            newalloc);
+        if (!newlist) {
+            mutex_Release(_global_mixer_list_mutex);
+            return NULL;
+        }
+        _global_mixer_list = newlist;
+        _global_mixer_list_alloc = newalloc;
+    }
+
     s3d_audio_mixer *m = malloc(sizeof(*m));
-    if (!m)
+    if (!m) {
+        mutex_Release(_global_mixer_list_mutex);
         return NULL;
+    }
     memset(m, 0, sizeof(*m));
     m->m = mutex_Create();
     if (!m->m) {
         free(m);
+        mutex_Release(_global_mixer_list_mutex);
         return NULL;
     }
     m->channels_count = 32;
@@ -88,11 +152,14 @@ S3DEXP s3d_audio_mixer *spew3d_audio_mixer_New(
     if (!m->channels) {
         mutex_Destroy(m->m);
         free(m);
+        mutex_Release(_global_mixer_list_mutex);
         return NULL;
     }
     memset(m->channels, 0,
         sizeof(*m->channels) * m->channels_count);
     m->samplerate = samplerate;
+    m->anticlipfactor = 1.0;
+    m->anticlipthreshold = 0.99;
     m->speaker_channels = speaker_channels;
     m->effective_vol_ints_buf = malloc(
         sizeof(*m->effective_vol_ints_buf) * (1+speaker_channels)
@@ -101,6 +168,7 @@ S3DEXP s3d_audio_mixer *spew3d_audio_mixer_New(
         free(m->channels);
         mutex_Destroy(m->m);
         free(m);
+        mutex_Release(_global_mixer_list_mutex);
         return NULL;
     }
     #if defined(DEBUG_SPEW3D_AUDIO_MIXER)
@@ -111,6 +179,9 @@ S3DEXP s3d_audio_mixer *spew3d_audio_mixer_New(
         m
     );
     #endif
+    _global_mixer_list[_global_mixer_list_fill] = m;
+    _global_mixer_list_fill++;
+    mutex_Release(_global_mixer_list_mutex);
     return m;
 }
 
@@ -209,7 +280,7 @@ S3DHID void _spew3d_audio_mixer_Do3DUpdate_nolock(
     )));
     double exp_fac = linear_fac * linear_fac;
     double mixed_fac = 0.7 * linear_fac + 0.3 * exp_fac;
-    double effectivevol = fmin(1.0, fmax(0.0,
+    double effectivevol = fmin(2.0, fmax(0.0,
         fmax(0.0, fmin(1.0, mixed_fac)) *
         c->volume));
     c->_effectivevol = effectivevol;
@@ -237,6 +308,10 @@ S3DEXP void spew3d_audio_mixer_Render(
         }
         m->temp_mix_buf_alloc = renderbytes;
     }
+
+    memset(sample_buf, 0,
+        frames * m->speaker_channels * sizeof(s3d_asample_t));
+
     char *tmpbuf = m->temp_mix_buf;
     memset(sample_buf, 0, renderbytes);
     int i = 0;
@@ -292,23 +367,25 @@ S3DEXP void spew3d_audio_mixer_Render(
         int64_t min = -max;
         if (sizeof(s3d_asample_t) == 4) {
             max = INT32_MAX;
-            max = -min;
+            min = -max;
         }
         int64_t evolume_left_int = (
             max * evolume * (1.0 - fmax(0.0, fmin(1.0, epan)))
         );
-        if (evolume_left_int > max) evolume_left_int = max;
+        if (evolume_left_int > max * 2) evolume_left_int = max * 2;
         if (evolume_left_int < 0) evolume_left_int = 0;
         int64_t evolume_right_int = (
             max * evolume * (1.0 + (fmax(-1.0, fmin(0.0, epan))))
         );
-        if (evolume_right_int > max) evolume_right_int = max;
+        if (evolume_right_int > max * 2) evolume_right_int = max * 2;
         if (evolume_right_int < 0) evolume_right_int = 0;
         int ispanned = fabs(epan) > 0.01;
         int64_t evolume_int = evolume_left_int;
+        int mightclip = (evolume_left_int > max ||
+            evolume_right_int > max);
 
         char *writeat2 = tmpbuf;
-        if (!ispanned) {
+        if (!ispanned && !mightclip) {
             // For performance, do this in a separate loop with
             // less conditionals per sample:
             int i2 = 0;
@@ -318,8 +395,26 @@ S3DEXP void spew3d_audio_mixer_Render(
                     int64_t value = *((s3d_asample_t*)(
                         writeat2
                     ));
-                    value *= max;
-                    value /= evolume_int;
+                    value *= evolume_int;
+                    value /= max;
+                    *((s3d_asample_t*)writeat2) = value;
+                    writeat2 += sizeof(s3d_asample_t);
+                    i3++;
+                }
+                i2++;
+            }
+        } else if (!ispanned) {
+            int i2 = 0;
+            while (i2 < frames) {
+                int i3 = 0;
+                while (i3 < outputchannels) {
+                    int64_t value = *((s3d_asample_t*)(
+                        writeat2
+                    ));
+                    value *= evolume_int;
+                    value /= max;
+                    if (value > max) value = max;
+                    if (value < min) value = min;
                     *((s3d_asample_t*)writeat2) = value;
                     writeat2 += sizeof(s3d_asample_t);
                     i3++;
@@ -351,7 +446,7 @@ S3DEXP void spew3d_audio_mixer_Render(
                     value *= max;
                     value /= *read_vol_ptr;
                     if (value > max) value = max;
-                    if (value < -max) value = -max;
+                    if (value < min) value = min;
                     *((s3d_asample_t*)writeat2) = value;
                     writeat2 += sizeof(s3d_asample_t);
                     read_vol_ptr++;
@@ -365,37 +460,29 @@ S3DEXP void spew3d_audio_mixer_Render(
         s3d_asample_t *mix_to = (s3d_asample_t*)sample_buf;
         s3d_asample_t *mix_from = (s3d_asample_t*)tmpbuf;
         s3d_asample_t *mix_end = (s3d_asample_t*)(
-            (char *)tmpbuf + frames * outputchannels
+            (char *)tmpbuf + frames * outputchannels *
+            sizeof(s3d_asample_t)
         );
-        int64_t seventypercentmax = (max * 7) / 10;
-        double seventypercentmaxf =
-            seventypercentmax;
-        int64_t hundredthirtypercentmax = (max * 13) / 10;
-        double hundredthirtypercentmaxf =
-            hundredthirtypercentmax;
+        int64_t anticlip_int_fac = (double)max * (double)m->anticlipfactor;
+        int64_t triggerthreshold = (double)max * (double)m->anticlipthreshold;
+        double triggerthresholdf = triggerthreshold;
         while (mix_from != mix_end) {
             int64_t value = *((s3d_asample_t *)mix_to);
-            int64_t value2 = *((s3d_asample_t *)mix_from);
+            int64_t value2 = ((int64_t)*((s3d_asample_t *)mix_from) *
+                (int64_t)8) / (int64_t)10;
+            value2 = value2 * (int64_t)anticlip_int_fac / (int64_t)max;
             int64_t newvalue = value + value2;
             int64_t newvalueabs = (newvalue > 0 ? newvalue : -newvalue);
-            if (newvalueabs > seventypercentmax) {
-                double sign = 1;
-                if (newvalue < 0) sign = -1;
-                // 'newvalue' is above 0.7 * max or below -0.7 * max.
-                // 'newvalueabs' is therefore above 0.7 * max and up to 1.0 * max;
-                double newvaluef = (double)(
-                    (double)newvalue - seventypercentmaxf
-                ) / hundredthirtypercentmaxf;
-                // 'newvaluef' should now be between 0 and 1.
-                double finalvaluef = sign * (
-                    newvaluef + 0.7
-                );
-                // 'finalvaluef' should now be between -1 and 1.
-                newvalue = (double)max * finalvaluef;
-                if (newvalue > max) newvalue = max;
-                if (newvalue < min) newvalue = min;
+            if (newvalueabs > triggerthreshold) {
+                double new_anti_clip = (triggerthresholdf / (double)newvalueabs);
+                new_anti_clip = fmax(0.6, fmin(1.0, new_anti_clip));
+                if (new_anti_clip < m->anticlipfactor)
+                    m->anticlipfactor = new_anti_clip;
+                anticlip_int_fac = (double)max * (double)m->anticlipfactor;
             }
-            *((s3d_asample_t *)mix_to) = (s3d_asample_t)newvalue; 
+            if (newvalue > max) newvalue = max;
+            if (newvalue < min) newvalue = min;
+            *((s3d_asample_t *)mix_to) = (s3d_asample_t)newvalue;
             mix_from++;
             mix_to++;
         }
@@ -429,7 +516,6 @@ S3DHID soundid_t _spew3d_audio_mixer_PlayFileExEx(
     s3d_audio_decoder *d = audiodecoder_NewFromFileEx(
         sound_path, vfsflags
     );
-    s3d_audiodecoder_SetResampleTo(d, m->samplerate);
     if (!d) {
         mutex_Lock(m->m);
         if (m->channels[channelno].soundid != newid) {
@@ -442,6 +528,7 @@ S3DHID soundid_t _spew3d_audio_mixer_PlayFileExEx(
         mutex_Release(m->m);
         return -1;
     }
+    s3d_audiodecoder_SetResampleTo(d, m->samplerate);
     mutex_Lock(m->m);
     if (m->channels[channelno].soundid != newid) {
         // Somebody else took that channel over.
@@ -459,7 +546,7 @@ S3DHID soundid_t _spew3d_audio_mixer_PlayFileExEx(
     m->channels[channelno].volume = fmax(0, volume);
     if (!is3d) {
         m->channels[channelno]._effectivevol =
-            fmin(1.0, fmax(0.0, volume));
+            fmin(2.0, fmax(0.0, volume));
         m->channels[channelno]._effectivepan =
             fmin(1.0, fmax(-1.0, pan));
     }
@@ -473,6 +560,7 @@ S3DEXP soundid_t spew3d_audio_mixer_PlayFileEx(
         const char *sound_path, int vfsflags,
         double volume, double pan, int16_t priority,
         int looped) {
+    assert(m != NULL);
     s3d_pos emptypos = {0};
     return _spew3d_audio_mixer_PlayFileExEx(
         m, sound_path, vfsflags, volume, pan, 0,
@@ -485,6 +573,7 @@ S3DEXP soundid_t spew3d_audio_mixer_PlayFile(
         const char *sound_path,
         double volume, int looped
         ) {
+    assert(m != NULL);
     return spew3d_audio_mixer_PlayFileEx(
         m, sound_path, 0, volume, 0, 0,
         looped
@@ -497,6 +586,7 @@ S3DEXP soundid_t spew3d_audio_mixer_PlayFile3DEx(
         double volume, s3d_pos position, double reach,
         int16_t priority, int looped
         ) {
+    assert(m != NULL);
     return _spew3d_audio_mixer_PlayFileExEx(
         m, sound_path, vfsflags, volume, 0, reach,
         1, position, priority, looped

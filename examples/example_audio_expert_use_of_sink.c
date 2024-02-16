@@ -49,10 +49,11 @@ int main(int argc, const char **argv) {
     printf("Entering main loop\n");
     int notquit = 1;
     while (notquit) {
-        spew3d_audio_sink_MainThreadUpdate();
-        SDL_Event e = {0};
-        while (SDL_PollEvent(&e)) {
-            if (e.type == SDL_QUIT) {
+        s3devent_UpdateMainThread();
+        s3devent e = {0};
+        while (s3devent_q_Pop(s3devent_GetMainQueue(), &e)) {
+            if (e.type == S3DEV_WINDOW_USER_CLOSE_REQUEST ||
+                    e.type == S3DEV_APP_QUIT_REQUEST) {
                 notquit = 0;
                 break;
             }
