@@ -1,4 +1,4 @@
-/* Copyright (c) 2020-2024, ellie/@ell1e & Spew3D Team (see AUTHORS.md).
+/* Copyright (c) 2024, ellie/@ell1e & Spew3D Team (see AUTHORS.md).
 
 Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions are met:
@@ -28,7 +28,11 @@ license, see accompanied LICENSE.md.
 #ifdef SPEW3D_IMPLEMENTATION
 
 typedef struct scene3d {
-
+    
 } scene3d;
+
+scene3d *scene3d_New(double max_coord_range) {
+    
+}
 
 #endif  // SPEW3D_IMPLEMENTATION

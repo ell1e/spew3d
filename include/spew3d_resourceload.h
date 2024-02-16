@@ -1,4 +1,4 @@
-/* Copyright (c) 2020-2022, ellie/@ell1e & Spew3D Team (see AUTHORS.md).
+/* Copyright (c) 2020-2024, ellie/@ell1e & Spew3D Team (see AUTHORS.md).
 
 Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions are met:
@@ -25,26 +25,41 @@ Alternatively, at your option, this file is offered under the Apache 2
 license, see accompanied LICENSE.md.
 */
 
+#ifndef SPEW3D_RESOURCELOAD_H_
+#define SPEW3D_RESOURCELOAD_H_
 
-#ifndef SPEW3D_IMAGELOADER_H_
-#define SPEW3D_IMAGELOADER_H_
+typedef struct s3d_resourceload_job s3d_resourceload_job;
 
-typedef struct spew3d_imgload_job spew3d_imgload_job;
+enum ResourceLoadType {
+    RLTYPE_INVALID = 0,
+    RLTYPE_IMAGE = 1
+};
 
-spew3d_imgload_job *spew3d_imgload_NewJob(
-    const char *path, int vfsflags
+typedef struct s3d_resourceload_result {
+    int rltype;
+    union {
+        struct resource_image {
+            void *pixels;
+            uint64_t w, h;
+        } resource_image;
+    };
+} s3d_resourceload_result;
+
+S3DEXP s3d_resourceload_job *s3d_resourceload_NewJob(
+    const char *path, int rltype, int vfsflags
 );
 
-void spew3d_imgload_DestroyJob(
-    spew3d_imgload_job *job
+S3DEXP void s3d_resourceload_DestroyJob(
+    s3d_resourceload_job *job
 );
 
-int spew3d_imgload_IsDone(spew3d_imgload_job *job);
+S3DEXP int s3d_resourceload_IsDone(s3d_resourceload_job *job);
 
-int spew3d_imgload_GetResult(
-    spew3d_imgload_job *job, void **out_pixels,
-    int *outw, int *out_h, int *out_fserr
+S3DEXP int s3d_resourceload_ExtractResult(
+    s3d_resourceload_job *job,
+    s3d_resourceload_result *out_result,
+    int *out_fserr
 );
 
-#endif  // SPEW3D_IMAGELOADER_H_
+#endif  // SPEW3D_RESLOAD_H_
 

@@ -25,23 +25,19 @@ Alternatively, at your option, this file is offered under the Apache 2
 license, see accompanied LICENSE.md.
 */
 
-#ifndef SPEW3D_SCENE3D_H_
-#define SPEW3D_SCENE3D_H_
+#ifdef SPEW3D_IMPLEMENTATION
 
-#include <stdint.h>
+S3DEXP s3d_spatialstore3d *s3d_spatialstore3d_NewGrid(
+    double max_coord_range, double max_regular_collision_size
+);
 
-enum Obj3dType {
-    OBJ3D_INVALID = 0,
-    OBJ3D_INVISIBLE = 1,
-    OBJ3D_GEOMETRY,
-    OBJ3D_SPRITE3D,
-    OBJ3D_CAMERA,
-};
+S3DEXP s3d_spatialstore3d *s3d_spatial3d_NewDefault(
+        double max_coord_range, double max_regular_collision_size
+        ) {
+    return s3d_spatialstore3d_NewGrid(
+        max_coord_range, max_regular_collision_size
+    );
+}
 
-typedef struct obj3d obj3d;
+#endif  // SPEW3D_IMPLEMENTATION
 
-typedef struct scene3d scene3d;
-
-scene3d *scene3d_New(double max_coord_range);
-
-#endif  // SPEW3D_SCENE3D_H_

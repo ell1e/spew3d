@@ -55,7 +55,7 @@ spew3d_texlist_idhashmap_bucket
 
 // Extra info struct:
 typedef struct spew3d_texture_extrainfo {
-    spew3d_imgload_job *loadingjob;
+    s3d_resourceload_job *loadingjob;
     spew3d_texture_info *parent;
     uint8_t editlocked;
     uint64_t editlocked_id;
@@ -167,17 +167,20 @@ static int _internal_spew3d_ForceLoadTexture(spew3d_texture_t tid) {
     if (tinfo->loadingfailed)
         return 0;
     if (extrainfo->loadingjob != NULL &&
-            spew3d_imgload_IsDone(extrainfo->loadingjob)) {
-        if (!spew3d_imgload_GetResult(
-                extrainfo->loadingjob, (void **)&extrainfo->pixels,
-                &extrainfo->width, &extrainfo->height, NULL
-                )) {
-            assert(extrainfo->pixels == NULL);
+            s3d_resourceload_IsDone(extrainfo->loadingjob)) {
+        s3d_resourceload_result r = {0};
+        if (!s3d_resourceload_ExtractResult(
+                extrainfo->loadingjob, &r, NULL)) {
+            assert(r.resource_image.pixels == NULL);
+            extrainfo->pixels = NULL;
             tinfo->loadingfailed = 1;
-            spew3d_imgload_DestroyJob(extrainfo->loadingjob);
+            s3d_resourceload_DestroyJob(extrainfo->loadingjob);
             extrainfo->loadingjob = NULL;
             return 0;
         }
+        extrainfo->pixels = r.resource_image.pixels;
+        extrainfo->width = r.resource_image.w;
+        extrainfo->height = r.resource_image.h;
         assert(extrainfo->pixels != NULL);
         #if defined(DEBUG_SPEW3D_TEXTURE)
         fprintf(stderr,
@@ -186,7 +189,7 @@ static int _internal_spew3d_ForceLoadTexture(spew3d_texture_t tid) {
             "loading done\n");
         #endif
         tinfo->loaded = 1;
-        spew3d_imgload_DestroyJob(extrainfo->loadingjob);
+        s3d_resourceload_DestroyJob(extrainfo->loadingjob);
         extrainfo->loadingjob = NULL;
         return 1;
     }
@@ -198,8 +201,8 @@ static int _internal_spew3d_ForceLoadTexture(spew3d_texture_t tid) {
             "_internal_spew3d_texture_ForceLoadTexture(): "
             "now creating a job.\n");
         #endif
-        extrainfo->loadingjob = spew3d_imgload_NewJob(
-            tinfo->diskpath, tinfo->vfsflags
+        extrainfo->loadingjob = s3d_resourceload_NewJob(
+            tinfo->diskpath, RLTYPE_IMAGE, tinfo->vfsflags
         );
         if (!extrainfo->loadingjob) {
             tinfo->loadingfailed = 1;

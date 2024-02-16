@@ -25,23 +25,37 @@ Alternatively, at your option, this file is offered under the Apache 2
 license, see accompanied LICENSE.md.
 */
 
-#ifndef SPEW3D_SCENE3D_H_
-#define SPEW3D_SCENE3D_H_
+#ifndef SPEW3D_SPATIALSTORE3D_H_
+#define SPEW3D_SPATIALSTORE3D_H_
 
-#include <stdint.h>
+typedef struct s3d_obj3d s3d_obj3d;
+typedef struct s3d_spatialstore3d s3d_spatialstore3d;
+typedef struct spew3d_pos spew3d_pos;
 
-enum Obj3dType {
-    OBJ3D_INVALID = 0,
-    OBJ3D_INVISIBLE = 1,
-    OBJ3D_GEOMETRY,
-    OBJ3D_SPRITE3D,
-    OBJ3D_CAMERA,
-};
+typedef struct s3d_spatialstore3d {
+    int (*Add)(s3d_spatialstore3d *store, s3d_obj3d *obj, 
+        spew3d_pos pos, double extent_outer_radius);
+    int (*Remove)(s3d_spatialstore3d *store, s3d_obj3d *obj);
+    int (*Find)(s3d_spatialstore3d *store, spew3d_pos searchpos,
+        double searchrange, int expand_scan_by_collision_size,
+        s3d_obj3d **out_list, int *out_count);
+    int (*FindByCustomTypeNo)(s3d_spatialstore3d *store, spew3d_pos searchpos,
+        double searchrange, int expand_scan_by_collision_size,
+        int *custom_type_no_list, int custom_type_no_list_len,
+        s3d_obj3d **out_list, int *out_count);
+    int (*FindEx)(s3d_spatialstore3d *store, spew3d_pos searchpos,
+        double searchrange, int expand_scan_by_collision_size,
+        int *custom_type_no_list, int custom_type_no_list_len,
+        s3d_obj3d **buffer_for_list,
+        int buffer_alloc, s3d_obj3d **out_list,
+        int *out_count, int *out_buffer_alloc);
+    int (*FindClosest)(s3d_spatialstore3d *store, s3d_obj3d *out_obj);
+    void *internal_data;
+} s3d_spatialstore3d;
 
-typedef struct obj3d obj3d;
+S3DEXP s3d_spatialstore3d *s3d_spatial3d_NewDefault(
+    double max_coord_range, double max_regular_collision_size
+);
 
-typedef struct scene3d scene3d;
+#endif  // SPEW3D_SPATIALSTORE3D_H_
 
-scene3d *scene3d_New(double max_coord_range);
-
-#endif  // SPEW3D_SCENE3D_H_

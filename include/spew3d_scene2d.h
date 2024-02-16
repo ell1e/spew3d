@@ -33,15 +33,11 @@ license, see accompanied LICENSE.md.
 enum Obj3dType {
     OBJ3D_INVALID = 0,
     OBJ3D_INVISIBLE = 1,
-    OBJ3D_GEOMETRY,
-    OBJ3D_SPRITE3D,
-    OBJ3D_CAMERA,
+    OBJ3D_SPRITE
 };
 
 typedef struct obj3d obj3d;
 
 typedef struct scene3d scene3d;
-
-scene3d *scene3d_New(double max_coord_range);
 
 #endif  // SPEW3D_SCENE3D_H_
