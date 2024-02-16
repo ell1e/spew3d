@@ -149,6 +149,7 @@ S3DEXP s3d_audio_mixer *spew3d_audio_sink_GetMixer(
         mutex_Release(sink_list_mutex);
         return NULL;
     }
+    SINKIDATA(sink)->sinksrc_type = SINKSRC_MIXER;
     SINKIDATA(sink)->sinksrc_mixer = mixer;
     mutex_Release(sink_list_mutex);
     return mixer;
