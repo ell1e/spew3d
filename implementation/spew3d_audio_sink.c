@@ -443,14 +443,17 @@ static void _audiocb_SDL2(void *udata, uint8_t *stream, int len) {
             (int)sink->ringbuffersegmentcount - 1)) {
         fprintf(stderr,
             "spew3d_audio_sink.c: warning: sink "
-            "addr=%p: audio misconfiguration, requested device "
+            "addr=%p: Audio misconfiguration, requested device "
             "buffer %d exceeds SPEW3D_SINK_AUDIOBUF_BYTES=%d "
             "multiplied by ring buffer segment count minus one "
             "(=%d), "
             "which means the ring buffer is inevitably too small "
-            "to ever feed this request size correctly\n",
+            "to ever feed this request size correctly. "
+            "To fix this, try to increase this sink's "
+            "'buffers' parameter (currently set to %d).\n",
             sink, (int)len, (int)SPEW3D_SINK_AUDIOBUF_BYTES,
-            (int)(int)sink->ringbuffersegmentcount - 1
+            (int)(int)sink->ringbuffersegmentcount - 1,
+            (int)sink->ringbuffersegmentcount
         );
         fflush(stderr);
     }
@@ -468,9 +471,13 @@ static void _audiocb_SDL2(void *udata, uint8_t *stream, int len) {
             if (SINKIDATA(sink)->sinksrc_type != SINKSRC_NONE) {
                 #if defined(DEBUG_SPEW3D_AUDIO_SINK)
                 printf(
-                    "spew3d_audio_sink.c: warning: sink "
-                    "addr=%p: ran out of input buffer\n",
-                    sink
+                    "spew3d_audio_sink.c: warning: Sink "
+                    "addr=%p: Ran out of input buffer, expect "
+                    "small glitches. If this repeats too often, "
+                    "try to increase "
+                    "this sink's 'buffers' parameter "
+                    "(currently set to %d).\n",
+                    sink, (int)sink->ringbuffersegmentcount
                 );
                 #endif
             }

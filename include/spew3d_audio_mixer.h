@@ -46,6 +46,20 @@ S3DEXP s3d_audio_mixer *spew3d_audio_mixer_New(
     int samplerate, int speaker_channels
 );
 
+/** Set this mixer's master volume. A higher volume leads to
+ *  more intense sound, but it can also cause audio clipping
+ *  when too many sounds play at once.
+ *  It's recommended you not increase this past the
+ *  default of 0.8 unless all your sounds are very
+ *  quiet and there is really no clipping going on.
+ *  (Spew3D also has an auto anti clipping mechanism anyway
+ *  so you shouldn't need to lower it either, unless an
+ *  excessive amount of sounds is going on.)
+ **/
+S3DEXP void spew3d_audio_mixer_SetMasterVolume(
+    s3d_audio_mixer *m, double volume
+);
+
 /** Play a regular sound without any 3d placement.
  * 
  *  **Fully thread-safe.** You can call this on the same

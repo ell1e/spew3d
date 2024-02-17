@@ -62,10 +62,13 @@ typedef struct s3d_audio_mixer {
     s3d_audio_channel *channels;
     int channels_count;
 
+    double master_volume;
+
     s3d_pos lastcampos;
     s3d_rotation lastcamangle;
     
     double anticlipfactor, anticlipthreshold;
+    int enable_anticlip;
     int64_t last_anticlip_ts;
 
     char *temp_mix_buf;
@@ -108,12 +111,19 @@ S3DHID void spew3d_audio_mixer_UpdateAllOnMainThread() {
             } else {
                 m->anticlipfactor = 1.0;
             }
-            m->last_anticlip_ts += 50;
+            m->last_anticlip_ts += 150;
         }
         mutex_Release(m->m);
         i++;
     }
     mutex_Release(_global_mixer_list_mutex);
+}
+
+S3DEXP void spew3d_audio_mixer_SetMasterVolume(
+        s3d_audio_mixer *m, double volume) {
+    mutex_Lock(m->m);
+    m->master_volume = fmax(0.0, volume);
+    mutex_Release(m->m);
 }
 
 S3DEXP s3d_audio_mixer *spew3d_audio_mixer_New(
@@ -159,7 +169,9 @@ S3DEXP s3d_audio_mixer *spew3d_audio_mixer_New(
         sizeof(*m->channels) * m->channels_count);
     m->samplerate = samplerate;
     m->anticlipfactor = 1.0;
-    m->anticlipthreshold = 0.99;
+    m->anticlipthreshold = 1.01;
+    m->enable_anticlip = 1;
+    m->master_volume = 0.8;
     m->speaker_channels = speaker_channels;
     m->effective_vol_ints_buf = malloc(
         sizeof(*m->effective_vol_ints_buf) * (1+speaker_channels)
@@ -463,28 +475,61 @@ S3DEXP void spew3d_audio_mixer_Render(
             (char *)tmpbuf + frames * outputchannels *
             sizeof(s3d_asample_t)
         );
-        int64_t anticlip_int_fac = (double)max * (double)m->anticlipfactor;
+        int64_t mastervol_int_fac = (
+            (double)max * (double)m->anticlipfactor * m->master_volume
+        );
         int64_t triggerthreshold = (double)max * (double)m->anticlipthreshold;
         double triggerthresholdf = triggerthreshold;
-        while (mix_from != mix_end) {
-            int64_t value = *((s3d_asample_t *)mix_to);
-            int64_t value2 = ((int64_t)*((s3d_asample_t *)mix_from) *
-                (int64_t)8) / (int64_t)10;
-            value2 = value2 * (int64_t)anticlip_int_fac / (int64_t)max;
-            int64_t newvalue = value + value2;
-            int64_t newvalueabs = (newvalue > 0 ? newvalue : -newvalue);
-            if (newvalueabs > triggerthreshold) {
-                double new_anti_clip = (triggerthresholdf / (double)newvalueabs);
-                new_anti_clip = fmax(0.6, fmin(1.0, new_anti_clip));
-                if (new_anti_clip < m->anticlipfactor)
-                    m->anticlipfactor = new_anti_clip;
-                anticlip_int_fac = (double)max * (double)m->anticlipfactor;
+        if (m->enable_anticlip) {
+            while (mix_from != mix_end) {
+                int64_t value = *((s3d_asample_t *)mix_to);
+                int64_t value2 = ((int64_t)*((s3d_asample_t *)mix_from));
+                value2 = value2 * (int64_t)mastervol_int_fac / (int64_t)max;
+                int64_t newvalue = value + value2;
+                int64_t newvalueabs = (newvalue > 0 ? newvalue : -newvalue);
+                if (newvalueabs > triggerthreshold) {
+                    double new_anti_clip = (triggerthresholdf / (double)newvalueabs);
+                    new_anti_clip = fmax(0.6, fmin(1.0, new_anti_clip));
+                    if (new_anti_clip < m->anticlipfactor) {
+                        #if defined(DEBUG_SPEW3D_AUDIO_SINK)
+                        printf(
+                            "spew3d_audio_mixer.c: warning: Mixer "
+                            "addr=%p: Due to excessive clipping, audio "
+                            "volume was briefly lowered by factor %f. If you "
+                            "want this to happen less, try lowering "
+                            "this mixer's master volume (currently "
+                            "set to %f).\n",
+                            m, new_anti_clip, m->master_volume
+                        );
+                        #endif
+                        m->anticlipfactor = new_anti_clip;
+
+                        // Update master volume from here on out:
+                        mastervol_int_fac = (
+                            (double)max * (double)m->anticlipfactor *
+                            m->master_volume
+                        );
+                    }
+                }
+                if (newvalue > max) newvalue = max;
+                if (newvalue < min) newvalue = min;
+                *((s3d_asample_t *)mix_to) = (s3d_asample_t)newvalue;
+                mix_from++;
+                mix_to++;
             }
-            if (newvalue > max) newvalue = max;
-            if (newvalue < min) newvalue = min;
-            *((s3d_asample_t *)mix_to) = (s3d_asample_t)newvalue;
-            mix_from++;
-            mix_to++;
+        } else {
+             while (mix_from != mix_end) {
+                int64_t value = *((s3d_asample_t *)mix_to);
+                int64_t value2 = ((int64_t)*((s3d_asample_t *)mix_from));
+                value2 = value2 * (int64_t)mastervol_int_fac / (int64_t)max;
+                int64_t newvalue = value + value2;
+                int64_t newvalueabs = (newvalue > 0 ? newvalue : -newvalue);
+                if (newvalue > max) newvalue = max;
+                if (newvalue < min) newvalue = min;
+                *((s3d_asample_t *)mix_to) = (s3d_asample_t)newvalue;
+                mix_from++;
+                mix_to++;
+            }
         }
         i++;
     }
