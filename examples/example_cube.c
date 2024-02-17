@@ -14,11 +14,11 @@ int main(int argc, const char **argv) {
         "Spew 3D Cube Example", 0
     );
     if (!win) {
-        fprintf(stderr, "Spew3D initialization failed\n");
+        fprintf(stderr, "Spew3D initialization failed.\n");
         return 1;
     }
 
-    printf("Creating a cube\n");
+    printf("Creating a cube.\n");
     s3d_geometry *cube = spew3d_geometry_Create();
     if (cube) {
         if (!spew3d_geometry_AddCubeSimple(
@@ -30,11 +30,24 @@ int main(int argc, const char **argv) {
         }
     }
     if (!cube) {
-        fprintf(stderr, "Failed to create geometry\n");
+        fprintf(stderr, "Failed to create geometry.\n");
         return 1;
     }
 
-    printf("Entering main loop\n");
+    printf("Setting up scene and camera.\n");
+    s3d_scene3d *scene = spew3d_scene3d_New(100);
+    if (!scene) {
+        fprintf(stderr, "Failed to create scene.\n");
+        return 1;
+    }
+    s3d_obj3d *obj = spew3d_scene3d_AddMeshObj(cube, 1);
+    if (!obj) {
+        fprintf(stderr, "Failed to create object.\n");
+        return 1;
+    }
+    cube = NULL;  // Geometry is now owned by the object.
+
+    printf("Entering main loop.\n");
     int notquit = 1;
     while (notquit) {
         s3devent_UpdateMainThread();

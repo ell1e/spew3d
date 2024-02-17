@@ -25,20 +25,18 @@ Alternatively, at your option, this file is offered under the Apache 2
 license, see accompanied LICENSE.md.
 */
 
-#ifndef SPEW3D_SCENE2D_H_
-#define SPEW3D_SCENE2D_H_
+#ifndef SPEW3D_CAMERA3D_H_
+#define SPEW3D_CAMERA3D_H_
 
 #include <stdint.h>
 
-enum Obj2dType {
-    OBJ2D_INVALID = 0,
-    OBJ2D_INVISIBLE = 1,
-    OBJ2D_SPRITE
-};
+typedef struct s3d_scene3d s3d_scene3d;
+typedef struct s3d_rotation s3d_rotation;
+typedef struct s3d_pos s3d_pos;
 
-typedef struct obj2d obj2d;
+S3DEXP s3d_obj3d *spew3d_camera3d_CreateForScene(
+    s3d_scene3d *scene, s3d_pos pos, s3d_rotation rot
+);
 
-typedef struct scene2d scened;
-
-#endif  // SPEW3D_SCENE2D_H_
+#endif  // SPEW3D_CAMERA3D_H_
 

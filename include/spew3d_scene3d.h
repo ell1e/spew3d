@@ -42,7 +42,10 @@ typedef struct s3d_obj3d s3d_obj3d;
 
 typedef struct s3d_scene3d s3d_scene3d;
 
-S3DEXP scene3d *spew3d_scene3d_New(double max_coord_range);
+S3DEXP s3d_scene3d *spew3d_scene3d_New(double max_coord_range);
+
+S3DEXP s3d_obj3d *spew3d_scene3d_AddMeshObj(
+    s3d_geometry *geom, int object_owns_mesh);
 
 S3DEXP s3d_pos spew3d_obj3d_GetPos(s3d_obj3d *obj);
 
@@ -51,3 +54,4 @@ S3DEXP int spew3d_obj3d_AddCustomTypeNum(s3d_obj3d *obj, int32_t typeno);
 S3DEXP int spew3d_obj3d_HasCustomTypeNum(s3d_obj3d *obj, int32_t typeno);
 
 #endif  // SPEW3D_SCENE3D_H_
+

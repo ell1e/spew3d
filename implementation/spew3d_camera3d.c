@@ -25,11 +25,13 @@ Alternatively, at your option, this file is offered under the Apache 2
 license, see accompanied LICENSE.md.
 */
 
-#ifndef SPEW3D_SCENE3D_CAMERA_H_
-#define SPEW3D_SCENE3D_CAMERA_H_
+#ifdef SPEW3D_IMPLEMENTATION
 
-#include <stdint.h>
+S3DEXP s3d_obj3d *spew3d_camera3d_CreateForScene(
+        s3d_scene3d *scene, s3d_pos pos, s3d_rotation rot
+        ) {
+    return NULL;
+}
 
-typedef struct scene3d scene3d;
+#endif  // SPEW3D_IMPLEMENTATION
 
-#endif  // SPEW3D_SCENE3D_CAMERA_H_

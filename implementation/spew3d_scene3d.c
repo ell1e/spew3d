@@ -75,4 +75,10 @@ S3DEXP int spew3d_obj3d_HasCustomTypeNum(
     return 0;
 }
 
+S3DEXP s3d_obj3d *spew3d_scene3d_AddMeshObj(
+        s3d_geometry *geom, int object_owns_mesh) {
+    return NULL;
+}
+
 #endif  // SPEW3D_IMPLEMENTATION
+

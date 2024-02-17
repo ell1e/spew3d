@@ -44,6 +44,7 @@ typedef struct s3d_spatialstore3d_griddata {
     double max_regular_collision_size;
     uint32_t cells_per_horizontal_axis,
         cells_per_vertical_axis;
+    uint32_t cell_count;
     double cell_size_x, cell_size_y, cell_size_z;
     s3d_pos center;
 
@@ -53,7 +54,7 @@ typedef struct s3d_spatialstore3d_griddata {
     s3d_spatialstore3d_gridcell *contents;
 } s3d_spatialstore3d_griddata;
 
-S3DHID static void s3d_spatialstore3d_GridPosToCellCoords(
+S3DHID static void s3d_spatialstore3d_GridPosToCellCoords_nolock(
         s3d_spatialstore3d *store, s3d_pos searchpos,
         int32_t *out_x, int32_t *out_y, int32_t *out_z
         ) {
@@ -88,11 +89,11 @@ S3DHID static void s3d_spatialstore3d_GridPosToCellCoords(
     *out_z = grid_offset_z;
 }
 
-S3DHID static int32_t s3d_spatialstore3d_GridPosToCellID(
+S3DHID static int32_t s3d_spatialstore3d_GridPosToCellID_nolock(
         s3d_spatialstore3d *store, s3d_pos searchpos) {
     s3d_spatialstore3d_griddata *gdata = store->internal_data;
     int32_t x, y, z;
-    s3d_spatialstore3d_GridPosToCellCoords(
+    s3d_spatialstore3d_GridPosToCellCoords_nolock(
         store, searchpos, &x, &y, &z
     );
     int32_t index = x + y * gdata->cells_per_horizontal_axis +
@@ -101,15 +102,10 @@ S3DHID static int32_t s3d_spatialstore3d_GridPosToCellID(
     return index;
 }
 
-S3DHID static int s3d_spatialstore3d_GridTestObjAgainstQuery(
-        s3d_gridobjentry *entry,
-        s3d_pos searchpos,
-        double searchrange,
-        int expand_search_by_collision_size,
+S3DHID static int s3d_spatialstore3d_GridTestObjAgainstCustomTypes_nolock(
+        s3d_obj3d *obj,
         int32_t *custom_type_num_list,
         uint32_t custom_type_num_list_len) {
-    s3d_obj3d *obj = entry->obj;
-    s3d_pos opos = spew3d_obj3d_GetPos(obj);
     if (custom_type_num_list_len > 0) {
         int match = 0;
         uint32_t i = 0;
@@ -124,6 +120,22 @@ S3DHID static int s3d_spatialstore3d_GridTestObjAgainstQuery(
         if (!match)
             return 0;
     }
+    return 1;
+}
+
+S3DHID static int s3d_spatialstore3d_GridTestObjAgainstQuery_nolock(
+        s3d_gridobjentry *entry,
+        s3d_pos searchpos,
+        double searchrange,
+        int expand_search_by_collision_size,
+        int32_t *custom_type_num_list,
+        uint32_t custom_type_num_list_len) {
+    s3d_obj3d *obj = entry->obj;
+    s3d_pos opos = spew3d_obj3d_GetPos(obj);
+    if (!s3d_spatialstore3d_GridTestObjAgainstCustomTypes_nolock(
+            entry->obj,  custom_type_num_list,
+            custom_type_num_list_len))
+        return 0;
     double maxdist = searchrange;
     if (expand_search_by_collision_size) {
         maxdist += entry->extent_outer_radius;
@@ -143,6 +155,7 @@ S3DHID int s3d_spatialstore3d_GridAdd(
         int is_static
         ) {
     s3d_spatialstore3d_griddata *gdata = store->internal_data;
+    mutex_Lock(gdata->access);
 
     if (extent_outer_radius > gdata->max_regular_collision_size) {
         if (gdata->oversizedobjs_fill + 1 >
@@ -153,8 +166,10 @@ S3DHID int s3d_spatialstore3d_GridAdd(
                 gdata->oversizedobjs,
                 sizeof(*gdata->oversizedobjs) *
                     newalloc);
-            if (!newlist)
+            if (!newlist) {
+                mutex_Release(gdata->access);
                 return 0;
+            }
             gdata->oversizedobjs = newlist;
             gdata->oversizedobjs_alloc = newalloc;
         }
@@ -165,10 +180,11 @@ S3DHID int s3d_spatialstore3d_GridAdd(
         entry->obj = obj;
         entry->extent_outer_radius = extent_outer_radius;
         entry->is_static = is_static;
+        mutex_Release(gdata->access);
         return 1;
     }
 
-    int32_t index = s3d_spatialstore3d_GridPosToCellID(
+    int32_t index = s3d_spatialstore3d_GridPosToCellID_nolock(
         store, pos);
     s3d_spatialstore3d_gridcell *cell = &gdata->contents[index];
     if (cell->entrylist_fill + 1 > cell->entrylist_alloc) {
@@ -177,8 +193,10 @@ S3DHID int s3d_spatialstore3d_GridAdd(
         s3d_gridobjentry *newlist = realloc(
             cell->entrylist, sizeof(*cell->entrylist) *
                 newalloc);
-        if (!newlist)
+        if (!newlist) {
+            mutex_Release(gdata->access);
             return 0;
+        }
         cell->entrylist = newlist;
         cell->entrylist_alloc = newalloc;
     }
@@ -188,12 +206,14 @@ S3DHID int s3d_spatialstore3d_GridAdd(
     entry->obj = obj;
     entry->extent_outer_radius = extent_outer_radius;
     entry->is_static = is_static;
+    mutex_Release(gdata->access);
     return 1;
 }
 
 S3DHID int s3d_spatialstore3d_GridRemove(
         s3d_spatialstore3d *store, s3d_obj3d* obj) {
     s3d_spatialstore3d_griddata *gdata = store->internal_data;
+    mutex_Lock(gdata->access);
     s3d_pos pos = spew3d_obj3d_GetPos(obj);
 
     uint32_t i = 0;
@@ -207,11 +227,12 @@ S3DHID int s3d_spatialstore3d_GridRemove(
                         (gdata->oversizedobjs_fill - i - 1)
                 );
             gdata->oversizedobjs_fill--;
+            mutex_Release(gdata->access);
             return 1;
         }
     }
 
-    int32_t index = s3d_spatialstore3d_GridPosToCellID(
+    int32_t index = s3d_spatialstore3d_GridPosToCellID_nolock(
         store, pos);
     s3d_spatialstore3d_gridcell *cell = &gdata->contents[index];
     while (i < cell->entrylist_fill) {
@@ -224,9 +245,11 @@ S3DHID int s3d_spatialstore3d_GridRemove(
                         (cell->entrylist_fill - i - 1)
                 );
             cell->entrylist_fill--;
+            mutex_Release(gdata->access);
             return 1;
         }
     }
+    mutex_Release(gdata->access);
     return 0;
 }
 
@@ -235,13 +258,11 @@ S3DHID int s3d_spatialstore3d_GridFindEx(
         s3d_pos searchpos,
         double searchrange,
         int expand_scan_by_collision_size,
-        int32_t *custom_type_no_list,
-        uint32_t custom_type_no_list_len,
-        s3d_obj3d **buffer_for_list,
-        int buffer_alloc,
-        s3d_obj3d **out_list,
-        uint32_t *out_count,
-        uint32_t *out_buffer_alloc) {
+        int32_t *custom_type_num_list,
+        uint32_t custom_type_num_list_len,
+        s3d_obj3d ***buffer_for_list,
+        int *buffer_alloc,
+        uint32_t *out_count) {
     s3d_spatialstore3d_griddata *gdata = store->internal_data;
 }
 
@@ -250,15 +271,15 @@ S3DHID int s3d_spatialstore3d_GridFindByCustomTypeNo(
         s3d_pos searchpos,
         double searchrange,
         int expand_scan_by_collision_size,
-        int32_t *custom_type_no_list,
-        int custom_type_no_list_len,
-        s3d_obj3d **out_list,
+        int32_t *custom_type_num_list,
+        int custom_type_num_list_len,
+        s3d_obj3d ***out_list,
         uint32_t *out_count) {
     return s3d_spatialstore3d_GridFindEx(
         store, searchpos, searchrange,
         expand_scan_by_collision_size,
-        custom_type_no_list, custom_type_no_list_len,
-        NULL, 0, out_list, out_count, NULL
+        custom_type_num_list, custom_type_num_list_len,
+        out_list, NULL, out_count
     );
 }
 
@@ -267,7 +288,7 @@ S3DHID int s3d_spatialstore3d_GridFind(
         s3d_pos searchpos,
         double searchrange,
         int expand_scan_by_collision_size,
-        s3d_obj3d **out_list,
+        s3d_obj3d ***out_list,
         uint32_t *out_count) {
     return s3d_spatialstore3d_GridFindByCustomTypeNo(
         store, searchpos, searchrange,
@@ -281,8 +302,8 @@ S3DHID int s3d_spatialstore3d_GridFindClosestByCustomTypeNo(
         s3d_pos searchpos,
         double searchrange,
         int expand_scan_by_collision_size,
-        int32_t *custom_type_no_list,
-        int custom_type_no_list_len,
+        int32_t *custom_type_num_list,
+        int custom_type_num_list_len,
         s3d_obj3d *out_obj) {
     s3d_spatialstore3d_griddata *gdata = store->internal_data;
 }
@@ -296,6 +317,85 @@ S3DHID int s3d_spatialstore3d_GridFindClosest(
     return s3d_spatialstore3d_GridFindClosestByCustomTypeNo(
         store, searchpos, searchrange, expand_scan_by_collision_size,
         NULL, 0, out_obj);
+}
+
+S3DEXP int s3d_spatialstore3d_IterateAll(
+        s3d_spatialstore3d *store,
+        int32_t *custom_type_num_list,
+        int custom_type_num_list_len,
+        s3d_obj3d ***buffer_for_list,
+        int *buffer_alloc,
+        uint32_t *out_count
+        ) {
+    s3d_spatialstore3d_griddata *gdata = store->internal_data;
+    mutex_Lock(gdata->access);
+
+    s3d_obj3d **buffer = *buffer_for_list;
+    int alloc = *buffer_alloc;
+    int written_out = 0;
+
+    uint32_t i = 0;
+    while (i < gdata->oversizedobjs_fill) {
+        if (!s3d_spatialstore3d_GridTestObjAgainstCustomTypes_nolock(
+                gdata->oversizedobjs[i].obj, custom_type_num_list,
+                custom_type_num_list_len))  {
+            i++;
+            continue;
+        }
+        if (alloc < written_out + 1) {
+            int newalloc = written_out + 1 + 128;
+            s3d_obj3d **new_list = realloc(buffer,
+                sizeof(*buffer) * newalloc);
+            if (!new_list) {
+                *buffer_for_list = buffer;
+                *buffer_alloc = alloc;
+                *out_count = 0;
+                mutex_Release(gdata->access);
+                return 0;
+            }
+            buffer = new_list;
+            alloc = newalloc;
+        }
+        buffer[written_out] = gdata->oversizedobjs[i].obj;
+        written_out++;
+        i++;
+    }
+
+    int32_t index = 0;
+    while (index < gdata->cell_count) {
+        s3d_spatialstore3d_gridcell *cell = &gdata->contents[index];
+        while (i < cell->entrylist_fill) {
+            if (!s3d_spatialstore3d_GridTestObjAgainstCustomTypes_nolock(
+                    cell->entrylist[i].obj, custom_type_num_list,
+                    custom_type_num_list_len))  {
+                i++;
+                continue;
+            }
+            if (alloc < written_out + 1) {
+                int newalloc = written_out + 1 + 128;
+                s3d_obj3d **new_list = realloc(buffer,
+                    sizeof(*buffer) * newalloc);
+                if (!new_list) {
+                    *buffer_for_list = buffer;
+                    *buffer_alloc = alloc;
+                    *out_count = 0;
+                    mutex_Release(gdata->access);
+                    return 0;
+                }
+                buffer = new_list;
+                alloc = newalloc;
+            }
+            buffer[written_out] = cell->entrylist[i].obj;
+            written_out++;
+            i++;
+        }
+        index++;
+    }
+    mutex_Release(gdata->access);
+    *buffer_for_list = buffer;
+    *buffer_alloc = alloc;
+    *out_count = written_out;
+    return 1;
 }
 
 S3DEXP s3d_spatialstore3d *s3d_spatialstore3d_NewGridEx(
@@ -317,6 +417,9 @@ S3DEXP s3d_spatialstore3d *s3d_spatialstore3d_NewGridEx(
     gdata->cells_per_horizontal_axis = cells_per_horizontal_axis;
     gdata->cells_per_vertical_axis = cells_per_vertical_axis;
 
+    gdata->cell_count = (cells_per_horizontal_axis *
+        cells_per_horizontal_axis *
+        cells_per_vertical_axis);
     gdata->contents = malloc(
         cells_per_horizontal_axis * cells_per_horizontal_axis *
         cells_per_vertical_axis * sizeof(s3d_spatialstore3d_gridcell)
@@ -344,6 +447,7 @@ S3DEXP s3d_spatialstore3d *s3d_spatialstore3d_NewGridEx(
     store->Find = s3d_spatialstore3d_GridFind;
     store->FindEx = s3d_spatialstore3d_GridFindEx;
     store->FindClosest = s3d_spatialstore3d_GridFindClosest;
+    store->IterateAll = s3d_spatialstore3d_IterateAll;
     return store;
 }
 
