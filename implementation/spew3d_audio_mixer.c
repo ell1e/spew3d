@@ -157,7 +157,7 @@ S3DEXP s3d_audio_mixer *spew3d_audio_mixer_New(
         mutex_Release(_global_mixer_list_mutex);
         return NULL;
     }
-    m->channels_count = 32;
+    m->channels_count = 16;
     m->channels = malloc(sizeof(*m->channels) * m->channels_count);
     if (!m->channels) {
         mutex_Destroy(m->m);
