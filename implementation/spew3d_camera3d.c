@@ -171,8 +171,14 @@ S3DHID int _spew3d_camera3d_ProcessDrawToWindowReq(s3devent *ev) {
         return 1;
 
     s3d_obj3d *cam = ev->cam3d.obj_ref;
-    s3d_pos cam_pos = spew3d_obj3d_GetPos(cam);
-    s3d_rotation cam_rot = spew3d_obj3d_GetRotation(cam);
+    spew3d_obj3d_LockAccess(cam);
+    s3d_pos cam_pos = spew3d_obj3d_GetPos_nolock(cam);
+    s3d_rotation cam_rot = spew3d_obj3d_GetRotation_nolock(cam);
+    s3d_camdata *cdata = (s3d_camdata *)(
+        _spew3d_scene3d_ObjExtraData_nolock(cam)
+    );
+    double fov = cdata->fov;
+    spew3d_obj3d_ReleaseAccess(cam);
 
     mutex_Release(_win_id_mutex);
     #ifndef SPEW3D_OPTION_DISABLE_SDL
@@ -187,9 +193,6 @@ S3DHID int _spew3d_camera3d_ProcessDrawToWindowReq(s3devent *ev) {
         spew3d_scene3d_GetStoreByObj3d(cam)
     );
     assert(store != NULL);
-    s3d_camdata *cdata = (s3d_camdata *)(
-        spew3d_scene3d_ObjExtraData(cam)
-    );
     s3d_obj3d **buf = cdata->_render_collect_objects_buffer;
     uint32_t alloc = cdata->_render_collect_objects_alloc;
     uint32_t count = 0;
