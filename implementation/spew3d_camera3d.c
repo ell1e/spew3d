@@ -89,6 +89,7 @@ S3DEXP s3d_obj3d *spew3d_camera3d_CreateForScene(
         spew3d_obj3d_Destroy(obj);
         return NULL;
     }
+    assert(spew3d_scene3d_GetStoreByObj3d(obj) != NULL);
     return obj;
 }
 
@@ -128,6 +129,7 @@ S3DHID int _spew3d_camera3d_ProcessDrawToWindowReq(s3devent *ev) {
     s3d_spatialstore3d *store = (
         spew3d_scene3d_GetStoreByObj3d(cam)
     );
+    assert(store != NULL);
     spew3d_camdata *cdata = (spew3d_camdata *)(
         spew3d_scene3d_ObjExtraData(cam)
     );

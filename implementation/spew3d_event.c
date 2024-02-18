@@ -181,6 +181,7 @@ S3DEXP void s3devent_UpdateMainThread() {
     while (1) {
         spew3d_audio_mixer_UpdateAllOnMainThread();
         spew3d_audio_sink_MainThreadUpdate();
+        
 
         s3devent e = {0};
         if (!s3devent_q_Pop(eq, &e))
@@ -188,7 +189,8 @@ S3DEXP void s3devent_UpdateMainThread() {
 
         assert(e.type != S3DEV_INVALID);
         if (!spew3d_window_MainThreadProcessEvent(&e)) {
-            spew3d_texture_MainThreadProcessEvent(&e);
+            if (!spew3d_texture_MainThreadProcessEvent(&e))
+                spew3d_camera_MainThreadProcessEvent(&e);
         }
     }
 }

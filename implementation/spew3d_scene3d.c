@@ -156,7 +156,9 @@ S3DEXP int spew3d_scene3d_AddPreexistingObj(
         ) {
     assert(sc != NULL);
     assert(sc->m != NULL);
+    assert(sc->store != NULL);
     mutex_Lock(sc->m);
+    obj->owner = sc;
     s3d_pos pos = obj->pos;
     double radius = spew3d_obj3d_GetOuterMaxExtentRadius_nolock(
         obj);
