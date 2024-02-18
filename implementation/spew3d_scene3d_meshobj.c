@@ -43,8 +43,10 @@ S3DHID void _spew3d_scene3d_SetKind_nolock();
 S3DHID s3d_window *_spew3d_window_GetByIDLocked(uint32_t id);
 
 typedef struct spew3d_meshobjdata {
-    int owning_mesh;
-    s3d_geometry *geom;
+    int owning_meshes;
+    s3d_geometry *first_geom;
+    s3d_geometry **extra_geoms;
+    uint32_t extra_geoms_count;
 } spew3d_meshobjdata;
 
 S3DHID void spew3d_scene3d_MeshObjFreeData(
@@ -53,15 +55,33 @@ S3DHID void spew3d_scene3d_MeshObjFreeData(
     spew3d_meshobjdata *mdata = (
         (spew3d_meshobjdata *)extra
     );
-    if (mdata->owning_mesh && mdata->geom != NULL) {
-        spew3d_geometry_Destroy(mdata->geom);
+    if (mdata->owning_meshes && mdata->first_geom != NULL) {
+        spew3d_geometry_Destroy(mdata->first_geom);
+        uint32_t i = 0;
+        while (i < mdata->extra_geoms_count) {
+            spew3d_geometry_Destroy(mdata->extra_geoms[i]);
+            i++;
+        }
     }
     free(mdata);
 }
 
+S3DHID void _spew3d_scene3d_GetObjMeshes_nolock(
+        s3d_obj3d *obj, s3d_geometry **first_mesh,
+        s3d_geometry ***extra_meshes,
+        uint32_t *extra_meshes_count
+        ) {
+    spew3d_meshobjdata *mdata = (
+        (spew3d_meshobjdata *)obj->extra
+    );
+    *first_mesh = mdata->first_geom;
+    *extra_meshes = mdata->extra_geoms;
+    *extra_meshes_count = mdata->extra_geoms_count;
+}
+
 S3DEXP s3d_obj3d *spew3d_scene3d_AddMeshObj(
         s3d_scene3d *sc, s3d_geometry *geom,
-        int object_owns_mesh
+        int object_owns_meshes
         ) {
     assert(sc != NULL);
     s3d_obj3d *obj = malloc(spew3d_obj3d_GetStructSize());
@@ -76,8 +96,8 @@ S3DEXP s3d_obj3d *spew3d_scene3d_AddMeshObj(
         return NULL;
     }
     memset(objdata, 0, sizeof(*objdata));
-    objdata->owning_mesh = object_owns_mesh;
-    objdata->geom = geom;
+    objdata->owning_meshes = object_owns_meshes;
+    objdata->first_geom = geom;
     _spew3d_scene3d_ObjSetExtraData_nolock(
         obj, objdata, spew3d_scene3d_MeshObjFreeData);
 

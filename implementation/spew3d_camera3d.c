@@ -45,28 +45,51 @@ typedef struct s3d_renderpolygon {
     s3d_material_t polygon_material;
 } s3d_renderpolygon;
 
-typedef struct s3d_queuedrendermesh {
-    s3d_geometry *geom;
-    s3d_bone *bone;
-    s3d_rotation bone_rotation;
-    s3d_pos bone_pos;
+#define RENDERENTRY_INVALID 0
+#define RENDERENTRY_SPRITE3D 1
+#define RENDERENTRY_MESH 2
 
-    s3d_rotation world_rotation;
-    s3d_pos world_pos;
-    double world_max_extent;
-} s3d_queuedrendermesh;
+typedef struct s3d_queuedrenderentry {
+    int kind;
+    union {
+        struct rendermesh {
+            s3d_geometry *geom;
+            s3d_bone *bone;
+            s3d_rotation bone_rotation;
+            s3d_pos bone_pos;
+
+            s3d_rotation world_rotation;
+            s3d_pos world_pos;
+            double world_max_extent;
+        } rendermesh;
+        struct rendersprite3d {
+            s3d_rotation world_rotation;
+            s3d_pos world_pos;
+        } rendersprite3d;
+    };
+} s3d_queuedrenderentry;
 
 typedef struct s3d_camdata {
     double fov;
     s3d_obj3d **_render_collect_objects_buffer;
     uint32_t _render_collect_objects_alloc;
-    s3d_queuedrendermesh *_render_meshqueue_buffer;
-    uint32_t _render_meshqueue_buffer_alloc;
+    s3d_queuedrenderentry *_render_queue_buffer;
+    uint32_t _render_queue_buffer_alloc;
 } s3d_camdata;
 
 S3DEXP int _spew3d_obj3d_GetWasDeleted_nolock(
     s3d_obj3d *obj
 );
+S3DHID void _spew3d_scene3d_GetObjMeshes_nolock(
+    s3d_obj3d *obj, s3d_geometry **first_mesh,
+    s3d_geometry ***extra_meshes,
+    uint32_t *extra_meshes_count
+);
+S3DEXP double spew3d_obj3d_GetOuterMaxExtentRadius_nolock(
+    s3d_obj3d *obj
+);
+S3DHID s3d_pos spew3d_obj3d_GetPos_nolock(s3d_obj3d *obj);
+S3DHID s3d_rotation spew3d_obj3d_GetRotation_nolock(s3d_obj3d *obj);
 S3DHID size_t spew3d_obj3d_GetStructSize();
 S3DEXP void _spew3d_obj3d_Lock(s3d_obj3d *obj);
 S3DEXP void _spew3d_obj3d_Unlock(s3d_obj3d *obj);
@@ -148,6 +171,8 @@ S3DHID int _spew3d_camera3d_ProcessDrawToWindowReq(s3devent *ev) {
         return 1;
 
     s3d_obj3d *cam = ev->cam3d.obj_ref;
+    s3d_pos cam_pos = spew3d_obj3d_GetPos(cam);
+    s3d_rotation cam_rot = spew3d_obj3d_GetRotation(cam);
 
     mutex_Release(_win_id_mutex);
     #ifndef SPEW3D_OPTION_DISABLE_SDL
@@ -185,22 +210,100 @@ S3DHID int _spew3d_camera3d_ProcessDrawToWindowReq(s3devent *ev) {
     // an object's mesh will not change while the object is
     // in the scene, so we access the meshes without locks
     // later.
-    s3d_queuedrendermesh *queue = cdata->_render_meshqueue_buffer;
-    int queue_alloc = cdata->_render_meshqueue_buffer_alloc;
+    s3d_queuedrenderentry *queue = cdata->_render_queue_buffer;
+    uint32_t queue_alloc = cdata->_render_queue_buffer_alloc;
     if (count <= 0) {
         mutex_Lock(_win_id_mutex);
         return 1;
     }
     spew3d_obj3d_LockAccess(cam);  // Should also lock scene.
+    uint32_t queuefill = 0;
     uint32_t i = 0;
     while (i < count) {
-        if (_spew3d_obj3d_GetWasDeleted_nolock(buf[i])) {
+        s3d_obj3d *obj = buf[i];
+        if (_spew3d_obj3d_GetWasDeleted_nolock(obj)) {
             i++;
             continue;
         }
-        int kind = _spew3d_scene3d_GetKind_nolock(buf[i]);
+        int kind = _spew3d_scene3d_GetKind_nolock(obj);
+        if (kind != OBJ3D_MESH && kind != OBJ3D_SPRITE3D) {
+            i++;
+            continue;
+        }
+        if (queuefill + 1 > queue_alloc) {
+            uint32_t new_alloc = (16 + queuefill + 1) * 2;
+            s3d_queuedrenderentry *newqueue = realloc(
+                queue, sizeof(*queue) * new_alloc
+            );
+            if (!newqueue) {
+                // Out of memory, we can't render like this.
+                spew3d_obj3d_ReleaseAccess(cam);
+                mutex_Lock(_win_id_mutex);
+                return 1;
+            }
+            queue = newqueue;
+            queue_alloc = new_alloc;
+        }
+        s3d_pos pos = spew3d_obj3d_GetPos_nolock(obj);
+        s3d_rotation rot = (
+            spew3d_obj3d_GetRotation_nolock(obj)
+        );
+        if (kind == OBJ3D_SPRITE3D) {
+            // FIXME. Actually save some info on sprite, somehow.
+            memset(&queue[queuefill], 0, sizeof(queue[queuefill]));
+            queue[queuefill].kind = RENDERENTRY_SPRITE3D;
+            queue[queuefill].rendermesh.world_pos = pos;
+            queue[queuefill].rendermesh.world_rotation = rot;
+            i++;
+            continue;
+        }
+        assert(kind == OBJ3D_MESH);
+
+        // Collect the extra meshes, if any:
+        s3d_geometry *first_mesh = NULL;
+        s3d_geometry **extra_meshes = NULL;
+        uint32_t extra_meshes_count = 0;
+        _spew3d_scene3d_GetObjMeshes_nolock(
+            obj, &first_mesh, &extra_meshes,
+            &extra_meshes_count
+        );
+        if (extra_meshes_count > 0 &&
+                queuefill + extra_meshes_count > queue_alloc) {
+            uint32_t new_alloc = (
+                16 + queuefill +
+                extra_meshes_count
+            ) * 2;
+            s3d_queuedrenderentry *newqueue = realloc(
+                queue, sizeof(*queue) * new_alloc
+            );
+            if (!newqueue) {
+                // Out of memory, we can't render like this.
+                spew3d_obj3d_ReleaseAccess(cam);
+                mutex_Lock(_win_id_mutex);
+                return 1;
+            }
+            queue = newqueue;
+            queue_alloc = new_alloc;
+        }
+        memset(&queue[queuefill], 0, sizeof(queue[queuefill]));
+        queue[queuefill].kind = RENDERENTRY_MESH;
+        queue[queuefill].rendermesh.geom = first_mesh;
+        queue[queuefill].rendermesh.world_pos = pos;
+        queue[queuefill].rendermesh.world_rotation = rot;
+        queue[queuefill].rendermesh.world_max_extent =
+            spew3d_obj3d_GetOuterMaxExtentRadius_nolock(obj);
+        int origindex = queuefill;
+        queuefill++;
+        uint32_t j = 0;
+        while (j < extra_meshes_count) {
+            memcpy(&queue[queuefill],
+                &queue[origindex], sizeof(queue[queuefill]));
+            queue[queuefill].rendermesh.geom = extra_meshes[j];
+            j++;
+        }
         i++;
     }
+    spew3d_obj3d_ReleaseAccess(cam);
 
     mutex_Lock(_win_id_mutex);
 

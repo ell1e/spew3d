@@ -33,9 +33,11 @@ license, see accompanied LICENSE.md.
  * - If the scene isn't locked, position and rotation of any object
  *   can change around at any time and might be corrupt on access.
  *
- * - However, an object's type never changes. Also, its mesh never
- *   changes as long as it's in the scene. (The rendering will corrupt
- *   if these assumptions are violated.)
+ * - However, an object's kind never changes. Also, its mesh itself
+ *   never changes as long as it's in the scene. (The rendering will
+ *   corrupt if these assumptions are violated.) Like, an object can
+ *   be assigned a new mesh but the mesh mustn't ever change while
+ *   assigned to an object in a scene.
  */
 
 #ifdef SPEW3D_IMPLEMENTATION
@@ -244,18 +246,6 @@ S3DHID s3d_pos spew3d_obj3d_GetPos_nolock(s3d_obj3d *obj) {
     return obj->pos;
 }
 
-S3DEXP void spew3d_obj3d_LockAccess(s3d_obj3d *obj) {
-    if (obj->owner) {
-        mutex_Lock(obj->owner->m);
-    }
-}
-
-S3DEXP void spew3d_obj3d_ReleaseAccess(s3d_obj3d *obj) {
-    if (obj->owner) {
-        mutex_Lock(obj->owner->m);
-    }
-}
-
 S3DEXP s3d_pos spew3d_obj3d_GetPos(s3d_obj3d *obj) {
     if (obj->owner) {
         mutex_Lock(obj->owner->m);
@@ -265,6 +255,33 @@ S3DEXP s3d_pos spew3d_obj3d_GetPos(s3d_obj3d *obj) {
         mutex_Release(obj->owner->m);
     }
     return pos;
+}
+
+S3DHID s3d_rotation spew3d_obj3d_GetRotation_nolock(s3d_obj3d *obj) {
+    return obj->rot;
+}
+
+S3DEXP s3d_rotation spew3d_obj3d_GetRotation(s3d_obj3d *obj) {
+    if (obj->owner) {
+        mutex_Lock(obj->owner->m);
+    }
+    s3d_rotation r = spew3d_obj3d_GetRotation_nolock(obj);
+    if (obj->owner) {
+        mutex_Release(obj->owner->m);
+    }
+    return r;
+}
+
+S3DEXP void spew3d_obj3d_LockAccess(s3d_obj3d *obj) {
+    if (obj->owner) {
+        mutex_Lock(obj->owner->m);
+    }
+}
+
+S3DEXP void spew3d_obj3d_ReleaseAccess(s3d_obj3d *obj) {
+    if (obj->owner) {
+        mutex_Release(obj->owner->m);
+    }
 }
 
 S3DHID void spew3d_obj3d_SetPos_nolock(

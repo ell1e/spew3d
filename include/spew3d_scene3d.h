@@ -54,6 +54,10 @@ S3DEXP int spew3d_scene3d_AddPreexistingObj(
     s3d_scene3d *sc, s3d_obj3d *obj
 );
 
+S3DEXP s3d_pos spew3d_obj3d_GetPos(s3d_obj3d *obj);
+
+S3DEXP s3d_rotation spew3d_obj3d_GetRotation(s3d_obj3d *obj);
+
 S3DEXP s3d_spatialstore3d *spew3d_scene3d_GetStore(
     s3d_scene3d *sc
 );
