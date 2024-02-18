@@ -63,6 +63,7 @@ S3DEXP s3d_obj3d *spew3d_scene3d_AddMeshObj(
         s3d_scene3d *sc, s3d_geometry *geom,
         int object_owns_mesh
         ) {
+    assert(sc != NULL);
     s3d_obj3d *obj = malloc(spew3d_obj3d_GetStructSize());
     if (!obj)
         return NULL;

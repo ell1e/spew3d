@@ -72,6 +72,11 @@ S3DEXP s3d_scene3d *spew3d_scene3d_New(
     if (!sc)
         return NULL;
     memset(sc, 0, sizeof(*sc));
+    sc->m = mutex_Create();
+    if (!sc->m) {
+        spew3d_scene3d_Destroy(sc);
+        return NULL;
+    }
     s3d_pos center = {0};
     sc->store = s3d_spatial3d_NewDefault(
         max_coord_range, max_regular_collision_size,
@@ -123,6 +128,8 @@ S3DEXP double spew3d_obj3d_GetOuterMaxExtentRadius(s3d_obj3d *obj) {
 S3DEXP int spew3d_scene3d_AddPreexistingObj(
         s3d_scene3d *sc, s3d_obj3d *obj
         ) {
+    assert(sc != NULL);
+    assert(sc->m != NULL);
     mutex_Lock(sc->m);
     s3d_pos pos = obj->pos;
     double radius = spew3d_obj3d_GetOuterMaxExtentRadius_nolock(
@@ -139,6 +146,8 @@ S3DEXP void spew3d_scene3d_Destroy(s3d_scene3d *sc) {
 
     if (sc->store != NULL)
         sc->store->Destroy(sc->store);
+    if (sc->m)
+        mutex_Destroy(sc->m);
     free(sc);
 }
 

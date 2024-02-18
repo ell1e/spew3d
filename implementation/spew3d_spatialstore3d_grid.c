@@ -405,7 +405,11 @@ S3DHID void s3d_spatialstore3d_Destroy(s3d_spatialstore3d *store) {
         free(gdata->contents[index].entrylist);
         index++;
     }
-    mutex_Destroy(gdata->access);
+    if (gdata->access != NULL) {
+        mutex_Destroy(gdata->access);
+    }
+    free(gdata);
+    free(store);
 }
 
 S3DEXP s3d_spatialstore3d *s3d_spatialstore3d_NewGridEx(
@@ -451,6 +455,13 @@ S3DEXP s3d_spatialstore3d *s3d_spatialstore3d_NewGridEx(
     }
     memset(store, 0, sizeof(*store));
     store->internal_data = gdata;
+    gdata->access = mutex_Create();
+    if (!gdata->access) {
+        free(store);
+        free(gdata->contents);
+        free(gdata);
+        return NULL;
+    }
     
     store->Add = s3d_spatialstore3d_GridAdd;
     store->Remove = s3d_spatialstore3d_GridRemove;
