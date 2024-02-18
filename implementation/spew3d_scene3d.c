@@ -127,7 +127,7 @@ S3DEXP int spew3d_scene3d_AddPreexistingObj(
     s3d_pos pos = obj->pos;
     double radius = spew3d_obj3d_GetOuterMaxExtentRadius_nolock(
         obj);
-    int result = sc->store->Add(sc->store, obj, 
+    int result = sc->store->Add(sc->store, obj,
         pos, radius, 0);
     mutex_Release(sc->m);
     return result;

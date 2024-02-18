@@ -584,7 +584,7 @@ S3DEXP void spew3d_window_GetSDLWindowAndRenderer(
 #endif
 
 #ifndef SPEW3D_OPTION_DISABLE_SDL
-S3DEXP void spew3d_window_GetSDLWindowAndRenderer_nolock(
+S3DEXP void spew3d_window_GetSDLWindowAndRenderer(
         s3d_window *win, SDL_Window **out_w,
         SDL_Renderer **out_r
         ) {

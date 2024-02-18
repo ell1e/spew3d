@@ -467,13 +467,21 @@ S3DEXP s3d_spatialstore3d *s3d_spatialstore3d_NewGrid(
         double max_regular_collision_size,
         s3d_pos center
         ) {
-    if (max_regular_collision_size >= max_coord_range) {
+    const int default_cells_horizontal = 25;
+    const int default_cells_vertical = 10;
+    if (max_regular_collision_size >= max_coord_range /
+                (double)default_cells_horizontal||
+            max_regular_collision_size >= max_coord_range /
+                (double)default_cells_vertical
+            ) {
         return NULL;
     }
-    /*s3d_spatialstore3d *store = s3d_spatialstore3d_NewGridEx(
-        double max_world_extent_per_axis, double max_collision_extent,
-        int cells_per_horizontal_axis, int cells_per_vertical_axis
-    );*/
+    s3d_spatialstore3d *store = s3d_spatialstore3d_NewGridEx(
+        max_coord_range, max_regular_collision_size,
+        default_cells_horizontal, default_cells_vertical,
+        center
+    );
+    return store;
 }
 
 #endif  // SPEW3D_IMPLEMENTATION

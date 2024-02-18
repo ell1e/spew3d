@@ -34,7 +34,7 @@ int main(int argc, const char **argv) {
     }
 
     printf("Setting up scene and camera.\n");
-    s3d_scene3d *scene = spew3d_scene3d_New(100);
+    s3d_scene3d *scene = spew3d_scene3d_New(100, 3.0);
     if (!scene) {
         fprintf(stderr, "Failed to create scene.\n");
         return 1;
@@ -48,7 +48,7 @@ int main(int argc, const char **argv) {
     s3d_obj3d *camera = spew3d_camera3d_CreateForScene(
         scene
     );
-    s3d cam_pos = {0};
+    s3d_pos cam_pos = {0};
     cam_pos.x = -4 * S3D_METER;
     cam_pos.z = 1 * S3D_METER;
     spew3d_obj3d_SetPos(camera, cam_pos);
