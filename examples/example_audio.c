@@ -8,7 +8,6 @@
 #include <stdint.h>
 #include <stdio.h>
 
-
 int main(int argc, const char **argv) {
     printf("Initializing Spew3D audio pipeline\n");
     s3d_audio_sink *sink = spew3d_audio_sink_CreateStereoOutput(48000);

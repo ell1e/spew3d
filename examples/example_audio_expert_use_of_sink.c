@@ -8,7 +8,6 @@
 #include <stdint.h>
 #include <stdio.h>
 
-
 int main(int argc, const char **argv) {
     // WARNING, this is a specialized example using a decoder directly,
     // which doesn't easily allow you to play multiple sounds at once.

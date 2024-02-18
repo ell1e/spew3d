@@ -7,7 +7,6 @@
 #include <stdio.h>
 #include <stdint.h>
 
-
 int main(int argc, const char **argv) {
     printf("Initializing Spew3D with window and renderer\n");
     s3d_window *win = spew3d_window_New(
@@ -46,6 +45,13 @@ int main(int argc, const char **argv) {
         return 1;
     }
     cube = NULL;  // Geometry is now owned by the object.
+    s3d_obj3d *camera = spew3d_camera3d_CreateForScene(
+        scene
+    );
+    s3d cam_pos = {0};
+    cam_pos.x = -4 * S3D_METER;
+    cam_pos.z = 1 * S3D_METER;
+    spew3d_obj3d_SetPos(camera, cam_pos);
 
     printf("Entering main loop.\n");
     int notquit = 1;
@@ -60,6 +66,7 @@ int main(int argc, const char **argv) {
                 break;
             }
         }
+        spew3d_camera3d_RenderToWindow(camera, win);
         spew3d_window_PresentToScreen(win);
     }
     spew3d_window_Destroy(win);

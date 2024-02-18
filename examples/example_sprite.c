@@ -9,7 +9,6 @@
 #include <stdint.h>
 #include <stdio.h>
 
-
 int main(int argc, const char **argv) {
     printf("Initializing Spew3D with window and renderer\n");
     s3d_window *win = spew3d_window_New(
