@@ -39,7 +39,7 @@ int main(int argc, const char **argv) {
         fprintf(stderr, "Failed to create scene.\n");
         return 1;
     }
-    s3d_obj3d *obj = spew3d_scene3d_AddMeshObj(cube, 1);
+    s3d_obj3d *obj = spew3d_scene3d_AddMeshObj(scene, cube, 1);
     if (!obj) {
         fprintf(stderr, "Failed to create object.\n");
         return 1;

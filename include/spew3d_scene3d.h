@@ -33,7 +33,7 @@ license, see accompanied LICENSE.md.
 enum Obj3dKind {
     OBJ3D_INVALID = 0,
     OBJ3D_INVISIBLE = 1,
-    OBJ3D_GEOMETRY,
+    OBJ3D_MESH,
     OBJ3D_SPRITE3D,
     OBJ3D_CAMERA,
 };
@@ -47,7 +47,7 @@ S3DEXP s3d_scene3d *spew3d_scene3d_New(
 );
 
 S3DEXP s3d_obj3d *spew3d_scene3d_AddMeshObj(
-    s3d_geometry *geom, int object_owns_mesh
+    s3d_scene3d *sc, s3d_geometry *geom, int object_owns_mesh
 );
 
 S3DEXP int spew3d_scene3d_AddPreexistingObj(
