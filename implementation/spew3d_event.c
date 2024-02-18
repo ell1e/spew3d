@@ -108,15 +108,15 @@ S3DEXP int s3devent_q_Insert(s3dequeue *eq, const s3devent *ev) {
         eq->alloc = newalloc;
     }
     #if defined(DEBUG_SPEW3D_EVENT)
-    if (!S3DEV_TYPE_IS_INTERNAL(ev->type)) {
+    if (!S3DEV_TYPE_IS_INTERNAL(ev->kind)) {
         printf("spew3d_event.c: debug: "
             "Inserted non-internal event (queue %p): "
-            "event type %d\n",
-            eq, (int)ev->type);
+            "event kind %d\n",
+            eq, (int)ev->kind);
     }
     #endif
     memcpy(&eq->array[eq->fill], ev, sizeof(*ev));
-    assert(eq->array[eq->fill].type == ev->type);
+    assert(eq->array[eq->fill].kind == ev->kind);
     eq->fill++;
     mutex_Release(eq->accesslock);
     return 1;
@@ -187,7 +187,7 @@ S3DEXP void s3devent_UpdateMainThread() {
         if (!s3devent_q_Pop(eq, &e))
             break;
 
-        assert(e.type != S3DEV_INVALID);
+        assert(e.kind != S3DEV_INVALID);
         if (!spew3d_window_MainThreadProcessEvent(&e)) {
             if (!spew3d_texture_MainThreadProcessEvent(&e))
                 spew3d_camera_MainThreadProcessEvent(&e);

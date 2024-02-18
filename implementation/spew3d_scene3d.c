@@ -25,6 +25,19 @@ Alternatively, at your option, this file is offered under the Apache 2
 license, see accompanied LICENSE.md.
 */
 
+/** XXX: NOTE: IMPORTANT INFO ABOUT MULTI-THREADING:
+ *  ================================================
+ *
+ * Spew3D's threading makes the following assumptions about objects:
+ *
+ * - If the scene isn't locked, position and rotation of any object
+ *   can change around at any time and might be corrupt on access.
+ *
+ * - However, an object's type never changes. Also, its mesh never
+ *   changes as long as it's in the scene. (The rendering will corrupt
+ *   if these assumptions are violated.)
+ */
+
 #ifdef SPEW3D_IMPLEMENTATION
 
 typedef struct s3d_spatialstore3d s3d_spatialstore3d;
@@ -36,6 +49,7 @@ typedef struct s3d_scene3d {
 
 typedef struct s3d_obj3d {
     int kind;
+    int wasdeleted;
     s3d_scene3d *owner;
     s3d_pos pos;
     s3d_rotation rot;
@@ -121,6 +135,12 @@ S3DEXP s3d_spatialstore3d *spew3d_scene3d_GetStoreByObj3d(
     return NULL;
 }
 
+S3DEXP int _spew3d_obj3d_GetWasDeleted_nolock(
+        s3d_obj3d *obj
+        ) {
+    return obj->wasdeleted;
+}
+
 S3DEXP double spew3d_obj3d_GetOuterMaxExtentRadius_nolock(
         s3d_obj3d *obj) {
     return 0;
@@ -186,6 +206,21 @@ S3DEXP void spew3d_obj3d_Destroy(s3d_obj3d *obj) {
     if (obj->owner) {
         s = obj->owner;
         mutex_Lock(s->m);
+    }
+    obj->wasdeleted = 1;
+    if (s) {
+        mutex_Release(s->m);
+    }
+}
+
+S3DEXP void _spew3d_obj3d_DestroyActually(s3d_obj3d *obj) {
+    if (!obj)
+        return;
+    assert(obj->wasdeleted);
+    s3d_scene3d *s = NULL;
+    if (obj->owner) {
+        s = obj->owner;
+        mutex_Lock(s->m);
         s->store->Remove(s->store, obj);
     }
     if (obj->extra) {
@@ -207,6 +242,18 @@ S3DHID size_t spew3d_obj3d_GetStructSize() {
 
 S3DHID s3d_pos spew3d_obj3d_GetPos_nolock(s3d_obj3d *obj) {
     return obj->pos;
+}
+
+S3DEXP void spew3d_obj3d_LockAccess(s3d_obj3d *obj) {
+    if (obj->owner) {
+        mutex_Lock(obj->owner->m);
+    }
+}
+
+S3DEXP void spew3d_obj3d_ReleaseAccess(s3d_obj3d *obj) {
+    if (obj->owner) {
+        mutex_Lock(obj->owner->m);
+    }
 }
 
 S3DEXP s3d_pos spew3d_obj3d_GetPos(s3d_obj3d *obj) {

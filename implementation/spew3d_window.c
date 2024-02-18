@@ -143,7 +143,7 @@ S3DHID static s3d_window *spew3d_window_NewExEx(
 
     if (!dontinitactualwindow) {
         s3devent e = {0};
-        e.type = S3DEV_INTERNAL_CMD_WIN_OPEN;
+        e.kind = S3DEV_INTERNAL_CMD_WIN_OPEN;
         e.window.win_id = win->id;
         if (!s3devent_q_Insert(eq, &e)) {
             free(win->title);
@@ -231,7 +231,7 @@ S3DHID int _spew3d_window_HandleSDLEvent(SDL_Event *e) {
 
     if (e->type == SDL_QUIT) {
         s3devent e2 = {0};
-        e2.type = S3DEV_APP_QUIT_REQUEST;
+        e2.kind = S3DEV_APP_QUIT_REQUEST;
         _s3devent_q_InsertForce(equser, &e2);
         mutex_Lock(_win_id_mutex);
         int i = 0;
@@ -241,7 +241,7 @@ S3DHID int _spew3d_window_HandleSDLEvent(SDL_Event *e) {
                 continue;
             }
             memset(&e2, 0, sizeof(e2));
-            e2.type = S3DEV_WINDOW_USER_CLOSE_REQUEST;
+            e2.kind = S3DEV_WINDOW_USER_CLOSE_REQUEST;
             e2.window.win_id = _global_win_registry[i]->id;
             _s3devent_q_InsertForce(equser, &e2);
             i++;
@@ -252,7 +252,7 @@ S3DHID int _spew3d_window_HandleSDLEvent(SDL_Event *e) {
         s3d_window *win = spew3d_window_GetBySDLWindowID(e->window.windowID);
         if (win != NULL && e->window.event == SDL_WINDOWEVENT_CLOSE) {
             s3devent e2 = {0};
-            e2.type = S3DEV_WINDOW_USER_CLOSE_REQUEST;
+            e2.kind = S3DEV_WINDOW_USER_CLOSE_REQUEST;
             e2.window.win_id = win->id;
             _s3devent_q_InsertForce(equser, &e2);
         }
@@ -280,35 +280,35 @@ S3DEXP int spew3d_window_MainThreadProcessEvent(s3devent *e) {
     s3dequeue *eq = _s3devent_GetInternalQueue();
 
     mutex_Lock(_win_id_mutex);
-    if (e->type == S3DEV_INTERNAL_CMD_WIN_OPEN) {
+    if (e->kind == S3DEV_INTERNAL_CMD_WIN_OPEN) {
         if (!_spew3d_window_ProcessWinOpenReq(e)) {
             mutex_Release(_win_id_mutex);
             _s3devent_q_InsertForce(eq, e);
         }
         mutex_Release(_win_id_mutex);
         return 1;
-    } else if (e->type == S3DEV_INTERNAL_CMD_WIN_UPDATECANVAS) {
+    } else if (e->kind == S3DEV_INTERNAL_CMD_WIN_UPDATECANVAS) {
         if (!_spew3d_window_ProcessWinUpdateCanvasReq(e)) {
             mutex_Release(_win_id_mutex);
             s3devent_q_Insert(eq, e);
         }
         mutex_Release(_win_id_mutex);
         return 1;
-    } else if (e->type == S3DEV_INTERNAL_CMD_WIN_CLOSE) {
+    } else if (e->kind == S3DEV_INTERNAL_CMD_WIN_CLOSE) {
         if (!_spew3d_window_ProcessWinCloseReq(e)) {
             mutex_Release(_win_id_mutex);
             _s3devent_q_InsertForce(eq, e);
         }
         mutex_Release(_win_id_mutex);
         return 1;
-    } else if (e->type == S3DEV_INTERNAL_CMD_DRAWPRIMITIVE_WINFILL) {
+    } else if (e->kind == S3DEV_INTERNAL_CMD_DRAWPRIMITIVE_WINFILL) {
         if (!_spew3d_window_ProcessWinDrawFillReq(e)) {
             mutex_Release(_win_id_mutex);
             s3devent_q_Insert(eq, e);
         }
         mutex_Release(_win_id_mutex);
         return 1;
-    } else if (e->type == S3DEV_INTERNAL_CMD_WIN_DESTROY) {
+    } else if (e->kind == S3DEV_INTERNAL_CMD_WIN_DESTROY) {
         while (!_spew3d_window_ProcessWinCloseReq(e)) {
             mutex_Release(_win_id_mutex);
             spew3d_time_Sleep(10);
@@ -440,7 +440,7 @@ S3DEXP void spew3d_window_PresentToScreen(s3d_window *win) {
         return;
 
     s3devent e = {0};
-    e.type = S3DEV_INTERNAL_CMD_WIN_UPDATECANVAS;
+    e.kind = S3DEV_INTERNAL_CMD_WIN_UPDATECANVAS;
     e.window.win_id = win->id;
     if (!s3devent_q_Insert(eq, &e))
         return;
@@ -473,10 +473,10 @@ S3DEXP void spew3d_window_Destroy(s3d_window *win) {
         return;
 
     s3devent e = {0};
-    e.type = S3DEV_INTERNAL_CMD_WIN_CLOSE;
+    e.kind = S3DEV_INTERNAL_CMD_WIN_CLOSE;
     e.window.win_id = win->id;
     _s3devent_q_InsertForce(eq, &e);
-    e.type = S3DEV_INTERNAL_CMD_WIN_DESTROY;
+    e.kind = S3DEV_INTERNAL_CMD_WIN_DESTROY;
     e.window.win_id = win->id;
     _s3devent_q_InsertForce(eq, &e);
 }
@@ -551,7 +551,7 @@ S3DEXP void spew3d_window_FillWithColor(
     }
 
     s3devent e = {0};
-    e.type = S3DEV_INTERNAL_CMD_DRAWPRIMITIVE_WINFILL;
+    e.kind = S3DEV_INTERNAL_CMD_DRAWPRIMITIVE_WINFILL;
     e.drawprimitive.win_id = win->id;
     e.drawprimitive.red = red;
     e.drawprimitive.green = green;

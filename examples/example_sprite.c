@@ -44,8 +44,8 @@ int main(int argc, const char **argv) {
 
         s3devent e = {0};
         while (s3devent_q_Pop(s3devent_GetMainQueue(), &e)) {
-            if (e.type == S3DEV_WINDOW_USER_CLOSE_REQUEST ||
-                    e.type == S3DEV_APP_QUIT_REQUEST) {
+            if (e.kind == S3DEV_WINDOW_USER_CLOSE_REQUEST ||
+                    e.kind == S3DEV_APP_QUIT_REQUEST) {
                 notquit = 0;
                 break;
             }

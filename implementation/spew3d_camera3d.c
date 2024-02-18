@@ -27,16 +27,46 @@ license, see accompanied LICENSE.md.
 
 #ifdef SPEW3D_IMPLEMENTATION
 
+#include <assert.h>
+#ifndef SPEW3D_OPTION_DISABLE_SDL
+#include <SDL2/SDL.h>
+#endif
+#include <string.h>
 #include <stdint.h>
 
 extern s3d_mutex *_win_id_mutex;
 typedef struct s3d_window s3d_window;
-typedef struct spew3d_camdata {
+
+typedef struct s3d_renderpolygon {
+    s3d_pos vertex_pos[3];
+    s3d_pos vertex_normal[3];
+    s3d_point vertex_texcoordx[3];
+    s3d_point vertex_texcoordy[3];
+    s3d_material_t polygon_material;
+} s3d_renderpolygon;
+
+typedef struct s3d_queuedrendermesh {
+    s3d_geometry *geom;
+    s3d_bone *bone;
+    s3d_rotation bone_rotation;
+    s3d_pos bone_pos;
+
+    s3d_rotation world_rotation;
+    s3d_pos world_pos;
+    double world_max_extent;
+} s3d_queuedrendermesh;
+
+typedef struct s3d_camdata {
     double fov;
     s3d_obj3d **_render_collect_objects_buffer;
     uint32_t _render_collect_objects_alloc;
-} spew3d_camdata;
+    s3d_queuedrendermesh *_render_meshqueue_buffer;
+    uint32_t _render_meshqueue_buffer_alloc;
+} s3d_camdata;
 
+S3DEXP int _spew3d_obj3d_GetWasDeleted_nolock(
+    s3d_obj3d *obj
+);
 S3DHID size_t spew3d_obj3d_GetStructSize();
 S3DEXP void _spew3d_obj3d_Lock(s3d_obj3d *obj);
 S3DEXP void _spew3d_obj3d_Unlock(s3d_obj3d *obj);
@@ -53,8 +83,8 @@ S3DHID void *spew3d_scene3d_ObjExtraData(s3d_obj3d *obj);
 S3DHID void spew3d_camera_CameraFreeData(
         s3d_obj3d *obj, void *extra
         ) {
-    spew3d_camdata *mdata = (
-        (spew3d_camdata *)extra
+    s3d_camdata *mdata = (
+        (s3d_camdata *)extra
     );
     if (mdata->_render_collect_objects_buffer != NULL) {
         free(mdata->_render_collect_objects_buffer);
@@ -71,7 +101,7 @@ S3DEXP s3d_obj3d *spew3d_camera3d_CreateForScene(
     memset(obj, 0, spew3d_obj3d_GetStructSize());
     _spew3d_scene3d_SetKind_nolock(obj, OBJ3D_CAMERA);
 
-    spew3d_camdata *camdata = malloc(sizeof(*camdata));
+    s3d_camdata *camdata = malloc(sizeof(*camdata));
     if (!camdata) {
         spew3d_obj3d_Destroy(obj);
         return NULL;
@@ -102,7 +132,7 @@ S3DEXP void spew3d_camera3d_RenderToWindow(
         return;
 
     s3devent e = {0};
-    e.type = S3DEV_INTERNAL_CMD_CAM3D_DRAWTOWINDOW;
+    e.kind = S3DEV_INTERNAL_CMD_CAM3D_DRAWTOWINDOW;
     e.cam3d.obj_ref = cam;
     e.cam3d.win_id = spew3d_window_GetID(win);
     if (!s3devent_q_Insert(eq, &e))
@@ -119,18 +149,20 @@ S3DHID int _spew3d_camera3d_ProcessDrawToWindowReq(s3devent *ev) {
 
     s3d_obj3d *cam = ev->cam3d.obj_ref;
 
-    #ifndef SPEW3D_OPTION_DISABLE_SDL
     mutex_Release(_win_id_mutex);
+    #ifndef SPEW3D_OPTION_DISABLE_SDL
     SDL_Renderer *render = NULL;
     spew3d_window_GetSDLWindowAndRenderer(
         win, NULL, &render
         );
     #endif
+
+    // First, collect whatever we even want to render:
     s3d_spatialstore3d *store = (
         spew3d_scene3d_GetStoreByObj3d(cam)
     );
     assert(store != NULL);
-    spew3d_camdata *cdata = (spew3d_camdata *)(
+    s3d_camdata *cdata = (s3d_camdata *)(
         spew3d_scene3d_ObjExtraData(cam)
     );
     s3d_obj3d **buf = cdata->_render_collect_objects_buffer;
@@ -146,16 +178,31 @@ S3DHID int _spew3d_camera3d_ProcessDrawToWindowReq(s3devent *ev) {
     }
     cdata->_render_collect_objects_buffer = buf;
     cdata->_render_collect_objects_alloc = alloc;
+    // For performance reasons, make a separate copy to process
+    // culling first, so that things like physics and AI can
+    // continue without us blocking them.
+    // XXX: NOTE: This code relies on the assumption that
+    // an object's mesh will not change while the object is
+    // in the scene, so we access the meshes without locks
+    // later.
+    s3d_queuedrendermesh *queue = cdata->_render_meshqueue_buffer;
+    int queue_alloc = cdata->_render_meshqueue_buffer_alloc;
     if (count <= 0) {
-        #ifndef SPEW3D_OPTION_DISABLE_SDL
         mutex_Lock(_win_id_mutex);
-        #endif
         return 1;
     }
+    spew3d_obj3d_LockAccess(cam);  // Should also lock scene.
+    uint32_t i = 0;
+    while (i < count) {
+        if (_spew3d_obj3d_GetWasDeleted_nolock(buf[i])) {
+            i++;
+            continue;
+        }
+        int kind = _spew3d_scene3d_GetKind_nolock(buf[i]);
+        i++;
+    }
 
-    #ifndef SPEW3D_OPTION_DISABLE_SDL
     mutex_Lock(_win_id_mutex);
-    #endif
 
     return 1;
 }
@@ -166,7 +213,7 @@ S3DEXP int spew3d_camera_MainThreadProcessEvent(s3devent *e) {
     s3dequeue *eq = _s3devent_GetInternalQueue();
 
     mutex_Lock(_win_id_mutex);
-    if (e->type == S3DEV_INTERNAL_CMD_CAM3D_DRAWTOWINDOW) {
+    if (e->kind == S3DEV_INTERNAL_CMD_CAM3D_DRAWTOWINDOW) {
         if (!_spew3d_camera3d_ProcessDrawToWindowReq(e)) {
             mutex_Release(_win_id_mutex);
             s3devent_q_Insert(eq, e);

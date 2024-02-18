@@ -30,7 +30,7 @@ license, see accompanied LICENSE.md.
 
 #include <stdint.h>
 
-enum S3DEventType {
+enum S3DEventKind {
     S3DEV_INVALID = 0,
 
     S3DEV_WINDOW_CLOSED = 1,
@@ -59,7 +59,7 @@ typedef uint64_t s3d_texture_t;
 typedef struct s3d_obj3d s3d_obj3d;
 
 typedef struct s3devent {
-    int type;
+    int kind;
     union {
         struct window {
             uint32_t win_id;

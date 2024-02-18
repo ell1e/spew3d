@@ -61,7 +61,7 @@ S3DHID int _internal_spew3d_geometry_AddVertexPolyAlloc(
     if (!new_vertexindex)
         return 0;
     geometry->polygon_vertexindex = new_vertexindex;
-    spew3d_material_t *new_material = realloc(
+    s3d_material_t *new_material = realloc(
         geometry->polygon_material,
         sizeof(*new_material) *
         (geometry->polygon_count + add_polygon)
