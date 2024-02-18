@@ -398,6 +398,16 @@ S3DEXP int s3d_spatialstore3d_IterateAll(
     return 1;
 }
 
+S3DHID void s3d_spatialstore3d_Destroy(s3d_spatialstore3d *store) {
+    s3d_spatialstore3d_griddata *gdata = store->internal_data;
+    int32_t index = 0;
+    while (index < gdata->cell_count) {
+        free(gdata->contents[index].entrylist);
+        index++;
+    }
+    mutex_Destroy(gdata->access);
+}
+
 S3DEXP s3d_spatialstore3d *s3d_spatialstore3d_NewGridEx(
         double max_coord_range,
         double max_regular_collision_size,
@@ -448,6 +458,7 @@ S3DEXP s3d_spatialstore3d *s3d_spatialstore3d_NewGridEx(
     store->FindEx = s3d_spatialstore3d_GridFindEx;
     store->FindClosest = s3d_spatialstore3d_GridFindClosest;
     store->IterateAll = s3d_spatialstore3d_IterateAll;
+    store->Destroy = s3d_spatialstore3d_Destroy;
     return store;
 }
 

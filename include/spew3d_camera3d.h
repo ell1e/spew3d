@@ -30,12 +30,17 @@ license, see accompanied LICENSE.md.
 
 #include <stdint.h>
 
+typedef struct s3d_window s3d_window;
 typedef struct s3d_scene3d s3d_scene3d;
 typedef struct s3d_rotation s3d_rotation;
 typedef struct s3d_pos s3d_pos;
 
 S3DEXP s3d_obj3d *spew3d_camera3d_CreateForScene(
-    s3d_scene3d *scene, s3d_pos pos, s3d_rotation rot
+    s3d_scene3d *scene
+);
+
+S3DEXP void spew3d_camera3d_RenderToWindow(
+    s3d_obj3d *cam, s3d_window *win
 );
 
 #endif  // SPEW3D_CAMERA3D_H_

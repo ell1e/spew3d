@@ -56,6 +56,7 @@ typedef struct s3d_spatialstore3d {
         s3d_spatialstore3d *store, int32_t *custom_type_no_list,
         int custom_type_no_list_len, s3d_obj3d ***buffer_for_list,
         int *buffer_alloc, uint32_t *out_count);
+    void (*Destroy)(s3d_spatialstore3d *store);
     void *internal_data;
 } s3d_spatialstore3d;
 

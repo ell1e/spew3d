@@ -47,6 +47,7 @@ enum S3DEventType {
     S3DEV_INTERNAL_CMD_TEXDELETE,
     S3DEV_INTERNAL_CMD_TEXTURELOCK_LOCKPIXELSTOFINISH,
     S3DEV_INTERNAL_CMD_SPRITEDRAW,
+    S3DEV_INTERNAL_CMD_CAM3D_DRAWTOWINDOW,
 
     S3DEV_DUMMY = 99999
 };
@@ -55,6 +56,7 @@ enum S3DEventType {
     (((int)x) >= (int)S3DEV_INTERNAL_CMD_WIN_OPEN)
 
 typedef uint64_t s3d_texture_t;
+typedef struct s3d_obj3d s3d_obj3d;
 
 typedef struct s3devent {
     int type;
@@ -82,6 +84,10 @@ typedef struct s3devent {
             s3dnum_t transparency;
             int withalphachannel;
         } spritedraw;
+        struct cam3d {
+            uint32_t win_id;
+            s3d_obj3d *obj_ref;
+        } cam3d;
     };
 } s3devent;
 

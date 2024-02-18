@@ -27,21 +27,177 @@ license, see accompanied LICENSE.md.
 
 #ifdef SPEW3D_IMPLEMENTATION
 
+typedef struct s3d_spatialstore3d s3d_spatialstore3d;
+
 typedef struct s3d_scene3d {
-    
+    s3d_mutex *m;
+    s3d_spatialstore3d *store;
 } s3d_scene3d;
 
 typedef struct s3d_obj3d {
+    int kind;
+    s3d_scene3d *owner;
     s3d_pos pos;
+    s3d_rotation rot;
     int32_t custom_type_nums[8];
+    void *extra;
+    void (*extra_destroy_cb)(s3d_obj3d *obj, void *extra);
 } s3d_obj3d;
 
-S3DEXP s3d_scene3d *spew3d_scene3d_New(double max_coord_range) {
-    return NULL;
+S3DHID int _spew3d_scene3d_GetKind_nolock(s3d_obj3d *obj) {
+    return obj->kind;
+}
+
+S3DHID void _spew3d_scene3d_SetKind_nolock(
+        s3d_obj3d *obj, int kind
+        ) {
+    obj->kind = kind;
+}
+
+S3DHID void *_spew3d_scene3d_ObjExtraData_nolock(s3d_obj3d *obj) {
+    return obj->extra;
+}
+
+S3DHID void _spew3d_scene3d_ObjSetExtraData_nolock(
+        s3d_obj3d *obj, void *extra,
+        void (*extra_destroy_cb)(s3d_obj3d *obj, void *extra)
+        ) {
+    obj->extra = extra;
+}
+
+S3DEXP s3d_scene3d *spew3d_scene3d_New(
+        double max_coord_range, double max_regular_collision_size
+        ) {
+    s3d_scene3d *sc = malloc(sizeof(*sc));
+    if (!sc)
+        return NULL;
+    memset(sc, 0, sizeof(*sc));
+    s3d_pos center = {0};
+    sc->store = s3d_spatial3d_NewDefault(
+        max_coord_range, max_regular_collision_size,
+        center
+    );
+    if (!sc->store) {
+        spew3d_scene3d_Destroy(sc);
+        return NULL;
+    }
+    return sc;
+}
+
+S3DEXP s3d_spatialstore3d *spew3d_scene3d_GetStore(
+        s3d_scene3d *sc
+        ) {
+    return sc->store;
+}
+
+S3DEXP double spew3d_obj3d_GetOuterMaxExtentRadius_nolock(
+        s3d_obj3d *obj) {
+    return 0;
+}
+
+S3DEXP void _spew3d_obj3d_Lock(s3d_obj3d *obj) {
+    if (obj->owner) {
+        mutex_Lock(obj->owner->m);
+    }
+}
+
+S3DEXP void _spew3d_obj3d_Unlock(s3d_obj3d *obj) {
+    if (obj->owner) {
+        mutex_Release(obj->owner->m);
+    }
+}
+
+S3DEXP double spew3d_obj3d_GetOuterMaxExtentRadius(s3d_obj3d *obj) {
+    if (obj->owner) {
+        mutex_Lock(obj->owner->m);
+    }
+    double result = spew3d_obj3d_GetOuterMaxExtentRadius_nolock(
+        obj
+    );
+    if (obj->owner) {
+        mutex_Release(obj->owner->m);
+    }
+    return result;
+}
+
+S3DEXP int spew3d_scene3d_AddPreexistingObj(
+        s3d_scene3d *sc, s3d_obj3d *obj
+        ) {
+    mutex_Lock(sc->m);
+    s3d_pos pos = obj->pos;
+    double radius = spew3d_obj3d_GetOuterMaxExtentRadius_nolock(
+        obj);
+    int result = sc->store->Add(sc->store, obj, 
+        pos, radius, 0);
+    mutex_Release(sc->m);
+    return result;
+}
+
+S3DEXP void spew3d_scene3d_Destroy(s3d_scene3d *sc) {
+    if (sc == NULL)
+        return;
+
+    if (sc->store != NULL)
+        sc->store->Destroy(sc->store);
+    free(sc);
+}
+
+S3DEXP void spew3d_obj3d_Destroy(s3d_obj3d *obj) {
+    if (!obj)
+        return;
+    s3d_scene3d *s = NULL;
+    if (obj->owner) {
+        s = obj->owner;
+        mutex_Lock(s->m);
+        s->store->Remove(s->store, obj);
+    }
+    if (obj->extra) {
+        if (obj->extra_destroy_cb) {
+            obj->extra_destroy_cb(obj, obj->extra);
+        } else {
+            free(obj->extra);
+        }
+    }
+    free(obj);
+    if (s) {
+        mutex_Release(s->m);
+    }
+}
+
+S3DHID size_t spew3d_obj3d_GetStructSize() {
+    return sizeof(s3d_obj3d);
+}
+
+S3DHID s3d_pos spew3d_obj3d_GetPos_nolock(s3d_obj3d *obj) {
+    return obj->pos;
 }
 
 S3DEXP s3d_pos spew3d_obj3d_GetPos(s3d_obj3d *obj) {
-    return obj->pos;
+    if (obj->owner) {
+        mutex_Lock(obj->owner->m);
+    }
+    s3d_pos pos = spew3d_obj3d_GetPos_nolock(obj);
+    if (obj->owner) {
+        mutex_Release(obj->owner->m);
+    }
+    return pos;
+}
+
+S3DHID void spew3d_obj3d_SetPos_nolock(
+        s3d_obj3d *obj, s3d_pos pos) {
+    obj->pos = pos;
+}
+
+S3DEXP void spew3d_obj3d_SetPos(
+        s3d_obj3d *obj, s3d_pos pos
+        ) {
+    if (obj->owner) {
+        mutex_Lock(obj->owner->m);
+    }
+    spew3d_obj3d_SetPos_nolock(obj, pos);
+    if (obj->owner) {
+        mutex_Release(obj->owner->m);
+    }
 }
 
 S3DEXP int spew3d_obj3d_AddCustomTypeNum(

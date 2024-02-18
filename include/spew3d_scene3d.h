@@ -30,7 +30,7 @@ license, see accompanied LICENSE.md.
 
 #include <stdint.h>
 
-enum Obj3dType {
+enum Obj3dKind {
     OBJ3D_INVALID = 0,
     OBJ3D_INVISIBLE = 1,
     OBJ3D_GEOMETRY,
@@ -38,20 +38,43 @@ enum Obj3dType {
     OBJ3D_CAMERA,
 };
 
+typedef struct s3d_spatialstore3d s3d_spatialstore3d;
 typedef struct s3d_obj3d s3d_obj3d;
-
 typedef struct s3d_scene3d s3d_scene3d;
 
-S3DEXP s3d_scene3d *spew3d_scene3d_New(double max_coord_range);
+S3DEXP s3d_scene3d *spew3d_scene3d_New(
+    double max_coord_range, double max_regular_collision_size
+);
 
 S3DEXP s3d_obj3d *spew3d_scene3d_AddMeshObj(
-    s3d_geometry *geom, int object_owns_mesh);
+    s3d_geometry *geom, int object_owns_mesh
+);
+
+S3DEXP int spew3d_scene3d_AddPreexistingObj(
+    s3d_scene3d *sc, s3d_obj3d *obj
+);
+
+S3DEXP s3d_spatialstore3d *spew3d_scene3d_GetStore(
+    s3d_scene3d *sc
+);
+
+S3DEXP void spew3d_obj3d_SetPos(
+    s3d_obj3d *obj, s3d_pos pos
+);
+
+s3d_pos spew3d_obj3d_GetPos(s3d_obj3d *obj);
+
+S3DEXP void spew3d_scene3d_Destroy(s3d_scene3d *sc);
 
 S3DEXP s3d_pos spew3d_obj3d_GetPos(s3d_obj3d *obj);
+
+S3DEXP double spew3d_obj3d_GetOuterMaxExtentRadius(s3d_obj3d *obj);
 
 S3DEXP int spew3d_obj3d_AddCustomTypeNum(s3d_obj3d *obj, int32_t typeno);
 
 S3DEXP int spew3d_obj3d_HasCustomTypeNum(s3d_obj3d *obj, int32_t typeno);
+
+S3DEXP void spew3d_obj3d_Destroy(s3d_obj3d *obj);
 
 #endif  // SPEW3D_SCENE3D_H_
 

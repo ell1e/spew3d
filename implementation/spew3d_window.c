@@ -584,12 +584,14 @@ S3DEXP void spew3d_window_GetSDLWindowAndRenderer(
 #endif
 
 #ifndef SPEW3D_OPTION_DISABLE_SDL
-S3DEXP void spew3d_window_GetSDLWindowAndRenderer(
+S3DEXP void spew3d_window_GetSDLWindowAndRenderer_nolock(
         s3d_window *win, SDL_Window **out_w,
         SDL_Renderer **out_r
         ) {
+    mutex_Lock(_win_id_mutex);
     if (out_w) *out_w = win->_sdl_outputwindow;
     if (out_r) *out_r = win->_sdl_outputrenderer;
+    mutex_Release(_win_id_mutex);
 }
 #endif
 
