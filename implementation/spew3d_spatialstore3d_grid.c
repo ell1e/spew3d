@@ -261,7 +261,7 @@ S3DHID int s3d_spatialstore3d_GridFindEx(
         int32_t *custom_type_num_list,
         uint32_t custom_type_num_list_len,
         s3d_obj3d ***buffer_for_list,
-        int *buffer_alloc,
+        uint32_t *buffer_alloc,
         uint32_t *out_count) {
     s3d_spatialstore3d_griddata *gdata = store->internal_data;
 }
@@ -324,14 +324,14 @@ S3DEXP int s3d_spatialstore3d_IterateAll(
         int32_t *custom_type_num_list,
         int custom_type_num_list_len,
         s3d_obj3d ***buffer_for_list,
-        int *buffer_alloc,
+        uint32_t *buffer_alloc,
         uint32_t *out_count
         ) {
     s3d_spatialstore3d_griddata *gdata = store->internal_data;
     mutex_Lock(gdata->access);
 
     s3d_obj3d **buffer = *buffer_for_list;
-    int alloc = *buffer_alloc;
+    uint32_t alloc = *buffer_alloc;
     int written_out = 0;
 
     uint32_t i = 0;

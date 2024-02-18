@@ -58,6 +58,10 @@ S3DEXP s3d_spatialstore3d *spew3d_scene3d_GetStore(
     s3d_scene3d *sc
 );
 
+S3DEXP s3d_spatialstore3d *spew3d_scene3d_GetStoreByObj3d(
+    s3d_obj3d *obj
+);
+
 S3DEXP void spew3d_obj3d_SetPos(
     s3d_obj3d *obj, s3d_pos pos
 );

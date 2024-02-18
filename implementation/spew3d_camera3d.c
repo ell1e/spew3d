@@ -27,10 +27,14 @@ license, see accompanied LICENSE.md.
 
 #ifdef SPEW3D_IMPLEMENTATION
 
+#include <stdint.h>
+
 extern s3d_mutex *_win_id_mutex;
 typedef struct s3d_window s3d_window;
 typedef struct spew3d_camdata {
     double fov;
+    s3d_obj3d **_render_collect_objects_buffer;
+    uint32_t _render_collect_objects_alloc;
 } spew3d_camdata;
 
 S3DHID size_t spew3d_obj3d_GetStructSize();
@@ -44,6 +48,19 @@ S3DHID void _spew3d_scene3d_ObjSetExtraData_nolock(
 S3DHID int _spew3d_scene3d_GetKind_nolock(s3d_obj3d *obj);
 S3DHID void _spew3d_scene3d_SetKind_nolock();
 S3DHID s3d_window *_spew3d_window_GetByIDLocked(uint32_t id);
+S3DHID void *spew3d_scene3d_ObjExtraData(s3d_obj3d *obj);
+
+S3DHID void spew3d_camera_CameraFreeData(
+        s3d_obj3d *obj, void *extra
+        ) {
+    spew3d_camdata *mdata = (
+        (spew3d_camdata *)extra
+    );
+    if (mdata->_render_collect_objects_buffer != NULL) {
+        free(mdata->_render_collect_objects_buffer);
+    }
+    free(mdata);
+}
 
 S3DEXP s3d_obj3d *spew3d_camera3d_CreateForScene(
         s3d_scene3d *scene
@@ -61,7 +78,9 @@ S3DEXP s3d_obj3d *spew3d_camera3d_CreateForScene(
     }
     memset(camdata, 0, sizeof(*camdata));
     camdata->fov = 70;
-    _spew3d_scene3d_ObjSetExtraData_nolock(obj, camdata, NULL);
+    _spew3d_scene3d_ObjSetExtraData_nolock(
+        obj, camdata, spew3d_camera_CameraFreeData
+    );
 
     int result = spew3d_scene3d_AddPreexistingObj(
         scene, obj
@@ -105,11 +124,34 @@ S3DHID int _spew3d_camera3d_ProcessDrawToWindowReq(s3devent *ev) {
     spew3d_window_GetSDLWindowAndRenderer(
         win, NULL, &render
         );
-    if (render != NULL) {
-        SDL_RenderPresent(render);
+    #endif
+    s3d_spatialstore3d *store = (
+        spew3d_scene3d_GetStoreByObj3d(cam)
+    );
+    spew3d_camdata *cdata = (spew3d_camdata *)(
+        spew3d_scene3d_ObjExtraData(cam)
+    );
+    s3d_obj3d **buf = cdata->_render_collect_objects_buffer;
+    uint32_t alloc = cdata->_render_collect_objects_alloc;
+    uint32_t count = 0;
+    int result = store->IterateAll(
+        store, NULL, 0, &buf,
+        &alloc, &count
+    );
+    if (!result) {
+        // We're probably out of memory. Not much we can do.
+        count = 0;
+    }
+    cdata->_render_collect_objects_buffer = buf;
+    cdata->_render_collect_objects_alloc = alloc;
+    if (count <= 0) {
+        #ifndef SPEW3D_OPTION_DISABLE_SDL
         mutex_Lock(_win_id_mutex);
+        #endif
         return 1;
     }
+
+    #ifndef SPEW3D_OPTION_DISABLE_SDL
     mutex_Lock(_win_id_mutex);
     #endif
 

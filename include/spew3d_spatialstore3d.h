@@ -47,7 +47,7 @@ typedef struct s3d_spatialstore3d {
     int (*FindEx)(s3d_spatialstore3d *store, s3d_pos searchpos,
         double searchrange, int expand_scan_by_collision_size,
         int32_t *custom_type_no_list, uint32_t custom_type_no_list_len,
-        s3d_obj3d ***buffer_for_list, int *buffer_alloc,
+        s3d_obj3d ***buffer_for_list, uint32_t *buffer_alloc,
         uint32_t *out_count);
     int (*FindClosest)(s3d_spatialstore3d *store, s3d_pos searchpos,
         double searchrange, int expand_scan_by_collision_size,
@@ -55,7 +55,7 @@ typedef struct s3d_spatialstore3d {
     int (*IterateAll)(
         s3d_spatialstore3d *store, int32_t *custom_type_no_list,
         int custom_type_no_list_len, s3d_obj3d ***buffer_for_list,
-        int *buffer_alloc, uint32_t *out_count);
+        uint32_t *buffer_alloc, uint32_t *out_count);
     void (*Destroy)(s3d_spatialstore3d *store);
     void *internal_data;
 } s3d_spatialstore3d;

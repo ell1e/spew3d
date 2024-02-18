@@ -58,6 +58,17 @@ S3DHID void *_spew3d_scene3d_ObjExtraData_nolock(s3d_obj3d *obj) {
     return obj->extra;
 }
 
+S3DHID void *spew3d_scene3d_ObjExtraData(s3d_obj3d *obj) {
+    if (obj->owner) {
+        mutex_Lock(obj->owner->m);
+    }
+    void *result = _spew3d_scene3d_ObjExtraData_nolock(obj);
+    if (obj->owner) {
+        mutex_Release(obj->owner->m);
+    }
+    return result;
+}
+
 S3DHID void _spew3d_scene3d_ObjSetExtraData_nolock(
         s3d_obj3d *obj, void *extra,
         void (*extra_destroy_cb)(s3d_obj3d *obj, void *extra)
@@ -92,7 +103,22 @@ S3DEXP s3d_scene3d *spew3d_scene3d_New(
 S3DEXP s3d_spatialstore3d *spew3d_scene3d_GetStore(
         s3d_scene3d *sc
         ) {
-    return sc->store;
+    mutex_Lock(sc->m);
+    s3d_spatialstore3d *result = sc->store;
+    mutex_Release(sc->m);
+    return result;
+}
+
+S3DEXP s3d_spatialstore3d *spew3d_scene3d_GetStoreByObj3d(
+        s3d_obj3d *obj
+        ) {
+    if (obj->owner) {
+        mutex_Lock(obj->owner->m);
+        s3d_spatialstore3d *result = obj->owner->store;
+        mutex_Release(obj->owner->m);
+        return result;
+    }
+    return NULL;
 }
 
 S3DEXP double spew3d_obj3d_GetOuterMaxExtentRadius_nolock(
