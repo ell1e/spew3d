@@ -155,6 +155,10 @@ S3DEXP void spew3d_camera3d_RenderToWindow(
         return;
 }
 
+S3DHID void _spew3d_window_ExtractCanvasSize_nolock(
+    s3d_window *win, uint32_t *out_w, uint32_t *out_h
+);
+
 S3DHID int _spew3d_camera3d_ProcessDrawToWindowReq(s3devent *ev) {
     if (!_internal_spew3d_InitSDLGraphics())
         return 0;
@@ -167,6 +171,10 @@ S3DHID int _spew3d_camera3d_ProcessDrawToWindowReq(s3devent *ev) {
     spew3d_obj3d_LockAccess(cam);
     s3d_pos cam_pos = spew3d_obj3d_GetPos_nolock(cam);
     s3d_rotation cam_rot = spew3d_obj3d_GetRotation_nolock(cam);
+    uint32_t pixel_w, pixel_h;
+    _spew3d_window_ExtractCanvasSize_nolock(
+        win, &pixel_w, &pixel_h
+    );
     s3d_camdata *cdata = (s3d_camdata *)(
         _spew3d_scene3d_ObjExtraData_nolock(cam)
     );
@@ -315,6 +323,16 @@ S3DHID int _spew3d_camera3d_ProcessDrawToWindowReq(s3devent *ev) {
     rinfo.ambient_red = 1.0;
     rinfo.ambient_green = 1.0;
     rinfo.ambient_blue = 1.0;
+    s3d_transform3d_cam_info cinfo = {0};
+    cinfo.cam_pos = cam_pos;
+    cinfo.cam_rotation = cam_rot;
+    cinfo.viewport_pixel_width = pixel_w;
+    cinfo.viewport_pixel_height = pixel_h;
+    spew3d_math3d_split_fovs_from_fov(
+        fov, pixel_w, pixel_h,
+        &cinfo.cam_horifov,
+        &cinfo.cam_vertifov
+    );
     uint32_t polybuf_fill = 0;
     i = 0;
     while (i < queuefill) {
@@ -323,6 +341,7 @@ S3DHID int _spew3d_camera3d_ProcessDrawToWindowReq(s3devent *ev) {
                 queue[i].rendermesh.geom,
                 queue[i].rendermesh.world_pos,
                 queue[i].rendermesh.world_rotation,
+                &cinfo,
                 &rlight, &polybuf, &polybuf_fill, &polybuf_alloc
             );
             if (!try_add) {

@@ -327,6 +327,7 @@ S3DEXP int spew3d_geometry_Transform(
         s3d_geometry *geometry,
         s3d_pos model_pos,
         s3d_rotation model_rotation,
+        s3d_transform3d_cam_info *cam_info,
         s3d_geometryrenderlightinfo *render_light_info,
         s3d_renderpolygon **render_queue,
         uint32_t *render_fill, uint32_t *render_alloc

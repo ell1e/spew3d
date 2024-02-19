@@ -71,6 +71,12 @@ S3DHID __attribute__((constructor)) void _ensure_winid_mutex() {
     }
 }
 
+S3DHID void _spew3d_window_ExtractCanvasSize_nolock(
+        s3d_window *win, uint32_t *out_w, uint32_t *out_h) {
+    *out_w = win->canvaswidth;
+    *out_h = win->canvasheight;
+}
+
 S3DHID uint32_t _spew3d_window_MakeNewID_nolock() {
     _last_window_id += 1;
     uint32_t result = _last_window_id;

@@ -81,8 +81,8 @@ static inline s3dnum_t spew3d_math3d_upperbounddist(
 }
 
 typedef struct s3d_transform3d_cam_info {
-    s3d_pos *camera_pos;
-    s3d_rotation *cam_rotation;
+    s3d_pos cam_pos;
+    s3d_rotation cam_rotation;
     s3dnum_t cam_horifov;
     s3dnum_t cam_vertifov;
     uint32_t viewport_pixel_width;
