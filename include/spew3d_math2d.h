@@ -25,6 +25,13 @@ Alternatively, at your option, this file is offered under the Apache 2
 license, see accompanied LICENSE.md.
 */
 
+/** Spew3D's default coordinate system for 2D
+ *  =========================================
+ *
+ *  Positive angles describe CW (clockwise) rotations.
+ *  X points right (on the screen), Y goes down (on the screen).
+ */
+
 #ifndef SPEW3D_MATH2D_H_
 #define SPEW3D_MATH2D_H_
 
@@ -39,20 +46,38 @@ typedef struct s3d_point s3d_point;
 #define M_PI (3.14159265358979323846)
 #endif
 
-static inline void spew3d_math2d_rotate(
-        s3d_point *p, s3dnum_t degree
-        ) {
-    /// Rotate a given point around its origin by the given degree.
-    /// Positive angle gives CW (clockwise) rotation.
-    /// X is right, Y is down.
-    double d_degree = ((double)degree * M_PI) / 180.0;
-    double py_d = p->y;
-    double px_d = p->x;
-    double newy = py_d * cos(d_degree) + px_d * sin(d_degree);
-    double newx = px_d * cos(d_degree) - py_d * sin(d_degree);
-    p->x = newx;
-    p->y = newy;
+S3DEXP void spew3d_math2d_rotate(
+    s3d_point *p, s3dnum_t degree
+);
+
+static inline s3dnum_t spew3d_math2d_len(s3d_point *pos) {
+    s3dnum_t result = round(sqrt(
+        (pos->x * pos->x + pos->y * pos->y)
+    ));
+    return result;
 }
+
+static inline s3dnum_t spew3d_math2d_dist(
+        s3d_point *pos1, s3d_point *pos2
+        ) {
+    s3dnum_t result = round(sqrt(
+        ((pos1->x - pos2->x) * (pos1->x - pos2->x) +
+        (pos1->y - pos2->y) * (pos1->y - pos2->y))
+    ));
+    return result;
+}
+
+S3DEXP int spew3d_math2d_lineintersect(
+    s3d_point *line1_1, s3d_point *line1_2,
+    s3d_point *line2_1, s3d_point *line2_2,
+    s3d_point *out_intersect
+);
+
+S3DEXP void spew3d_math2d_nearestpointonsegment(
+    s3d_point find_from_nearby,
+    s3d_point line1, s3d_point line2,
+    s3d_point *result
+);
 
 static inline void spew3d_math2d_rotatecenter(
         s3d_point *p, s3dnum_t degree,

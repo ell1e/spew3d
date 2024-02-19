@@ -81,27 +81,25 @@ S3DEXP int spew3d_geometry_AddCubeSimple(
 S3DEXP void spew3d_geometry_Destroy(s3d_geometry *geometry);
 
 typedef struct s3d_geometryrenderlightinfo {
-    double alpha;
+    s3dnum_t alpha;
     int withalphachannel;
-    double ambient_red;
-    double ambient_green;
-    double ambient_blue;
+    s3dnum_t ambient_red;
+    s3dnum_t ambient_green;
+    s3dnum_t ambient_blue;
     s3d_pos primary_light_pos;
-    double primary_light_range;
-    double primary_light_red;
-    double primary_light_green;
-    double primary_light_blue;
+    s3dnum_t primary_light_range;
+    s3dnum_t primary_light_red;
+    s3dnum_t primary_light_green;
+    s3dnum_t primary_light_blue;
     s3d_pos secondary_light_pos;
-    double secondary_light_range;
-    double secondary_light_red;
-    double secondary_light_green;
-    double secondary_light_blue;
+    s3dnum_t secondary_light_range;
+    s3dnum_t secondary_light_red;
+    s3dnum_t secondary_light_green;
+    s3dnum_t secondary_light_blue;
 } s3d_geometryrenderlightinfo;
 
 S3DEXP int spew3d_geometry_Transform(
     s3d_geometry *geometry,
-    s3d_pos local_innermodel_pos,
-    s3d_rotation local_innermodel_rotation,
     s3d_pos model_pos,
     s3d_rotation model_rotation,
     s3d_geometryrenderlightinfo *render_light_info,

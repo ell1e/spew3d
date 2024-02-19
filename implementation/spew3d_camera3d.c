@@ -48,8 +48,6 @@ typedef struct s3d_queuedrenderentry {
         struct rendermesh {
             s3d_geometry *geom;
             s3d_bone *bone;
-            s3d_rotation bone_rotation;
-            s3d_pos bone_pos;
 
             s3d_rotation world_rotation;
             s3d_pos world_pos;
@@ -235,6 +233,8 @@ S3DHID int _spew3d_camera3d_ProcessDrawToWindowReq(s3devent *ev) {
             );
             if (!newqueue) {
                 // Out of memory, we can't render like this.
+                cdata->_render_queue_buffer = queue;
+                cdata->_render_queue_buffer_alloc = queue_alloc;
                 spew3d_obj3d_ReleaseAccess(cam);
                 mutex_Lock(_win_id_mutex);
                 return 1;
@@ -301,22 +301,26 @@ S3DHID int _spew3d_camera3d_ProcessDrawToWindowReq(s3devent *ev) {
         }
         i++;
     }
-    spew3d_obj3d_ReleaseAccess(cam);
+    cdata->_render_queue_buffer = queue;
+    cdata->_render_queue_buffer_alloc = queue_alloc;
 
     // Now compute the actual polygons and sort them:
     s3d_geometryrenderlightinfo rlight = {0};
     memset(&rlight, 0, sizeof(rlight));
-
     s3d_renderpolygon *polybuf = cdata->_render_polygon_buffer;
     uint32_t polybuf_alloc = cdata->_render_polygon_buffer_alloc;
+    spew3d_obj3d_ReleaseAccess(cam);
+
+    s3d_geometryrenderlightinfo rinfo = {0};
+    rinfo.ambient_red = 1.0;
+    rinfo.ambient_green = 1.0;
+    rinfo.ambient_blue = 1.0;
     uint32_t polybuf_fill = 0;
     i = 0;
     while (i < queuefill) {
         if (queue[i].kind == RENDERENTRY_MESH) {
             int try_add = spew3d_geometry_Transform(
                 queue[i].rendermesh.geom,
-                queue[i].rendermesh.bone_pos,
-                queue[i].rendermesh.bone_rotation,
                 queue[i].rendermesh.world_pos,
                 queue[i].rendermesh.world_rotation,
                 &rlight, &polybuf, &polybuf_fill, &polybuf_alloc
@@ -328,6 +332,25 @@ S3DHID int _spew3d_camera3d_ProcessDrawToWindowReq(s3devent *ev) {
         }
         i++;
     }
+    spew3d_obj3d_LockAccess(cam);
+    cdata->_render_polygon_buffer = polybuf;
+    cdata->_render_polygon_buffer_alloc = polybuf_alloc;
+    spew3d_obj3d_ReleaseAccess(cam);
+
+    #ifndef SPEW3D_OPTION_DISABLE_SDL
+    printf("render geometry, polygon queue length: %d\n", polybuf_fill);
+    SDL_Vertex vertex_1 = {{10.5, 10.5}, {255, 0, 0, 255}, {1, 1}};
+    SDL_Vertex vertex_2 = {{20.5, 10.5}, {255, 0, 0, 255}, {1, 1}};
+    SDL_Vertex vertex_3 = {{10.5, 20.5}, {255, 0, 0, 255}, {1, 1}};
+    SDL_Vertex vertices[] = {
+        vertex_1,
+        vertex_2,
+        vertex_3
+    };
+    SDL_RenderGeometry(render, NULL, vertices, 3, NULL, 0);
+    #else
+    // FIXME: Eventually implement custom software renderer
+    #endif
 
     mutex_Lock(_win_id_mutex);
 

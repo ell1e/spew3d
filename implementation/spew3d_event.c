@@ -39,14 +39,14 @@ S3DEXP s3dequeue *s3devent_q_Create() {
     s3dequeue *eq = malloc(sizeof(*eq));
     if (!eq)
         return NULL;
-    memset(eq, sizeof(*eq), 0);
+    memset(eq, 0, sizeof(*eq));
     eq->alloc = 1024;
     eq->array = malloc(sizeof(*eq->array) * eq->alloc);
     if (!eq->array) {
         free(eq);
         return NULL;
     }
-    memset(eq->array, sizeof(*eq->array) * eq->alloc, 0);
+    memset(eq->array, 0, sizeof(*eq->array) * eq->alloc);
     eq->accesslock = mutex_Create();
     if (!eq->accesslock) {
         free(eq->array);

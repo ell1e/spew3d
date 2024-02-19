@@ -325,15 +325,35 @@ S3DEXP void spew3d_geometry_Destroy(s3d_geometry *geometry) {
 
 S3DEXP int spew3d_geometry_Transform(
         s3d_geometry *geometry,
-        s3d_pos local_innermodel_pos,
-        s3d_rotation local_innermodel_rotation,
         s3d_pos model_pos,
         s3d_rotation model_rotation,
         s3d_geometryrenderlightinfo *render_light_info,
         s3d_renderpolygon **render_queue,
         uint32_t *render_fill, uint32_t *render_alloc
         ) {
-    return 0;
+    s3d_renderpolygon *rqueue = *render_queue;
+    uint32_t ralloc = *render_alloc;
+    uint32_t rfill = *render_fill;
+    if (rfill + geometry->polygon_count > ralloc) {
+        int newalloc = (
+            rfill + geometry->polygon_count + 1 + 6
+        ) * 2;
+        s3d_renderpolygon *newqueue = realloc(
+            rqueue, sizeof(*render_queue) * newalloc
+        );
+        if (!newqueue)
+            return 0;
+        rqueue = newqueue;
+        ralloc = newalloc;
+        *render_queue = rqueue;
+        *render_alloc = ralloc;
+    }
+    uint32_t i = 0;
+    while (i < geometry->polygon_count) {
+
+        i++;
+    }
+    return 1;
 }
 
 #endif  // SPEW3D_IMPLEMENTATION

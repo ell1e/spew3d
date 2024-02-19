@@ -32,6 +32,63 @@ license, see accompanied LICENSE.md.
 #include <stdio.h>
 #include <string.h>
 
+S3DEXP void spew3d_math3d_split_fovs_from_fov(
+        s3dnum_t input_shared_fov,
+        s3dnum_t *output_horifov,
+        s3dnum_t *output_vetifov
+        ) {
+
+}
+
+S3DEXP void spew3d_math3d_transform3d(
+        s3d_pos *input_pos,
+        s3d_transform3d_cam_info *cam_info,
+        s3d_rotation *world_rotation,
+        s3d_pos *out_pos
+        ) {
+
+}
+
+S3DEXP void spew3d_math3d_rotate(
+        s3d_pos *p, s3d_rotation *r
+        ) {
+    /// Rotate a given pos around its origin by the given degrees.
+    /// Positive angle gives CW (clockwise) rotation.
+    /// X is forward (into screen), Y is left, Z is up.
+
+    double roth = (r->hori * M_PI / 180.0);
+    double rotv = (r->verti * M_PI / 180.0);
+    double rotr = (r->roll * M_PI / 180.0);
+    double newx, newy, newz;
+    double px = p->x;
+    double py = p->y;
+    double pz = p->z;
+
+    // Roll angle:
+    newy = py * cos(rotr) + pz * sin(rotr);
+    newz = pz * cos(rotr) - py * sin(rotr);
+    p->z = newz;
+    p->y = newy;
+
+    py = newy;
+    pz = newz;
+
+    // Vertical angle:
+    newz = pz * cos(rotv) + px * sin(rotv);
+    newx = px * cos(rotv) - pz * sin(rotv);
+    p->x = newx;
+    p->z = newz;
+
+    px = newx;
+    pz = newz;
+
+    // Horizontal angle:
+    newy = py * cos(roth) + px * sin(roth);
+    newx = px * cos(roth) - py * sin(roth);
+    p->x = newx;
+    p->y = newy;
+}
+
 #ifndef NDEBUG
 static void __attribute__((constructor))
         _spew3d_math3dtest() {

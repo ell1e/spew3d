@@ -22,7 +22,7 @@ int main(int argc, const char **argv) {
     if (cube) {
         if (!spew3d_geometry_AddCubeSimple(
                 cube, 1.0 * S3D_METER,
-                spew3d_texture_FromFile("numberone.jpg", 0), 0
+                spew3d_texture_FromFile("hello_world.png", 0), 0
                 )) {
             spew3d_geometry_Destroy(cube);
             cube = NULL;
@@ -66,6 +66,7 @@ int main(int argc, const char **argv) {
                 break;
             }
         }
+        spew3d_window_FillWithColor(win, 0.0, 0.0, 0.0);
         spew3d_camera3d_RenderToWindow(camera, win);
         spew3d_window_PresentToScreen(win);
     }
