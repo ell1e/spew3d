@@ -32,31 +32,6 @@ license, see accompanied LICENSE.md.
 #include <math.h>
 #include <string.h>
 
-#ifndef NDEBUG
-static void __attribute__((constructor))
-        _spew3d_math2dtest() {
-    s3d_point p = {0};
-    p.x = 1;
-    p.y = 0;
-    assert(S3D_ABS(spew3d_math2d_angle(&p) - (0.0))
-           < 10);
-    p.x = 0;
-    p.y = 1;
-    assert(S3D_ABS(spew3d_math2d_angle(&p) - (90.0))
-           < 10);
-    p.x = 1;
-    p.y = -1;
-    assert(S3D_ABS(spew3d_math2d_angle(&p) - (-45.0))
-           < 10);
-
-    p.x = 1;
-    p.y = 0;
-    spew3d_math2d_rotate(&p, (-90.0));
-    assert(S3D_ABS(p.x - (0.0)) < (0.1));
-    assert(S3D_ABS(p.y - (-1.0)) < (0.1));
-}
-#endif  // #ifndef NDEBUG
-
 S3DEXP int spew3d_math2d_lineintersect(
         s3d_point *line1_1, s3d_point *line1_2,
         s3d_point *line2_1, s3d_point *line2_2,

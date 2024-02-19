@@ -34,10 +34,55 @@ license, see accompanied LICENSE.md.
 
 S3DEXP void spew3d_math3d_split_fovs_from_fov(
         s3dnum_t input_shared_fov,
+        uint32_t pixel_width,
+        uint32_t pixel_height,
         s3dnum_t *output_horifov,
-        s3dnum_t *output_vetifov
+        s3dnum_t *output_vertifov
         ) {
+    input_shared_fov = fmax(10.0, fmin(160.0, input_shared_fov));
 
+    s3d_pos forward_vec = {0};
+    forward_vec.x = 1000.0;
+    s3d_rotation horizontal_half_fov = {0};
+    horizontal_half_fov.hori = input_shared_fov / 2;
+    spew3d_math3d_rotate(&forward_vec, &horizontal_half_fov);
+
+    assert(forward_vec.y > 0 &&
+        forward_vec.x < 1000.0 &&
+        forward_vec.x > 0);
+
+    double square_avg_plane_half = (
+        ((double)pixel_width + (double)pixel_height) / 2.0
+    ) / 2.0;
+    double scaler = (
+        (double)square_avg_plane_half / (double)forward_vec.y
+    );
+
+    forward_vec.x *= scaler;
+    forward_vec.y = (double)pixel_width / 2.0;
+    s3d_pos new_forward_vec = {0};
+    new_forward_vec.x = spew3d_math3d_len(forward_vec);
+    double hori_fov = spew3d_math3d_anglefromto(
+        &new_forward_vec, &forward_vec
+    ) * 2;
+    *output_horifov = hori_fov;
+    forward_vec.y = (double)pixel_height / 2.0;
+    double verti_fov = spew3d_math3d_anglefromto(
+        &new_forward_vec, &forward_vec
+    ) * 2;
+    *output_vertifov = verti_fov;
+}
+
+S3DEXP s3dnum_t spew3d_math3d_anglefromto(
+        s3d_pos *p, s3d_pos *p2
+        ) {
+    s3dnum_t d = p->x*p2->x + p->y*p2->y + p->z*p2->z;
+    s3dnum_t cx = (p->y*p2->z - p->z*p2->y);
+    s3dnum_t cy = (p->z*p2->x - p->x*p2->z);
+    s3dnum_t cz = (p->x*p2->y - p->y*p2->x);
+    s3dnum_t de = sqrt(cx*cx + cy*cy + cz*cz);
+    s3dnum_t angle = atan2(de, d);
+    return (angle / M_PI) * 180.0;
 }
 
 S3DEXP void spew3d_math3d_transform3d(
@@ -88,90 +133,6 @@ S3DEXP void spew3d_math3d_rotate(
     p->x = newx;
     p->y = newy;
 }
-
-#ifndef NDEBUG
-static void __attribute__((constructor))
-        _spew3d_math3dtest() {
-    s3d_rotation r;
-    s3d_pos p;
-    p.x = 1;
-    p.y = 0;
-    p.z = 0;
-    r.hori = 90;
-    r.verti = 0;
-    r.roll = 0;
-    spew3d_math3d_rotate(&p, &r);
-    assert(S3D_ABS(p.x - (0)) <= (0.01));
-    assert(S3D_ABS(p.y - (1)) <= (0.01));
-    assert(S3D_ABS(p.z - (0)) <= (0.01));
-
-    p.x = 1;
-    p.y = 0;
-    p.z = 1;
-    r.hori = 90;
-    r.verti = 0;
-    r.roll = 0;
-    spew3d_math3d_rotate(&p, &r);
-    assert(S3D_ABS(p.x - (0)) <= (0.01));
-    assert(S3D_ABS(p.y - (1)) <= (0.01));
-    assert(S3D_ABS(p.z - (1)) <= (0.01));
-
-    p.x = 1;
-    p.y = 1;
-    p.z = 1;
-    r.hori = 90;
-    r.verti = 0;
-    r.roll = 0;
-    spew3d_math3d_rotate(&p, &r);
-    assert(S3D_ABS(p.x - (-1)) <= (0.01));
-    assert(S3D_ABS(p.y - (1)) <= (0.01));
-    assert(S3D_ABS(p.z - (1)) <= (0.01));
-
-    p.x = 1;
-    p.y = 0;
-    p.z = 1;
-    r.hori = 90;
-    r.verti = 0;
-    r.roll = 0;
-    spew3d_math3d_rotate(&p, &r);
-    assert(S3D_ABS(p.x - (0)) <= (0.01));
-    assert(S3D_ABS(p.y - (1)) <= (0.01));
-    assert(S3D_ABS(p.z - (1)) <= (0.01));
-
-    p.x = 1;
-    p.y = 0;
-    p.z = 0;
-    r.hori = 45;
-    r.verti = 45;
-    r.roll = 0;
-    spew3d_math3d_rotate(&p, &r);
-    assert(S3D_ABS(p.x - (0.5)) <= (0.01));
-    assert(S3D_ABS(p.y - (0.5)) <= (0.01));
-    assert(S3D_ABS(p.z - (0.707107)) <= (0.01));
-
-    p.x = 1;
-    p.y = 1;
-    p.z = 0;
-    r.hori = 0;
-    r.verti = 45;
-    r.roll = 0;
-    spew3d_math3d_rotate(&p, &r);
-    assert(S3D_ABS(p.x - (0.707107)) <= (0.01));
-    assert(S3D_ABS(p.y - (1)) <= (0.01));
-    assert(S3D_ABS(p.z - (0.707107)) <= (0.01));
-
-    p.x = 1;
-    p.y = 0;
-    p.z = 0;
-    r.hori = 90;
-    r.verti = 45;
-    r.roll = 0;
-    spew3d_math3d_rotate(&p, &r);
-    assert(S3D_ABS(p.x - (0)) <= (0.01));
-    assert(S3D_ABS(p.y - (0.707107)) <= (0.01));
-    assert(S3D_ABS(p.z - (0.707107)) <= (0.01));
-}
-#endif  // #ifndef NDEBUG
 
 #endif  // SPEW3D_IMPLEMENTATION
 

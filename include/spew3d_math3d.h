@@ -62,6 +62,15 @@ static inline s3dnum_t spew3d_math3d_dist(
     return sqrt(x_exp + y_exp + z_exp);
 }
 
+static inline s3dnum_t spew3d_math3d_len(
+        s3d_pos p
+        ) {
+    double x_exp = (0.0 - p.x) * (0.0 - p.x);
+    double y_exp = (0.0 - p.y) * (0.0 - p.y);
+    double z_exp = (0.0 - p.z) * (0.0 - p.z);
+    return sqrt(x_exp + y_exp + z_exp);
+}
+
 static inline s3dnum_t spew3d_math3d_upperbounddist(
         s3d_pos *p1, s3d_pos *p2
         ) {
@@ -80,10 +89,13 @@ typedef struct s3d_transform3d_cam_info {
     uint32_t viewport_pixel_height;
 } s3d_transform3d_cam_info;
 
+
 S3DEXP void spew3d_math3d_split_fovs_from_fov(
     s3dnum_t input_shared_fov,
+    uint32_t pixel_width,
+    uint32_t pixel_height,
     s3dnum_t *output_horifov,
-    s3dnum_t *output_vetifov
+    s3dnum_t *output_vertifov
 );
 
 S3DEXP void spew3d_math3d_transform3d(
@@ -95,6 +107,10 @@ S3DEXP void spew3d_math3d_transform3d(
 
 S3DEXP void spew3d_math3d_rotate(
     s3d_pos *p, s3d_rotation *r
+);
+
+S3DEXP s3dnum_t spew3d_math3d_anglefromto(
+    s3d_pos *p, s3d_pos *p2
 );
 
 #endif  // SPEW3D_MATH3D_H_

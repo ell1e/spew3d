@@ -35,7 +35,6 @@ license, see accompanied LICENSE.md.
 
 #include "testmain.h"
 
-
 START_TEST (test_stringutil_ReverseBufBytes)
 {
     char a[] = "";
