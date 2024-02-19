@@ -142,6 +142,18 @@ START_TEST (test_math_angle_rotate_2d)
 }
 END_TEST
 
+START_TEST (test_math_fov_3d)
+{
+    s3dnum_t horifov, vertifov;
+    spew3d_math3d_split_fovs_from_fov(
+        80.0, 320, 240,
+        &horifov, &vertifov
+    );
+    assert(horifov > 90 && horifov < 120);
+    assert(vertifov > 45 && vertifov < 90);
+}
+END_TEST
+
 START_TEST (test_math_angle_3d)
 {
     s3d_pos p = {0};
