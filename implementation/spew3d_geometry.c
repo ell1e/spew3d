@@ -273,10 +273,15 @@ S3DEXP int spew3d_geometry_AddCubeSimple(
     );
 }
 
-S3DEXP void spew3d_geometry_Destroy(s3d_geometry *geometry) {
+extern s3d_mutex *geometrydestroylist_m;
+extern s3d_geometry **geometrydestroylist;
+extern uint32_t geometrydestroylist_fill;
+extern uint32_t geometrydestroylist_alloc;
+
+S3DHID void _spew3d_geometry_ActuallyDestroy(s3d_geometry *geometry) {
     if (!geometry)
         return;
-    int32_t i = 0;
+    uint32_t i = 0;
     while (i < geometry->owned_texture_count) {
         spew3d_texture_Destroy(geometry->owned_texture[i]);
         i++;
@@ -287,6 +292,48 @@ S3DEXP void spew3d_geometry_Destroy(s3d_geometry *geometry) {
     free(geometry->polygon_vertexindex);
     free(geometry->polygon_texcoord);
     free(geometry->polygon_texture);
+}
+
+S3DEXP void spew3d_geometry_Destroy(s3d_geometry *geometry) {
+    if (!geometry)
+        return;
+    geometry->wasdeleted = 1;
+    mutex_Lock(geometrydestroylist_m);
+    if (geometrydestroylist_fill + 1 >
+            geometrydestroylist_alloc) {
+        uint32_t new_alloc = (
+            geometrydestroylist_fill + 1 + 32
+        ) * 2;
+        s3d_geometry **newlist = realloc(
+            geometrydestroylist,
+            sizeof(*geometrydestroylist) * new_alloc
+        );
+        if (!newlist) {
+            fprintf(stderr, "spew3d_geometry.c: error: "
+                "Failed to allocate deletion entry for "
+                "geometry entry. Will leak memory.");
+            mutex_Release(geometrydestroylist_m);
+            return;
+        }
+        geometrydestroylist = newlist;
+        geometrydestroylist_alloc = new_alloc;
+    }
+    geometrydestroylist[geometrydestroylist_fill] = geometry;
+    geometrydestroylist_fill++;
+    mutex_Release(geometrydestroylist_m);
+}
+
+S3DEXP int spew3d_geometry_Transform(
+        s3d_geometry *geometry,
+        s3d_pos local_innermodel_pos,
+        s3d_rotation local_innermodel_rotation,
+        s3d_pos model_pos,
+        s3d_rotation model_rotation,
+        s3d_geometryrenderlightinfo *render_light_info,
+        s3d_renderpolygon **render_queue,
+        uint32_t *render_fill, uint32_t *render_alloc
+        ) {
+    return 0;
 }
 
 #endif  // SPEW3D_IMPLEMENTATION

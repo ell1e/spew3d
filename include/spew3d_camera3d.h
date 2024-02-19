@@ -34,6 +34,8 @@ typedef struct s3d_window s3d_window;
 typedef struct s3d_scene3d s3d_scene3d;
 typedef struct s3d_rotation s3d_rotation;
 typedef struct s3d_pos s3d_pos;
+typedef struct s3d_point s3d_point;
+typedef uint32_t s3d_material_t;
 
 S3DEXP s3d_obj3d *spew3d_camera3d_CreateForScene(
     s3d_scene3d *scene
@@ -42,6 +44,14 @@ S3DEXP s3d_obj3d *spew3d_camera3d_CreateForScene(
 S3DEXP void spew3d_camera3d_RenderToWindow(
     s3d_obj3d *cam, s3d_window *win
 );
+
+typedef struct s3d_renderpolygon {
+    s3d_pos vertex_pos[3];
+    s3d_pos vertex_normal[3];
+    s3d_point vertex_texcoordx[3];
+    s3d_point vertex_texcoordy[3];
+    s3d_material_t polygon_material;
+} s3d_renderpolygon;
 
 #endif  // SPEW3D_CAMERA3D_H_
 

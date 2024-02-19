@@ -44,6 +44,8 @@ typedef uint32_t s3d_material_t;
 #define SPEW3D_MATERIAL_AISIGHTPASSABLE ((uint32_t)1 << 4)
 
 typedef struct s3d_geometry {
+    int wasdeleted;
+
     int32_t vertex_count;
     s3d_pos *vertex;
     int32_t polygon_count;
@@ -77,6 +79,35 @@ S3DEXP int spew3d_geometry_AddCubeSimple(
 );
 
 S3DEXP void spew3d_geometry_Destroy(s3d_geometry *geometry);
+
+typedef struct s3d_geometryrenderlightinfo {
+    double alpha;
+    int withalphachannel;
+    double ambient_red;
+    double ambient_green;
+    double ambient_blue;
+    s3d_pos primary_light_pos;
+    double primary_light_range;
+    double primary_light_red;
+    double primary_light_green;
+    double primary_light_blue;
+    s3d_pos secondary_light_pos;
+    double secondary_light_range;
+    double secondary_light_red;
+    double secondary_light_green;
+    double secondary_light_blue;
+} s3d_geometryrenderlightinfo;
+
+S3DEXP int spew3d_geometry_Transform(
+    s3d_geometry *geometry,
+    s3d_pos local_innermodel_pos,
+    s3d_rotation local_innermodel_rotation,
+    s3d_pos model_pos,
+    s3d_rotation model_rotation,
+    s3d_geometryrenderlightinfo *render_light_info,
+    s3d_renderpolygon **render_queue,
+    uint32_t *render_fill, uint32_t *render_alloc
+);
 
 #endif  // SPEW3D_GEOMETRY_H_
 

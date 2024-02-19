@@ -38,6 +38,10 @@ enum Obj3dKind {
     OBJ3D_CAMERA,
 };
 
+typedef struct s3d_sceneambient {
+    double base_red, base_green, base_blue;
+} s3d_sceneambient;
+
 typedef struct s3d_spatialstore3d s3d_spatialstore3d;
 typedef struct s3d_obj3d s3d_obj3d;
 typedef struct s3d_scene3d s3d_scene3d;

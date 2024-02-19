@@ -25,37 +25,8 @@ Alternatively, at your option, this file is offered under the Apache 2
 license, see accompanied LICENSE.md.
 */
 
-#ifndef SPEW3D_SKELETON_H_
-#define SPEW3D_SKELETON_H_
+#ifndef SPEW3D_DELETIONQUEUES_H_
+#define SPEW3D_DELETIONQUEUES_H_
 
-#define MAX_CHILDREN_PER_BONE 4
-
-typedef struct s3d_pos s3d_pos;
-typedef struct s3d_rotation s3d_rotation;
-typedef struct s3d_bone s3d_bone;
-typedef struct s3d_geometry s3d_geometry;
-
-typedef struct s3d_bonerel {
-    s3d_bone *neighbor;
-    s3d_pos neighbor_influence_size;
-    double neighbor_influence_dropoff;
-} s3d_bonerel;
-
-typedef struct s3d_bone {
-    s3d_geometry *mesh;
-    s3d_pos root_pos;
-    s3d_rotation root_origlocalrot,
-        root_currentlocalrot, root_globalrot;
-
-    s3d_bonerel *children[MAX_CHILDREN_PER_BONE];
-    s3d_pos children_offset[MAX_CHILDREN_PER_BONE];
-    int children_count;
-    s3d_bonerel *parent;
-} s3d_bone;
-
-typedef struct s3d_skeleton {
-    s3d_bone *root;
-} s3d_skeleton;
-
-#endif  // SPEW3D_SKELETON_H_
+#endif  // SPEW3D_DELETIONQUEUES_H_
 

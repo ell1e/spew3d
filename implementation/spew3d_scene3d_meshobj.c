@@ -29,6 +29,7 @@ license, see accompanied LICENSE.md.
 
 extern s3d_mutex *_win_id_mutex;
 typedef struct s3d_window s3d_window;
+typedef struct s3d_renderpolygon s3d_renderpolygon;
 
 S3DHID size_t spew3d_obj3d_GetStructSize();
 S3DEXP void _spew3d_obj3d_Lock(s3d_obj3d *obj);

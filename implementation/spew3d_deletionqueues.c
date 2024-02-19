@@ -25,37 +25,43 @@ Alternatively, at your option, this file is offered under the Apache 2
 license, see accompanied LICENSE.md.
 */
 
-#ifndef SPEW3D_SKELETON_H_
-#define SPEW3D_SKELETON_H_
+#ifdef SPEW3D_IMPLEMENTATION
 
-#define MAX_CHILDREN_PER_BONE 4
+#include <string.h>
 
-typedef struct s3d_pos s3d_pos;
-typedef struct s3d_rotation s3d_rotation;
-typedef struct s3d_bone s3d_bone;
-typedef struct s3d_geometry s3d_geometry;
+s3d_mutex *geometrydestroylist_m = NULL;
+s3d_geometry **geometrydestroylist = NULL;
+uint32_t geometrydestroylist_fill = 0;
+uint32_t geometrydestroylist_alloc = 0;
 
-typedef struct s3d_bonerel {
-    s3d_bone *neighbor;
-    s3d_pos neighbor_influence_size;
-    double neighbor_influence_dropoff;
-} s3d_bonerel;
+S3DHID __attribute__((constructor))
+        static void _geodestroylist_initmutex() {
+    if (geometrydestroylist_m != NULL)
+        return;
+    geometrydestroylist_m = mutex_Create();
+    if (!geometrydestroylist_m) {
+        fprintf(stderr, "spew3d_geometry.c: error: "
+            "Failed to allocate destruction list mutex.\n");
+        _exit(1);
+    }
+}
 
-typedef struct s3d_bone {
-    s3d_geometry *mesh;
-    s3d_pos root_pos;
-    s3d_rotation root_origlocalrot,
-        root_currentlocalrot, root_globalrot;
+S3DHID void _spew3d_geometry_ActuallyDestroy(
+    s3d_geometry *geometry
+);
 
-    s3d_bonerel *children[MAX_CHILDREN_PER_BONE];
-    s3d_pos children_offset[MAX_CHILDREN_PER_BONE];
-    int children_count;
-    s3d_bonerel *parent;
-} s3d_bone;
+S3DHID void _spew3d_geometry_ProcessDeletionsOnMainThread() {
+    mutex_Lock(geometrydestroylist_m);
+    uint32_t i = 0;
+    while (i < geometrydestroylist_fill) {
+        _spew3d_geometry_ActuallyDestroy(
+            geometrydestroylist[i]
+        );
+        i++;
+    }
+    geometrydestroylist_fill = 0;
+    mutex_Release(geometrydestroylist_m);
+}
 
-typedef struct s3d_skeleton {
-    s3d_bone *root;
-} s3d_skeleton;
-
-#endif  // SPEW3D_SKELETON_H_
+#endif  // SPEW3D_IMPLEMENTATION
 

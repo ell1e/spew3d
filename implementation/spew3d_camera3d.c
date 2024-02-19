@@ -37,17 +37,10 @@ license, see accompanied LICENSE.md.
 extern s3d_mutex *_win_id_mutex;
 typedef struct s3d_window s3d_window;
 
-typedef struct s3d_renderpolygon {
-    s3d_pos vertex_pos[3];
-    s3d_pos vertex_normal[3];
-    s3d_point vertex_texcoordx[3];
-    s3d_point vertex_texcoordy[3];
-    s3d_material_t polygon_material;
-} s3d_renderpolygon;
-
 #define RENDERENTRY_INVALID 0
 #define RENDERENTRY_SPRITE3D 1
 #define RENDERENTRY_MESH 2
+#define RENDERENTRY_LIGHT 3
 
 typedef struct s3d_queuedrenderentry {
     int kind;
@@ -75,6 +68,8 @@ typedef struct s3d_camdata {
     uint32_t _render_collect_objects_alloc;
     s3d_queuedrenderentry *_render_queue_buffer;
     uint32_t _render_queue_buffer_alloc;
+    s3d_renderpolygon *_render_polygon_buffer;
+    uint32_t _render_polygon_buffer_alloc;
 } s3d_camdata;
 
 S3DEXP int _spew3d_obj3d_GetWasDeleted_nolock(
@@ -307,6 +302,32 @@ S3DHID int _spew3d_camera3d_ProcessDrawToWindowReq(s3devent *ev) {
         i++;
     }
     spew3d_obj3d_ReleaseAccess(cam);
+
+    // Now compute the actual polygons and sort them:
+    s3d_geometryrenderlightinfo rlight = {0};
+    memset(&rlight, 0, sizeof(rlight));
+
+    s3d_renderpolygon *polybuf = cdata->_render_polygon_buffer;
+    uint32_t polybuf_alloc = cdata->_render_polygon_buffer_alloc;
+    uint32_t polybuf_fill = 0;
+    i = 0;
+    while (i < queuefill) {
+        if (queue[i].kind == RENDERENTRY_MESH) {
+            int try_add = spew3d_geometry_Transform(
+                queue[i].rendermesh.geom,
+                queue[i].rendermesh.bone_pos,
+                queue[i].rendermesh.bone_rotation,
+                queue[i].rendermesh.world_pos,
+                queue[i].rendermesh.world_rotation,
+                &rlight, &polybuf, &polybuf_fill, &polybuf_alloc
+            );
+            if (!try_add) {
+                // Ran out of memory. Not much we can do.
+                i += 1;
+            }
+        }
+        i++;
+    }
 
     mutex_Lock(_win_id_mutex);
 
