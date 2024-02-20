@@ -171,7 +171,7 @@ S3DEXP void spew3d_math3d_rotate(
         ) {
     /// Rotate a given pos around its origin by the given degrees.
     /// Positive angle gives CW (clockwise) rotation.
-    /// X is forward (into screen), Y is left, Z is up.
+    /// X is forward (into screen), Y is right, Z is up.
 
     double roth = (r->hori * M_PI / 180.0);
     double rotv = (r->verti * M_PI / 180.0);
