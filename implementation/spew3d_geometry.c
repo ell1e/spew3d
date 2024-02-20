@@ -45,6 +45,7 @@ S3DHID int _internal_spew3d_geometry_AddVertexPolyAlloc(
     if (!new_vertex)
         return 0;
     geometry->vertex = new_vertex;
+
     s3d_pos *new_normal = realloc(
         geometry->polygon_normal,
         sizeof(*new_normal) *
@@ -53,6 +54,7 @@ S3DHID int _internal_spew3d_geometry_AddVertexPolyAlloc(
     if (!new_normal)
         return 0;
     geometry->polygon_normal = new_normal;
+
     int32_t *new_vertexindex = realloc(
         geometry->polygon_vertexindex,
         sizeof(*new_vertexindex) *
@@ -61,6 +63,7 @@ S3DHID int _internal_spew3d_geometry_AddVertexPolyAlloc(
     if (!new_vertexindex)
         return 0;
     geometry->polygon_vertexindex = new_vertexindex;
+
     s3d_material_t *new_material = realloc(
         geometry->polygon_material,
         sizeof(*new_material) *
@@ -69,6 +72,33 @@ S3DHID int _internal_spew3d_geometry_AddVertexPolyAlloc(
     if (!new_material)
         return 0;
     geometry->polygon_material = new_material;
+
+    s3d_color *new_polygon_vertexcolors = realloc(
+        geometry->polygon_vertexcolors,
+        sizeof(*new_polygon_vertexcolors) *
+        (geometry->polygon_count + add_polygon * 3)
+    );
+    if (!new_polygon_vertexcolors)
+        return 0;
+    geometry->polygon_vertexcolors = new_polygon_vertexcolors;
+    // Since we may not fill this one in, zero it out in advance:
+    memset(&geometry->polygon_vertexcolors[
+        geometry->polygon_count * 3], 0,
+        sizeof(*new_polygon_vertexcolors) * (add_polygon * 3));
+
+    s3d_color *new_polygon_vertexnormals = realloc(
+        geometry->polygon_vertexnormals,
+        sizeof(*new_polygon_vertexnormals) *
+        (geometry->polygon_count + add_polygon * 3)
+    );
+    if (!new_polygon_vertexnormals)
+        return 0;
+    geometry->polygon_vertexnormals = new_polygon_vertexnormals;
+    // Since we may not fill this one in, zero it out in advance:
+    memset(&geometry->polygon_vertexnormals[
+        geometry->polygon_count * 3], 0,
+        sizeof(*new_polygon_vertexnormals) * (add_polygon * 3));
+
     s3d_point *new_texcoord = realloc(
         geometry->polygon_texcoord,
         sizeof(*new_texcoord) *
@@ -77,6 +107,7 @@ S3DHID int _internal_spew3d_geometry_AddVertexPolyAlloc(
     if (!new_texcoord)
         return 0;
     geometry->polygon_texcoord = new_texcoord;
+
     s3d_texture_t *new_texture = realloc(
         geometry->polygon_texture,
         sizeof(*new_texture) *
@@ -292,6 +323,7 @@ S3DHID void _spew3d_geometry_ActuallyDestroy(s3d_geometry *geometry) {
     free(geometry->polygon_vertexindex);
     free(geometry->polygon_texcoord);
     free(geometry->polygon_texture);
+    free(geometry->polygon_vertexcolors);
 }
 
 S3DEXP void spew3d_geometry_Destroy(s3d_geometry *geometry) {
@@ -334,6 +366,9 @@ S3DEXP int spew3d_geometry_Transform(
         ) {
     assert(render_light_info->dynlight_mode !=
         DLRD_INVALID);
+    if (geometry->polygon_count == 0)
+        return 0;
+
     s3d_renderpolygon *rqueue = *render_queue;
     uint32_t ralloc = *render_alloc;
     uint32_t rfill = *render_fill;
@@ -351,6 +386,7 @@ S3DEXP int spew3d_geometry_Transform(
         *render_queue = rqueue;
         *render_alloc = ralloc;
     }
+    assert(ralloc > 0 && rqueue != NULL);
     const int have_vertex_normals = (
         geometry->per_vertex_normals_computed
     );
@@ -385,6 +421,7 @@ S3DEXP int spew3d_geometry_Transform(
     uint32_t ioffset = 0;
     uint32_t i = 0;
     while (i < geometry->polygon_count) {
+        assert(rfill < ralloc);
         s3d_pos vertex_positions[3];
         spew3d_math3d_transform3d(
             geometry->vertex[
@@ -457,6 +494,9 @@ S3DEXP int spew3d_geometry_Transform(
         rqueue[rfill].vertex_texcoord[2] = (
             geometry->polygon_texcoord[ioffset]
         );
+        rqueue[rfill].vertex_emit[2] = (
+            geometry->polygon_vertexcolors[ioffset]
+        );
         rqueue[rfill].vertex_emit[2].red = fmax((
             rqueue[rfill].vertex_emit[2].red *
             multiplier_vertex_light), scene_ambient.red
@@ -466,7 +506,7 @@ S3DEXP int spew3d_geometry_Transform(
             multiplier_vertex_light), scene_ambient.green
         );
         rqueue[rfill].vertex_emit[2].blue = fmax((
-            rqueue[rfill].vertex_emit[21].blue *
+            rqueue[rfill].vertex_emit[2].blue *
             multiplier_vertex_light), scene_ambient.blue
         );
 
@@ -477,6 +517,8 @@ S3DEXP int spew3d_geometry_Transform(
         memset(&rqueue[rfill].vertex_normal[0], 0,
             sizeof(rqueue[rfill].vertex_normal[0]) * 3);
         ioffset++;
+
+        rfill++;
     }
     if (render_light_info->dynlight_mode >= DLRD_LIT_FULLY) {
         ioffset = 0;
