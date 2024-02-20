@@ -45,7 +45,7 @@ typedef struct s3d_bone {
     s3d_geometry *mesh;
     s3d_pos root_pos;
     s3d_rotation root_origlocalrot,
-        root_currentlocalrot, root_globalrot;
+        root_currentlocalrot, root_modelwiderot;
 
     s3d_bonerel *children[MAX_CHILDREN_PER_BONE];
     s3d_pos children_offset[MAX_CHILDREN_PER_BONE];

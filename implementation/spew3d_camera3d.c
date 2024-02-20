@@ -70,6 +70,12 @@ typedef struct s3d_camdata {
     uint32_t _render_polygon_buffer_alloc;
 } s3d_camdata;
 
+S3DHID s3d_scenecolorinfo spew3d_scene3d_GetColorInfo_nolock(
+    s3d_scene3d *sc
+);
+S3DEXP s3d_scene3d *spew3d_obj3d_GetScene_nolock(
+    s3d_obj3d *obj
+);
 S3DEXP int _spew3d_obj3d_GetWasDeleted_nolock(
     s3d_obj3d *obj
 );
@@ -312,17 +318,35 @@ S3DHID int _spew3d_camera3d_ProcessDrawToWindowReq(s3devent *ev) {
     cdata->_render_queue_buffer = queue;
     cdata->_render_queue_buffer_alloc = queue_alloc;
 
-    // Now compute the actual polygons and sort them:
-    s3d_geometryrenderlightinfo rlight = {0};
-    memset(&rlight, 0, sizeof(rlight));
+    // Prepare the polygon buffer and compute general scene info:
+    s3d_geometryrenderlightinfo rinfo = {0};
+    memset(&rinfo, 0, sizeof(rinfo));
+    rinfo.ambient_emit.red = 1.0;
+    rinfo.ambient_emit.green = 1.0;
+    rinfo.ambient_emit.blue = 1.0;
+    s3d_scene3d *sc = spew3d_obj3d_GetScene_nolock(cam);
+    assert(sc != NULL);
+    s3d_scenecolorinfo coloring = spew3d_scene3d_GetColorInfo_nolock(
+        sc
+    );
+    if (coloring.ambient_emit.red > 0 ||
+                coloring.ambient_emit.green > 0 ||
+                coloring.ambient_emit.blue > 0) {
+        rinfo.ambient_emit.red = (
+            coloring.ambient_emit.red
+        );
+        rinfo.ambient_emit.green = (
+            coloring.ambient_emit.green
+        );
+        rinfo.ambient_emit.blue = (
+            coloring.ambient_emit.blue
+        );
+    }
     s3d_renderpolygon *polybuf = cdata->_render_polygon_buffer;
     uint32_t polybuf_alloc = cdata->_render_polygon_buffer_alloc;
     spew3d_obj3d_ReleaseAccess(cam);
 
-    s3d_geometryrenderlightinfo rinfo = {0};
-    rinfo.ambient_red = 1.0;
-    rinfo.ambient_green = 1.0;
-    rinfo.ambient_blue = 1.0;
+    // Compute fov (we don't need a scene lock for that):
     s3d_transform3d_cam_info cinfo = {0};
     cinfo.cam_pos = cam_pos;
     cinfo.cam_rotation = cam_rot;
@@ -333,16 +357,19 @@ S3DHID int _spew3d_camera3d_ProcessDrawToWindowReq(s3devent *ev) {
         &cinfo.cam_horifov,
         &cinfo.cam_vertifov
     );
+
+    // Compute actual polygons to sort them later:
     uint32_t polybuf_fill = 0;
     i = 0;
     while (i < queuefill) {
         if (queue[i].kind == RENDERENTRY_MESH) {
+            rinfo.dynlight_mode = DLRD_LIT_FLAT;
             int try_add = spew3d_geometry_Transform(
                 queue[i].rendermesh.geom,
-                queue[i].rendermesh.world_pos,
-                queue[i].rendermesh.world_rotation,
+                &queue[i].rendermesh.world_pos,
+                &queue[i].rendermesh.world_rotation,
                 &cinfo,
-                &rlight, &polybuf, &polybuf_fill, &polybuf_alloc
+                &rinfo, &polybuf, &polybuf_fill, &polybuf_alloc
             );
             if (!try_add) {
                 // Ran out of memory. Not much we can do.

@@ -38,9 +38,9 @@ enum Obj3dKind {
     OBJ3D_CAMERA,
 };
 
-typedef struct s3d_sceneambient {
-    double base_red, base_green, base_blue;
-} s3d_sceneambient;
+typedef struct s3d_scenecolorinfo {
+    s3d_color ambient_emit;
+} s3d_scenecolorinfo;
 
 typedef struct s3d_spatialstore3d s3d_spatialstore3d;
 typedef struct s3d_obj3d s3d_obj3d;
@@ -48,6 +48,10 @@ typedef struct s3d_scene3d s3d_scene3d;
 
 S3DEXP s3d_scene3d *spew3d_scene3d_New(
     double max_coord_range, double max_regular_collision_size
+);
+
+S3DEXP s3d_scenecolorinfo spew3d_scene3d_GetColorInfo(
+    s3d_scene3d *sc
 );
 
 S3DEXP s3d_obj3d *spew3d_scene3d_AddMeshObj(

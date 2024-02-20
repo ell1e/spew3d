@@ -28,8 +28,9 @@ license, see accompanied LICENSE.md.
 /** Spew3D's default coordinate system for 3D
  *  =========================================
  *
- *  Positive angles describe CW (clockwise) rotations.
- *  X is forward (into screen), Y is left, Z is up.
+ *  Positive angles describe CW (clockwise) rotations,
+ *  or upward ones for vertical tilt.
+ *  X is forward (into screen), Y is right, Z is up.
  */
 
 #ifndef SPEW3D_MATH3D_H_
@@ -45,12 +46,32 @@ typedef struct s3d_rotation {
     s3dnum_t hori, verti, roll;
 } s3d_rotation;
 
+typedef struct s3d_color {
+    s3dnum_t red, green, blue;
+} s3d_color;
+
 static inline void spew3d_math3d_add(
         s3d_pos *p, s3d_pos *p2
         ) {
     p->x += p2->x;
     p->y += p2->y;
     p->z += p2->z;
+}
+
+static inline void spew3d_math3d_sub(
+        s3d_pos *p, s3d_pos *p2
+        ) {
+    p->x -= p2->x;
+    p->y -= p2->y;
+    p->z -= p2->z;
+}
+
+static inline void spew3d_math3d_scale(
+        s3d_pos *p, double scale
+        ) {
+    p->x = scale * p->x;
+    p->y = scale * p->y;
+    p->z = scale * p->z;
 }
 
 static inline s3dnum_t spew3d_math3d_dist(
@@ -87,6 +108,16 @@ typedef struct s3d_transform3d_cam_info {
     s3dnum_t cam_vertifov;
     uint32_t viewport_pixel_width;
     uint32_t viewport_pixel_height;
+
+    int cache_set;
+    double cached_screen_plane_x;
+    double cached_screen_plane_ywidth;
+    double cached_screen_plane_zheight;
+    double cached_screen_plane_yleftoffset;
+    double cached_screen_plane_pixel_ywidth;
+    double cached_screen_plane_ztopoffset;
+    double cached_screen_plane_pixel_zwidth;
+    double cached_screen_plane_pixel_mixedwidth;
 } s3d_transform3d_cam_info;
 
 
@@ -99,9 +130,10 @@ S3DEXP void spew3d_math3d_split_fovs_from_fov(
 );
 
 S3DEXP void spew3d_math3d_transform3d(
-    s3d_pos *input_pos,
+    s3d_pos input_pos,
     s3d_transform3d_cam_info *cam_info,
-    s3d_rotation *world_rotation,
+    s3d_pos model_world_pos,
+    s3d_rotation model_world_rotation,
     s3d_pos *out_pos
 );
 

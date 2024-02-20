@@ -325,13 +325,15 @@ S3DEXP void spew3d_geometry_Destroy(s3d_geometry *geometry) {
 
 S3DEXP int spew3d_geometry_Transform(
         s3d_geometry *geometry,
-        s3d_pos model_pos,
-        s3d_rotation model_rotation,
+        s3d_pos *model_pos,
+        s3d_rotation *model_rotation,
         s3d_transform3d_cam_info *cam_info,
         s3d_geometryrenderlightinfo *render_light_info,
         s3d_renderpolygon **render_queue,
         uint32_t *render_fill, uint32_t *render_alloc
         ) {
+    assert(render_light_info->dynlight_mode !=
+        DLRD_INVALID);
     s3d_renderpolygon *rqueue = *render_queue;
     uint32_t ralloc = *render_alloc;
     uint32_t rfill = *render_fill;
@@ -349,11 +351,153 @@ S3DEXP int spew3d_geometry_Transform(
         *render_queue = rqueue;
         *render_alloc = ralloc;
     }
+    const int have_vertex_normals = (
+        geometry->per_vertex_normals_computed
+    );
+    double multiplier_vertex_light = (
+        geometry->per_polygon_emit_computed ? 1.0 : 0.0
+    );
+    s3d_color scene_ambient = render_light_info->ambient_emit;
+    if (render_light_info->dynlight_mode == DLRD_UNLIT) {
+        if (geometry->per_polygon_emit_computed) {
+            // Use mesh light instead:
+            scene_ambient.red = 0.0;
+            scene_ambient.green = 0.0;
+            scene_ambient.blue = 0.0;
+        } else {
+            // Just go full bright:
+            scene_ambient.red = 1.0;
+            scene_ambient.green = 1.0;
+            scene_ambient.blue = 1.0;
+        }
+    }
+
+    s3d_pos effective_model_pos = {0};
+    if (model_pos != NULL)
+        memcpy(&effective_model_pos, model_pos,
+            sizeof(*model_pos));
+    s3d_rotation effective_model_rot = {0};
+    if (model_rotation != NULL)
+        memcpy(&effective_model_rot, model_rotation,
+            sizeof(*model_rotation));
+
+    uint32_t rfill_old = rfill;
+    uint32_t ioffset = 0;
     uint32_t i = 0;
     while (i < geometry->polygon_count) {
+        s3d_pos vertex_positions[3];
+        spew3d_math3d_transform3d(
+            geometry->vertex[
+                geometry->polygon_vertexindex[ioffset]
+            ],
+            cam_info, effective_model_pos,
+            effective_model_rot,
+            &rqueue[rfill].vertex_pos[0]
+        );
 
-        i++;
+        // First vertex:
+        rqueue[rfill].vertex_texcoord[0] = (
+            geometry->polygon_texcoord[ioffset]
+        );
+        rqueue[rfill].vertex_emit[0] = (
+            geometry->polygon_vertexcolors[ioffset]
+        );
+        rqueue[rfill].vertex_emit[0].red = fmax((
+            rqueue[rfill].vertex_emit[0].red *
+            multiplier_vertex_light), scene_ambient.red
+        );
+        rqueue[rfill].vertex_emit[0].green = fmax((
+            rqueue[rfill].vertex_emit[0].green *
+            multiplier_vertex_light), scene_ambient.green
+        );
+        rqueue[rfill].vertex_emit[0].blue = fmax((
+            rqueue[rfill].vertex_emit[0].blue *
+            multiplier_vertex_light), scene_ambient.blue
+        );
+        ioffset++;
+
+        // Second vertex:
+        spew3d_math3d_transform3d(
+            geometry->vertex[
+                geometry->polygon_vertexindex[ioffset]
+            ],
+            cam_info, effective_model_pos,
+            effective_model_rot,
+            &rqueue[rfill].vertex_pos[1]
+        );
+        rqueue[rfill].vertex_texcoord[1] = (
+            geometry->polygon_texcoord[ioffset]
+        );
+        rqueue[rfill].vertex_emit[1] = (
+            geometry->polygon_vertexcolors[ioffset]
+        );
+        rqueue[rfill].vertex_emit[1].red = fmax((
+            rqueue[rfill].vertex_emit[1].red *
+            multiplier_vertex_light), scene_ambient.red
+        );
+        rqueue[rfill].vertex_emit[1].green = fmax((
+            rqueue[rfill].vertex_emit[1].green *
+            multiplier_vertex_light), scene_ambient.green
+        );
+        rqueue[rfill].vertex_emit[1].blue = fmax((
+            rqueue[rfill].vertex_emit[1].blue *
+            multiplier_vertex_light), scene_ambient.blue
+        );
+        ioffset++;
+
+        // Third vertex:
+        spew3d_math3d_transform3d(
+            geometry->vertex[
+                geometry->polygon_vertexindex[ioffset]
+            ],
+            cam_info, effective_model_pos,
+            effective_model_rot,
+            &rqueue[rfill].vertex_pos[2]
+        );
+        rqueue[rfill].vertex_texcoord[2] = (
+            geometry->polygon_texcoord[ioffset]
+        );
+        rqueue[rfill].vertex_emit[2].red = fmax((
+            rqueue[rfill].vertex_emit[2].red *
+            multiplier_vertex_light), scene_ambient.red
+        );
+        rqueue[rfill].vertex_emit[2].green = fmax((
+            rqueue[rfill].vertex_emit[2].green *
+            multiplier_vertex_light), scene_ambient.green
+        );
+        rqueue[rfill].vertex_emit[2].blue = fmax((
+            rqueue[rfill].vertex_emit[21].blue *
+            multiplier_vertex_light), scene_ambient.blue
+        );
+
+        // Misc:
+        rqueue[rfill].polygon_material = (
+            geometry->polygon_material[i]
+        );
+        memset(&rqueue[rfill].vertex_normal[0], 0,
+            sizeof(rqueue[rfill].vertex_normal[0]) * 3);
+        ioffset++;
     }
+    if (render_light_info->dynlight_mode >= DLRD_LIT_FULLY) {
+        ioffset = 0;
+        i = 0;
+        while (i < geometry->polygon_count) {
+            if (have_vertex_normals) {
+                /// FIXME
+                assert(0);
+            } else {
+                rqueue[rfill_old + i].vertex_normal[0] =
+                    geometry->polygon_normal[i];
+                rqueue[rfill_old + i].vertex_normal[1] =
+                    geometry->polygon_normal[i];
+                rqueue[rfill_old + i].vertex_normal[2] =
+                    geometry->polygon_normal[i];
+            }
+            // FIXME: also compute the actual light here.
+            i++;
+        }
+    }
+    *render_fill = rfill;
     return 1;
 }
 

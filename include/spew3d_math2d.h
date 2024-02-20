@@ -50,6 +50,28 @@ S3DEXP void spew3d_math2d_rotate(
     s3d_point *p, s3dnum_t degree
 );
 
+
+static inline void spew3d_math2d_add(
+        s3d_point *p, s3d_point *p2
+        ) {
+    p->x += p2->x;
+    p->y += p2->y;
+}
+
+static inline void spew3d_math2d_sub(
+        s3d_point *p, s3d_point *p2
+        ) {
+    p->x -= p2->x;
+    p->y -= p2->y;
+}
+
+static inline void spew3d_math2d_scale(
+        s3d_point *p, double scale
+        ) {
+    p->x = scale * p->x;
+    p->y = scale * p->y;
+}
+
 static inline s3dnum_t spew3d_math2d_len(s3d_point *pos) {
     s3dnum_t result = round(sqrt(
         (pos->x * pos->x + pos->y * pos->y)

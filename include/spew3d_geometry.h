@@ -55,6 +55,12 @@ typedef struct s3d_geometry {
     s3d_point *polygon_texcoord;
     s3d_texture_t *polygon_texture;
 
+    int per_polygon_emit_computed;
+    s3d_color *polygon_vertexcolors;
+
+    int per_vertex_normals_computed;
+    s3d_pos *polygon_vertexnormals;
+
     int32_t owned_texture_count;
     s3d_texture_t *owned_texture;
 } s3d_geometry;
@@ -80,28 +86,32 @@ S3DEXP int spew3d_geometry_AddCubeSimple(
 
 S3DEXP void spew3d_geometry_Destroy(s3d_geometry *geometry);
 
+enum GeomDynLightRenderDetail {
+    DLRD_INVALID = 0,
+    DLRD_UNLIT = 1,
+    DLRD_LIT_FLAT = 2,
+    DLRD_LIT_FULLY = 3,
+};
+
 typedef struct s3d_geometryrenderlightinfo {
     s3dnum_t alpha;
     int withalphachannel;
-    s3dnum_t ambient_red;
-    s3dnum_t ambient_green;
-    s3dnum_t ambient_blue;
+    int dynlight_mode;  // enum GeomDynLightRenderDetail.
+    s3d_color ambient_emit;
+
     s3d_pos primary_light_pos;
     s3dnum_t primary_light_range;
-    s3dnum_t primary_light_red;
-    s3dnum_t primary_light_green;
-    s3dnum_t primary_light_blue;
+    s3d_color primary_light_color;
+
     s3d_pos secondary_light_pos;
     s3dnum_t secondary_light_range;
-    s3dnum_t secondary_light_red;
-    s3dnum_t secondary_light_green;
-    s3dnum_t secondary_light_blue;
+    s3d_color secondary_light_color;
 } s3d_geometryrenderlightinfo;
 
 S3DEXP int spew3d_geometry_Transform(
     s3d_geometry *geometry,
-    s3d_pos model_pos,
-    s3d_rotation model_rotation,
+    s3d_pos *model_pos,
+    s3d_rotation *model_rotation,
     s3d_transform3d_cam_info *cam_info,
     s3d_geometryrenderlightinfo *render_light_info,
     s3d_renderpolygon **render_queue,

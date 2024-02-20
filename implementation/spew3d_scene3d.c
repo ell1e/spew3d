@@ -47,6 +47,7 @@ typedef struct s3d_spatialstore3d s3d_spatialstore3d;
 typedef struct s3d_scene3d {
     s3d_mutex *m;
     s3d_spatialstore3d *store;
+    s3d_scenecolorinfo coloring;
 } s3d_scene3d;
 
 typedef struct s3d_obj3d {
@@ -99,6 +100,9 @@ S3DEXP s3d_scene3d *spew3d_scene3d_New(
     if (!sc)
         return NULL;
     memset(sc, 0, sizeof(*sc));
+    sc->coloring.ambient_emit.red = 1.0;
+    sc->coloring.ambient_emit.blue = 1.0;
+    sc->coloring.ambient_emit.green = 1.0;
     sc->m = mutex_Create();
     if (!sc->m) {
         spew3d_scene3d_Destroy(sc);
@@ -137,10 +141,36 @@ S3DEXP s3d_spatialstore3d *spew3d_scene3d_GetStoreByObj3d(
     return NULL;
 }
 
+S3DEXP s3d_scene3d *spew3d_obj3d_GetScene_nolock(
+        s3d_obj3d *obj
+        ) {
+    if (obj->owner) {
+        return obj->owner;
+    }
+    return NULL;
+}
+
 S3DEXP int _spew3d_obj3d_GetWasDeleted_nolock(
         s3d_obj3d *obj
         ) {
     return obj->wasdeleted;
+}
+
+S3DHID s3d_scenecolorinfo spew3d_scene3d_GetColorInfo_nolock(
+        s3d_scene3d *sc
+        ) {
+    return sc->coloring;
+}
+
+S3DEXP s3d_scenecolorinfo spew3d_scene3d_GetColorInfo(
+        s3d_scene3d *sc
+        ) {
+    mutex_Lock(sc->m);
+    s3d_scenecolorinfo coloring = (
+        spew3d_scene3d_GetColorInfo_nolock(sc)
+    );
+    mutex_Release(sc->m);
+    return coloring;
 }
 
 S3DEXP double spew3d_obj3d_GetOuterMaxExtentRadius_nolock(

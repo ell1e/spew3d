@@ -48,8 +48,8 @@ S3DEXP void spew3d_camera3d_RenderToWindow(
 typedef struct s3d_renderpolygon {
     s3d_pos vertex_pos[3];
     s3d_pos vertex_normal[3];
-    s3d_point vertex_texcoordx[3];
-    s3d_point vertex_texcoordy[3];
+    s3d_point vertex_texcoord[3];
+    s3d_color vertex_emit[3];
     s3d_material_t polygon_material;
 } s3d_renderpolygon;
 
