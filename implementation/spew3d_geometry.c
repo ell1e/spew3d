@@ -49,16 +49,16 @@ S3DHID int _internal_spew3d_geometry_AddVertexPolyAlloc(
     s3d_pos *new_normal = realloc(
         geometry->polygon_normal,
         sizeof(*new_normal) *
-        (geometry->polygon_count + add_polygon * 3)
+        (geometry->polygon_count * 3 + add_polygon * 3)
     );
     if (!new_normal)
         return 0;
     geometry->polygon_normal = new_normal;
 
-    int32_t *new_vertexindex = realloc(
+    uint32_t *new_vertexindex = realloc(
         geometry->polygon_vertexindex,
         sizeof(*new_vertexindex) *
-        (geometry->polygon_count + add_polygon * 3)
+        (geometry->polygon_count * 3 + add_polygon * 3)
     );
     if (!new_vertexindex)
         return 0;
@@ -67,7 +67,7 @@ S3DHID int _internal_spew3d_geometry_AddVertexPolyAlloc(
     s3d_material_t *new_material = realloc(
         geometry->polygon_material,
         sizeof(*new_material) *
-        (geometry->polygon_count + add_polygon)
+        (geometry->polygon_count * 3 + add_polygon)
     );
     if (!new_material)
         return 0;
@@ -76,7 +76,7 @@ S3DHID int _internal_spew3d_geometry_AddVertexPolyAlloc(
     s3d_color *new_polygon_vertexcolors = realloc(
         geometry->polygon_vertexcolors,
         sizeof(*new_polygon_vertexcolors) *
-        (geometry->polygon_count + add_polygon * 3)
+        (geometry->polygon_count * 3 + add_polygon * 3)
     );
     if (!new_polygon_vertexcolors)
         return 0;
@@ -89,7 +89,7 @@ S3DHID int _internal_spew3d_geometry_AddVertexPolyAlloc(
     s3d_color *new_polygon_vertexnormals = realloc(
         geometry->polygon_vertexnormals,
         sizeof(*new_polygon_vertexnormals) *
-        (geometry->polygon_count + add_polygon * 3)
+        (geometry->polygon_count * 3 + add_polygon * 3)
     );
     if (!new_polygon_vertexnormals)
         return 0;
@@ -102,7 +102,7 @@ S3DHID int _internal_spew3d_geometry_AddVertexPolyAlloc(
     s3d_point *new_texcoord = realloc(
         geometry->polygon_texcoord,
         sizeof(*new_texcoord) *
-        (geometry->polygon_count + add_polygon * 3)
+        (geometry->polygon_count * 3 + add_polygon * 3)
     );
     if (!new_texcoord)
         return 0;
@@ -377,7 +377,7 @@ S3DEXP int spew3d_geometry_Transform(
             rfill + geometry->polygon_count + 1 + 6
         ) * 2;
         s3d_renderpolygon *newqueue = realloc(
-            rqueue, sizeof(*render_queue) * newalloc
+            rqueue, sizeof(*newqueue) * newalloc
         );
         if (!newqueue)
             return 0;
@@ -421,7 +421,8 @@ S3DEXP int spew3d_geometry_Transform(
     uint32_t ioffset = 0;
     uint32_t i = 0;
     while (i < geometry->polygon_count) {
-        assert(rfill < ralloc);
+        assert(rfill >= 0 && rfill < ralloc);
+        assert(ioffset <= geometry->polygon_count * 3 - 3);
         s3d_pos vertex_positions[3];
         spew3d_math3d_transform3d(
             geometry->vertex[
@@ -519,6 +520,7 @@ S3DEXP int spew3d_geometry_Transform(
         ioffset++;
 
         rfill++;
+        i++;
     }
     if (render_light_info->dynlight_mode >= DLRD_LIT_FULLY) {
         ioffset = 0;

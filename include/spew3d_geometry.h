@@ -51,7 +51,7 @@ typedef struct s3d_geometry {
     int32_t polygon_count;
     s3d_pos *polygon_normal;
     s3d_material_t *polygon_material;
-    int32_t *polygon_vertexindex;
+    uint32_t *polygon_vertexindex;
     s3d_point *polygon_texcoord;
     s3d_texture_t *polygon_texture;
 
