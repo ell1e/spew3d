@@ -107,6 +107,7 @@ S3DEXP void spew3d_math3d_transform3d(
         cam_info->cached_screen_plane_x = 10000;
 
         s3d_point vec2d_to_left_side;
+        vec2d_to_left_side.y = 0;
         vec2d_to_left_side.x =
             cam_info->cached_screen_plane_x;
         spew3d_math2d_rotate(&vec2d_to_left_side,
@@ -121,6 +122,7 @@ S3DEXP void spew3d_math3d_transform3d(
         );
 
         s3d_point vec2d_to_top_end;
+        vec2d_to_top_end.y = 0;
         vec2d_to_top_end.x =
             cam_info->cached_screen_plane_x;
         spew3d_math2d_rotate(&vec2d_to_top_end,
@@ -176,7 +178,7 @@ S3DEXP void spew3d_math3d_rotate(
     double rotr = (r->roll * M_PI / 180.0);
     double newx, newy, newz;
     double px = p->x;
-    double py = -p->y;
+    double py = p->y;
     double pz = p->z;
 
     // Roll angle:
@@ -198,7 +200,7 @@ S3DEXP void spew3d_math3d_rotate(
     py = newy;
 
     p->x = newx;
-    p->y = -newy;
+    p->y = newy;
     p->z = newz;
 }
 
