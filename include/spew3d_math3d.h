@@ -134,7 +134,8 @@ S3DEXP void spew3d_math3d_transform3d(
     s3d_transform3d_cam_info *cam_info,
     s3d_pos model_world_pos,
     s3d_rotation model_world_rotation,
-    s3d_pos *out_pos
+    s3d_pos *out_pos,
+    s3d_pos *out_unscaled_pos
 );
 
 S3DEXP void spew3d_math3d_rotate(

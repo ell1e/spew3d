@@ -186,33 +186,13 @@ S3DHID static int _depthCompareRenderPolygons(
     /*printf("comparing poly %p <-> %p, "
         "entry1->vertex_pos[0].x = %f "
         "entry2->vertex_pos[0].x = %f\n",
-        entry1->vertex_pos[0].x, entry2->vertex_pos[0].x);*/
-    double mindepth1 = (
-        fmin(fmin(entry1->vertex_pos[0].x,
-        entry1->vertex_pos[1].x),
-        entry1->vertex_pos[2].x)
-    );
-    double maxdepth1 = (
-        fmax(fmax(entry1->vertex_pos[0].x,
-        entry1->vertex_pos[1].x),
-        entry1->vertex_pos[2].x)
-    );
-    double depth1 = (mindepth1 + maxdepth1) / 2.0;
-    double mindepth2 = (
-        fmin(fmin(entry2->vertex_pos[0].x,
-        entry2->vertex_pos[1].x),
-        entry2->vertex_pos[2].x)
-    );
-    double maxdepth2 = (
-        fmax(fmax(entry2->vertex_pos[0].x,
-        entry2->vertex_pos[1].x),
-        entry2->vertex_pos[2].x)
-    );
-    double depth2 = (mindepth2 + maxdepth2) / 2.0;
+        entry1->vertex_pos_pixels[0].x, entry2->vertex_pos_pixels[0].x);*/
+    double depth1 = (entry1->min_depth + entry1->max_depth) / 2;
+    double depth2 = (entry2->min_depth + entry2->max_depth) / 2;
     if (depth1 < depth2)
-        return -1;
-    if (depth1 > depth2)
         return 1;
+    if (depth1 > depth2)
+        return -1;
     return 0;
 }
 
@@ -471,17 +451,20 @@ S3DHID int _spew3d_camera3d_ProcessDrawToWindowReq(s3devent *ev) {
     while (i < polybuf_fill) {
         s3d_renderpolygon *p = &polybuf[i];
         SDL_Vertex vertex_1 = {
-            {p->vertex_pos[0].x, p->vertex_pos[0].y},
+            {p->vertex_pos_pixels[0].y,
+             p->vertex_pos_pixels[0].z},
             {255, 255, 255, 255},
             {p->vertex_texcoord[0].x, p->vertex_texcoord[0].y}
         };
         SDL_Vertex vertex_2 = {
-            {p->vertex_pos[1].x, p->vertex_pos[1].y},
+            {p->vertex_pos_pixels[1].y,
+             p->vertex_pos_pixels[1].z},
             {255, 255, 255, 255},
             {p->vertex_texcoord[1].x, p->vertex_texcoord[1].y}
         };
         SDL_Vertex vertex_3 = {
-            {p->vertex_pos[2].x, p->vertex_pos[2].y},
+            {p->vertex_pos_pixels[2].y,
+             p->vertex_pos_pixels[2].z},
             {255, 255, 255, 255},
             {p->vertex_texcoord[2].x, p->vertex_texcoord[2].y}
         };

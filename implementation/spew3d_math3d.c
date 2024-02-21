@@ -90,7 +90,7 @@ S3DEXP void spew3d_math3d_transform3d(
         s3d_transform3d_cam_info *cam_info,
         s3d_pos model_world_pos,
         s3d_rotation model_world_rotation,
-        s3d_pos *out_pos
+        s3d_pos *out_pos, s3d_pos *out_unscaled_pos
         ) {
     /*printf("INPUT POS BEFORE MODEL TRANSFORM: %f,%f,%f\n",
         (double)input_pos.x, (double)input_pos.y,
@@ -174,12 +174,6 @@ S3DEXP void spew3d_math3d_transform3d(
         input_pos.x / cam_info->cached_screen_plane_x,
         9999
     );
-    /*if (enable_scaling_depth)  // We might need this some day.
-        input_pos.x = (
-            input_pos.x / (
-            cam_info->cached_screen_plane_pixel_mixedwidth *
-            dist_to_plane_factor)
-        );*/
     /*printf("RENDER PLANE DIMENSIONS: yleftoffset=%f,"
         "ztopoffset=%f, depth=%f, render plane aspect=%f, "
         "canvasw,h=%f,%f hori fov=%f verti fov=%f "
@@ -201,17 +195,21 @@ S3DEXP void spew3d_math3d_transform3d(
         (double)cam_info->cached_screen_plane_pixel_ywidth,
         (double)cam_info->cached_screen_plane_pixel_zwidth
     );*/
-    out_pos->x = (
-        input_pos.y / (
-        cam_info->cached_screen_plane_pixel_ywidth *
-        dist_to_plane_factor)
-    ) + (double)cam_info->viewport_pixel_width / 2.0;
-    out_pos->y = (double)cam_info->viewport_pixel_height - ((
-        input_pos.z / (
-        cam_info->cached_screen_plane_pixel_zwidth *
-        dist_to_plane_factor)
-    ) + ((double)cam_info->viewport_pixel_height / 2.0));
-    out_pos->z = input_pos.x;
+    if (out_pos != NULL) {
+        out_pos->y = (
+            input_pos.y / (
+            cam_info->cached_screen_plane_pixel_ywidth *
+            dist_to_plane_factor)
+        ) + (double)cam_info->viewport_pixel_width / 2.0;
+        out_pos->z = (double)cam_info->viewport_pixel_height - ((
+            input_pos.z / (
+            cam_info->cached_screen_plane_pixel_zwidth *
+            dist_to_plane_factor)
+        ) + ((double)cam_info->viewport_pixel_height / 2.0));
+        out_pos->x = input_pos.x;
+    }
+    if (out_unscaled_pos != NULL)
+        *out_unscaled_pos = input_pos;
 }
 
 S3DEXP void spew3d_math3d_rotate(
