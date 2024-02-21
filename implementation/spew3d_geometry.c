@@ -67,7 +67,7 @@ S3DHID int _internal_spew3d_geometry_AddVertexPolyAlloc(
     s3d_material_t *new_material = realloc(
         geometry->polygon_material,
         sizeof(*new_material) *
-        (geometry->polygon_count * 3 + add_polygon)
+        (geometry->polygon_count * 3 + add_polygon * 3)
     );
     if (!new_material)
         return 0;
@@ -86,7 +86,7 @@ S3DHID int _internal_spew3d_geometry_AddVertexPolyAlloc(
         geometry->polygon_count * 3], 0,
         sizeof(*new_polygon_vertexcolors) * (add_polygon * 3));
 
-    s3d_color *new_polygon_vertexnormals = realloc(
+    s3d_pos *new_polygon_vertexnormals = realloc(
         geometry->polygon_vertexnormals,
         sizeof(*new_polygon_vertexnormals) *
         (geometry->polygon_count * 3 + add_polygon * 3)
@@ -174,93 +174,201 @@ S3DEXP int spew3d_geometry_AddCube(
     s3d_point *txcoord = geometry->polygon_texcoord;
 
     // Forward / X+ side
-    vindex[poffset * 3 + 0] = 3;  // bottom left
-    vindex[poffset * 3 + 1] = 4;  // top right
-    vindex[poffset * 3 + 2] = 0;  // bottom right
-    txcoord[poffset * 3 + 0] = side_texcoord[3];
-    txcoord[poffset * 3 + 1] = side_texcoord[1];
-    txcoord[poffset * 3 + 2] = side_texcoord[2];
-    vindex[poffset * 3 + 3] = 3;  // bottom left
-    vindex[poffset * 3 + 4] = 7;  // top left
-    vindex[poffset * 3 + 5] = 4;  // top right
-    txcoord[poffset * 3 + 0] = side_texcoord[3];
-    txcoord[poffset * 3 + 1] = side_texcoord[0];
-    txcoord[poffset * 3 + 2] = side_texcoord[1];
+    vindex[poffset * 3 + 0] = 3;  // top right
+    vindex[poffset * 3 + 1] = 4;  // bottom left
+    vindex[poffset * 3 + 2] = 0;  // top left
+    txcoord[poffset * 3 + 0] = side_texcoord[1];
+    txcoord[poffset * 3 + 1] = side_texcoord[3];
+    txcoord[poffset * 3 + 2] = side_texcoord[0];
+    geometry->polygon_texture[poffset] = side_texture[0];
+    vindex[poffset * 3 + 3] = 3;  // top right
+    vindex[poffset * 3 + 4] = 7;  // bottom right
+    vindex[poffset * 3 + 5] = 4;  // bottom left
+    txcoord[poffset * 3 + 3] = side_texcoord[1];
+    txcoord[poffset * 3 + 4] = side_texcoord[2];
+    txcoord[poffset * 3 + 5] = side_texcoord[3];
+    geometry->polygon_texture[poffset + 1] = side_texture[0];
     poffset += 2;
 
     // Right / Y- side
-    vindex[poffset * 3 + 0] = 2;  // bottom left
-    vindex[poffset * 3 + 1] = 7;  // top right
-    vindex[poffset * 3 + 2] = 3;  // bottom right
-    txcoord[poffset * 3 + 0] = side_texcoord[4 + 3];
-    txcoord[poffset * 3 + 1] = side_texcoord[4 + 1];
-    txcoord[poffset * 3 + 2] = side_texcoord[4 + 2];
-    vindex[poffset * 3 + 3] = 2;  // bottom left
-    vindex[poffset * 3 + 4] = 6;  // top left
-    vindex[poffset * 3 + 5] = 7;  // top right
-    txcoord[poffset * 3 + 0] = side_texcoord[4 + 3];
-    txcoord[poffset * 3 + 1] = side_texcoord[4 + 0];
-    txcoord[poffset * 3 + 2] = side_texcoord[4 + 1];
+    vindex[poffset * 3 + 0] = 2;  // top right
+    vindex[poffset * 3 + 1] = 7;  // bottom left
+    vindex[poffset * 3 + 2] = 3;  // top left
+    txcoord[poffset * 3 + 0] = side_texcoord[4 + 1];
+    txcoord[poffset * 3 + 1] = side_texcoord[4 + 3];
+    txcoord[poffset * 3 + 2] = side_texcoord[4 + 0];
+    geometry->polygon_texture[poffset] = side_texture[1];
+    vindex[poffset * 3 + 3] = 2;  // top right
+    vindex[poffset * 3 + 4] = 6;  // bottom right
+    vindex[poffset * 3 + 5] = 7;  // bottom left
+    txcoord[poffset * 3 + 3] = side_texcoord[4 + 1];
+    txcoord[poffset * 3 + 4] = side_texcoord[4 + 2];
+    txcoord[poffset * 3 + 5] = side_texcoord[4 + 3];
+    geometry->polygon_texture[poffset + 1] = side_texture[1];
     poffset += 2;
 
     // Backward / X- side
-    vindex[poffset * 3 + 0] = 1;  // bottom left
-    vindex[poffset * 3 + 1] = 6;  // top right
-    vindex[poffset * 3 + 2] = 2;  // bottom right
-    txcoord[poffset * 3 + 0] = side_texcoord[8 + 3];
-    txcoord[poffset * 3 + 1] = side_texcoord[8 + 1];
-    txcoord[poffset * 3 + 2] = side_texcoord[8 + 2];
-    vindex[poffset * 3 + 3] = 1;  // bottom left
-    vindex[poffset * 3 + 4] = 5;  // top left
-    vindex[poffset * 3 + 5] = 6;  // top right
-    txcoord[poffset * 3 + 0] = side_texcoord[8 + 3];
-    txcoord[poffset * 3 + 1] = side_texcoord[8 + 0];
-    txcoord[poffset * 3 + 2] = side_texcoord[8 + 1];
+    vindex[poffset * 3 + 0] = 1;  // top right
+    vindex[poffset * 3 + 1] = 6;  // bottom left
+    vindex[poffset * 3 + 2] = 2;  // top left
+    txcoord[poffset * 3 + 0] = side_texcoord[8 + 1];
+    txcoord[poffset * 3 + 1] = side_texcoord[8 + 3];
+    txcoord[poffset * 3 + 2] = side_texcoord[8 + 0];
+    geometry->polygon_texture[poffset] = side_texture[2];
+    vindex[poffset * 3 + 3] = 1;  // top right
+    vindex[poffset * 3 + 4] = 5;  // bottom right
+    vindex[poffset * 3 + 5] = 6;  // bottom left
+    txcoord[poffset * 3 + 3] = side_texcoord[8 + 1];
+    txcoord[poffset * 3 + 4] = side_texcoord[8 + 2];
+    txcoord[poffset * 3 + 5] = side_texcoord[8 + 3];
+    geometry->polygon_texture[poffset + 1] = side_texture[2];
     poffset += 2;
 
     // Left / Y+ side
-    vindex[poffset * 3 + 0] = 0;  // bottom left
-    vindex[poffset * 3 + 1] = 5;  // top right
-    vindex[poffset * 3 + 2] = 1;  // bottom right
-    txcoord[poffset * 3 + 0] = side_texcoord[12 + 3];
-    txcoord[poffset * 3 + 1] = side_texcoord[12 + 1];
-    txcoord[poffset * 3 + 2] = side_texcoord[12 + 2];
-    vindex[poffset * 3 + 3] = 0;  // bottom left
-    vindex[poffset * 3 + 4] = 4;  // top left
-    vindex[poffset * 3 + 5] = 5;  // top right
-    txcoord[poffset * 3 + 0] = side_texcoord[12 + 3];
-    txcoord[poffset * 3 + 1] = side_texcoord[12 + 0];
-    txcoord[poffset * 3 + 2] = side_texcoord[12 + 1];
+    vindex[poffset * 3 + 0] = 0;  // top right
+    vindex[poffset * 3 + 1] = 5;  // bottom left
+    vindex[poffset * 3 + 2] = 1;  // top left
+    txcoord[poffset * 3 + 0] = side_texcoord[12 + 1];
+    txcoord[poffset * 3 + 1] = side_texcoord[12 + 3];
+    txcoord[poffset * 3 + 2] = side_texcoord[12 + 0];
+    geometry->polygon_texture[poffset] = side_texture[3];
+    vindex[poffset * 3 + 3] = 0;  // top right
+    vindex[poffset * 3 + 4] = 4;  // bottom right
+    vindex[poffset * 3 + 5] = 5;  // bottom left
+    txcoord[poffset * 3 + 3] = side_texcoord[12 + 1];
+    txcoord[poffset * 3 + 4] = side_texcoord[12 + 2];
+    txcoord[poffset * 3 + 5] = side_texcoord[12 + 3];
+    geometry->polygon_texture[poffset + 1] = side_texture[3];
+    poffset += 2;
+
+    // Bottom / Z- side
+    vindex[poffset * 3 + 0] = 5;  // top right
+    vindex[poffset * 3 + 1] = 7;  // bottom left
+    vindex[poffset * 3 + 2] = 6;  // top left
+    txcoord[poffset * 3 + 0] = side_texcoord[16 + 1];
+    txcoord[poffset * 3 + 1] = side_texcoord[16 + 3];
+    txcoord[poffset * 3 + 2] = side_texcoord[16 + 0];
+    geometry->polygon_texture[poffset] = side_texture[4];
+    vindex[poffset * 3 + 3] = 5;  // top right
+    vindex[poffset * 3 + 4] = 4;  // bottom right
+    vindex[poffset * 3 + 5] = 7;  // bottom left
+    txcoord[poffset * 3 + 3] = side_texcoord[16 + 1];
+    txcoord[poffset * 3 + 4] = side_texcoord[16 + 2];
+    txcoord[poffset * 3 + 5] = side_texcoord[16 + 3];
+    geometry->polygon_texture[poffset + 1] = side_texture[4];
     poffset += 2;
 
     // Top / Z+ side
-    vindex[poffset * 3 + 0] = 5;  // bottom left
-    vindex[poffset * 3 + 1] = 7;  // top right
-    vindex[poffset * 3 + 2] = 6;  // bottom right
-    txcoord[poffset * 3 + 0] = side_texcoord[16 + 3];
-    txcoord[poffset * 3 + 1] = side_texcoord[16 + 1];
-    txcoord[poffset * 3 + 2] = side_texcoord[16 + 2];
-    vindex[poffset * 3 + 3] = 5;  // bottom left
-    vindex[poffset * 3 + 4] = 4;  // top left
-    vindex[poffset * 3 + 5] = 7;  // top right
-    txcoord[poffset * 3 + 0] = side_texcoord[16 + 3];
-    txcoord[poffset * 3 + 1] = side_texcoord[16 + 0];
-    txcoord[poffset * 3 + 2] = side_texcoord[16 + 1];
+    vindex[poffset * 3 + 0] = 2;  // top right
+    vindex[poffset * 3 + 1] = 0;  // bottom left
+    vindex[poffset * 3 + 2] = 1;  // top left
+    txcoord[poffset * 3 + 0] = side_texcoord[20 + 1];
+    txcoord[poffset * 3 + 1] = side_texcoord[20 + 3];
+    txcoord[poffset * 3 + 2] = side_texcoord[20 + 0];
+    geometry->polygon_texture[poffset] = side_texture[5];
+    vindex[poffset * 3 + 3] = 2;  // top right
+    vindex[poffset * 3 + 4] = 3;  // bottom right
+    vindex[poffset * 3 + 5] = 0;  // bottom left
+    txcoord[poffset * 3 + 3] = side_texcoord[20 + 1];
+    txcoord[poffset * 3 + 4] = side_texcoord[20 + 2];
+    txcoord[poffset * 3 + 5] = side_texcoord[20 + 3];
+    geometry->polygon_texture[poffset + 1] = side_texture[5];
     poffset += 2;
 
-    // Down / Z- side
-    vindex[poffset * 3 + 0] = 2;  // bottom left
-    vindex[poffset * 3 + 1] = 0;  // top right
-    vindex[poffset * 3 + 2] = 1;  // bottom right
-    txcoord[poffset * 3 + 0] = side_texcoord[20 + 3];
-    txcoord[poffset * 3 + 1] = side_texcoord[20 + 1];
-    txcoord[poffset * 3 + 2] = side_texcoord[20 + 2];
-    vindex[poffset * 3 + 3] = 2;  // bottom left
-    vindex[poffset * 3 + 4] = 3;  // top left
-    vindex[poffset * 3 + 5] = 0;  // top right
-    txcoord[poffset * 3 + 0] = side_texcoord[20 + 3];
-    txcoord[poffset * 3 + 1] = side_texcoord[20 + 0];
-    txcoord[poffset * 3 + 2] = side_texcoord[20 + 1];
+    return 1;
+}
+
+S3DEXP int spew3d_geometry_AddPlaneSimple(
+        s3d_geometry *geometry,
+        s3dnum_t plane_width, s3dnum_t plane_height,
+        int faces_upward, s3d_texture_t texture,
+        int texture_owned) {
+    s3d_point coords[4];
+
+    // Top left:
+    coords[0].x = 0;
+    coords[0].y = 0;
+    // Top right:
+    coords[1].x = 1;
+    coords[1].y = 0;
+    // Bottom right:
+    coords[2].x = 1;
+    coords[2].y = 1;
+    // Bottom left:
+    coords[3].x = 0;
+    coords[3].y = 1;
+
+    s3d_pos offset = {0};
+    s3d_rotation rotation = {0};
+    if (!faces_upward)
+        rotation.verti = 90;
+
+    return spew3d_geometry_AddPlane(
+        geometry, plane_width, plane_height,
+        &offset, &rotation,
+        coords, texture, texture_owned
+    );
+}
+
+S3DEXP int spew3d_geometry_AddPlane(
+        s3d_geometry *geometry,
+        s3dnum_t plane_width, s3dnum_t plane_height,
+        s3d_pos *offset,
+        s3d_rotation *rotation,
+        s3d_point *side_texcoord,
+        s3d_texture_t texture,
+        int texture_owned
+        ) {
+    if (!_internal_spew3d_geometry_AddVertexPolyAlloc(
+            geometry, 4, 2
+            )) {
+        return 0;
+    }
+    geometry->vertex_count += 4;
+    geometry->polygon_count += 2;
+
+    const s3dnum_t halfplanewidth = (plane_width / 2);
+    const s3dnum_t halfplaneheight = (plane_height / 2);
+    int viter = geometry->vertex_count - 4;
+    assert(viter >= 0);
+    const int viterstart = viter;
+    while (viter < geometry->vertex_count) {
+        const int relidx = (viter - viterstart);
+        s3d_pos finaloffset = {0};
+        finaloffset.z = 0;
+        finaloffset.x = (
+            (relidx == 0 || relidx == 3 || relidx == 4 ||
+            relidx == 7) ? halfplaneheight : -halfplaneheight
+        );
+        finaloffset.y = (
+            (relidx == 0 || relidx == 1 || relidx == 4 ||
+            relidx == 5) ? halfplanewidth : -halfplanewidth
+        );
+        spew3d_math3d_rotate(&finaloffset, rotation);
+        spew3d_math3d_add(&finaloffset, offset);
+        geometry->vertex[viter] = finaloffset;
+        viter++;
+    }
+
+    int poffset = geometry->polygon_count - 2;
+    int32_t *vindex = geometry->polygon_vertexindex;
+    s3d_point *txcoord = geometry->polygon_texcoord;
+
+    // Forward / X+ side
+    vindex[poffset * 3 + 0] = 2;  // top right
+    vindex[poffset * 3 + 1] = 0;  // bottom left
+    vindex[poffset * 3 + 2] = 1;  // top left
+    txcoord[poffset * 3 + 0] = side_texcoord[1];
+    txcoord[poffset * 3 + 1] = side_texcoord[3];
+    txcoord[poffset * 3 + 2] = side_texcoord[0];
+    geometry->polygon_texture[poffset] = texture;
+    vindex[poffset * 3 + 3] = 2;  // top right
+    vindex[poffset * 3 + 4] = 3;  // bottom right
+    vindex[poffset * 3 + 5] = 0;  // bottom left
+    txcoord[poffset * 3 + 3] = side_texcoord[1];
+    txcoord[poffset * 3 + 4] = side_texcoord[2];
+    txcoord[poffset * 3 + 5] = side_texcoord[3];
+    geometry->polygon_texture[poffset + 1] = texture;
     poffset += 2;
 
     return 1;
@@ -423,7 +531,26 @@ S3DEXP int spew3d_geometry_Transform(
     while (i < geometry->polygon_count) {
         assert(rfill >= 0 && rfill < ralloc);
         assert(ioffset <= geometry->polygon_count * 3 - 3);
+        rqueue[rfill].polygon_texture = (
+            geometry->polygon_texture[i]
+        );
         s3d_pos vertex_positions[3];
+
+        // First vertex:
+        #if defined(DEBUG_SPEW3D_TRANSFORM3D)
+        printf("spew3d_geometry.c: debug: geom %p "
+            "vertex #%d input world x,y,z %f,%f,%f\n",
+            geometry, ioffset,
+            (double)geometry->vertex[
+                geometry->polygon_vertexindex[ioffset]
+            ].x,
+            (double)geometry->vertex[
+                geometry->polygon_vertexindex[ioffset]
+            ].y,
+            (double)geometry->vertex[
+                geometry->polygon_vertexindex[ioffset]
+            ].z);
+        #endif
         spew3d_math3d_transform3d(
             geometry->vertex[
                 geometry->polygon_vertexindex[ioffset]
@@ -432,8 +559,14 @@ S3DEXP int spew3d_geometry_Transform(
             effective_model_rot,
             &rqueue[rfill].vertex_pos[0]
         );
-
-        // First vertex:
+        #if defined(DEBUG_SPEW3D_TRANSFORM3D)
+        printf("spew3d_geometry.c: debug: geom %p "
+            "vertex #%d output world x,y,z %f,%f,%f\n",
+            geometry, ioffset,
+            (double)rqueue[rfill].vertex_pos[0].x,
+            (double)rqueue[rfill].vertex_pos[0].y,
+            (double)rqueue[rfill].vertex_pos[0].z);
+        #endif
         rqueue[rfill].vertex_texcoord[0] = (
             geometry->polygon_texcoord[ioffset]
         );
@@ -455,6 +588,20 @@ S3DEXP int spew3d_geometry_Transform(
         ioffset++;
 
         // Second vertex:
+        #if defined(DEBUG_SPEW3D_TRANSFORM3D)
+        printf("spew3d_geometry.c: debug: geom %p "
+            "vertex #%d input world x,y,z %f,%f,%f\n",
+            geometry, ioffset,
+            (double)geometry->vertex[
+                geometry->polygon_vertexindex[ioffset]
+            ].x,
+            (double)geometry->vertex[
+                geometry->polygon_vertexindex[ioffset]
+            ].y,
+            (double)geometry->vertex[
+                geometry->polygon_vertexindex[ioffset]
+            ].z);
+        #endif
         spew3d_math3d_transform3d(
             geometry->vertex[
                 geometry->polygon_vertexindex[ioffset]
@@ -463,6 +610,14 @@ S3DEXP int spew3d_geometry_Transform(
             effective_model_rot,
             &rqueue[rfill].vertex_pos[1]
         );
+        #if defined(DEBUG_SPEW3D_TRANSFORM3D)
+        printf("spew3d_geometry.c: debug: geom %p "
+            "vertex #%d output world x,y,z %f,%f,%f\n",
+            geometry, ioffset,
+            (double)rqueue[rfill].vertex_pos[1].x,
+            (double)rqueue[rfill].vertex_pos[1].y,
+            (double)rqueue[rfill].vertex_pos[1].z);
+        #endif
         rqueue[rfill].vertex_texcoord[1] = (
             geometry->polygon_texcoord[ioffset]
         );
@@ -484,6 +639,20 @@ S3DEXP int spew3d_geometry_Transform(
         ioffset++;
 
         // Third vertex:
+        #if defined(DEBUG_SPEW3D_TRANSFORM3D)
+        printf("spew3d_geometry.c: debug: geom %p "
+            "vertex #%d input world x,y,z %f,%f,%f\n",
+            geometry, ioffset,
+            (double)geometry->vertex[
+                geometry->polygon_vertexindex[ioffset]
+            ].x,
+            (double)geometry->vertex[
+                geometry->polygon_vertexindex[ioffset]
+            ].y,
+            (double)geometry->vertex[
+                geometry->polygon_vertexindex[ioffset]
+            ].z);
+        #endif
         spew3d_math3d_transform3d(
             geometry->vertex[
                 geometry->polygon_vertexindex[ioffset]
@@ -492,6 +661,14 @@ S3DEXP int spew3d_geometry_Transform(
             effective_model_rot,
             &rqueue[rfill].vertex_pos[2]
         );
+        #if defined(DEBUG_SPEW3D_TRANSFORM3D)
+        printf("spew3d_geometry.c: debug: geom %p "
+            "vertex #%d output world x,y,z %f,%f,%f\n",
+            geometry, ioffset,
+            (double)rqueue[rfill].vertex_pos[2].x,
+            (double)rqueue[rfill].vertex_pos[2].y,
+            (double)rqueue[rfill].vertex_pos[2].z);
+        #endif
         rqueue[rfill].vertex_texcoord[2] = (
             geometry->polygon_texcoord[ioffset]
         );

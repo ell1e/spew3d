@@ -84,6 +84,23 @@ S3DEXP int spew3d_geometry_AddCubeSimple(
     int texture_owned
 );
 
+S3DEXP int spew3d_geometry_AddPlane(
+    s3d_geometry *geometry,
+    s3dnum_t plane_width, s3dnum_t plane_height,
+    s3d_pos *offset,
+    s3d_rotation *rotation,
+    s3d_point *side_texcoord,
+    s3d_texture_t texture,
+    int texture_owned
+);
+
+S3DEXP int spew3d_geometry_AddPlaneSimple(
+    s3d_geometry *geometry,
+    s3dnum_t plane_width, s3dnum_t plane_height,
+    int faces_upward, s3d_texture_t texture,
+    int texture_owned
+);
+
 S3DEXP void spew3d_geometry_Destroy(s3d_geometry *geometry);
 
 enum GeomDynLightRenderDetail {

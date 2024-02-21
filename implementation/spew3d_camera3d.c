@@ -35,6 +35,7 @@ license, see accompanied LICENSE.md.
 #include <stdint.h>
 
 extern s3d_mutex *_win_id_mutex;
+extern s3d_mutex *_texlist_mutex;
 typedef struct s3d_window s3d_window;
 
 #define RENDERENTRY_INVALID 0
@@ -68,8 +69,14 @@ typedef struct s3d_camdata {
     uint32_t _render_queue_buffer_alloc;
     s3d_renderpolygon *_render_polygon_buffer;
     uint32_t _render_polygon_buffer_alloc;
+    s3d_sortstructcache *_render_sort_cache;
 } s3d_camdata;
 
+#ifndef SPEW3D_OPTION_DISABLE_SDL
+S3DHID SDL_Texture *_internal_spew3d_MainThreadOnly_GetTex_nolock(
+    s3d_window *win, s3d_texture_t tex, int withalphachannel
+);
+#endif
 S3DHID s3d_scenecolorinfo spew3d_scene3d_GetColorInfo_nolock(
     s3d_scene3d *sc
 );
@@ -110,6 +117,12 @@ S3DHID void spew3d_camera_CameraFreeData(
     );
     if (mdata->_render_collect_objects_buffer != NULL) {
         free(mdata->_render_collect_objects_buffer);
+    }
+    if (mdata->_render_queue_buffer) {
+        free(mdata->_render_queue_buffer);
+    }
+    if (mdata->_render_sort_cache) {
+        s3d_itemsort_FreeCache(mdata->_render_sort_cache);
     }
     free(mdata);
 }
@@ -165,6 +178,44 @@ S3DHID void _spew3d_window_ExtractCanvasSize_nolock(
     s3d_window *win, uint32_t *out_w, uint32_t *out_h
 );
 
+S3DHID static int _depthCompareRenderPolygons(
+        void *item1, void *item2
+        ) {
+    s3d_renderpolygon *entry1 = item1;
+    s3d_renderpolygon *entry2 = item2;
+    /*printf("comparing poly %p <-> %p, "
+        "entry1->vertex_pos[0].x = %f "
+        "entry2->vertex_pos[0].x = %f\n",
+        entry1->vertex_pos[0].x, entry2->vertex_pos[0].x);*/
+    double mindepth1 = (
+        fmin(fmin(entry1->vertex_pos[0].x,
+        entry1->vertex_pos[1].x),
+        entry1->vertex_pos[2].x)
+    );
+    double maxdepth1 = (
+        fmax(fmax(entry1->vertex_pos[0].x,
+        entry1->vertex_pos[1].x),
+        entry1->vertex_pos[2].x)
+    );
+    double depth1 = (mindepth1 + maxdepth1) / 2.0;
+    double mindepth2 = (
+        fmin(fmin(entry2->vertex_pos[0].x,
+        entry2->vertex_pos[1].x),
+        entry2->vertex_pos[2].x)
+    );
+    double maxdepth2 = (
+        fmax(fmax(entry2->vertex_pos[0].x,
+        entry2->vertex_pos[1].x),
+        entry2->vertex_pos[2].x)
+    );
+    double depth2 = (mindepth2 + maxdepth2) / 2.0;
+    if (depth1 < depth2)
+        return -1;
+    if (depth1 > depth2)
+        return 1;
+    return 0;
+}
+
 S3DHID int _spew3d_camera3d_ProcessDrawToWindowReq(s3devent *ev) {
     if (!_internal_spew3d_InitSDLGraphics())
         return 0;
@@ -177,7 +228,8 @@ S3DHID int _spew3d_camera3d_ProcessDrawToWindowReq(s3devent *ev) {
     spew3d_obj3d_LockAccess(cam);
     s3d_pos cam_pos = spew3d_obj3d_GetPos_nolock(cam);
     s3d_rotation cam_rot = spew3d_obj3d_GetRotation_nolock(cam);
-    uint32_t pixel_w, pixel_h;
+    uint32_t pixel_w = 1;
+    uint32_t pixel_h = 1;
     _spew3d_window_ExtractCanvasSize_nolock(
         win, &pixel_w, &pixel_h
     );
@@ -383,17 +435,75 @@ S3DHID int _spew3d_camera3d_ProcessDrawToWindowReq(s3devent *ev) {
     cdata->_render_polygon_buffer_alloc = polybuf_alloc;
     spew3d_obj3d_ReleaseAccess(cam);
 
+    #if defined(DEBUG_SPEW3D_RENDER3D)
+    printf("spew3d_camera3d.c: debug: "
+        "Now sorting geometry, "
+        "polygon queue length: %d\n", polybuf_fill);
+    #endif
+    if (!cdata->_render_sort_cache) {
+        cdata->_render_sort_cache = s3d_itemsort_CreateCache();
+        if (!cdata->_render_sort_cache) {
+            // We can't do much about this.
+        }
+    }
+    int sort_result = s3d_itemsort_Do(
+        polybuf, polybuf_fill * sizeof(polybuf[0]),
+        sizeof(polybuf[0]),
+        &_depthCompareRenderPolygons,
+        cdata->_render_sort_cache,
+        NULL, NULL
+    );
+    if (sort_result == 0) {
+        #if defined(DEBUG_SPEW3D_RENDER3D)
+        printf("spew3d_camera3d.c: debug: "
+            "Sorting failed.\n");
+        #endif
+    }
     #ifndef SPEW3D_OPTION_DISABLE_SDL
-    printf("render geometry, polygon queue length: %d\n", polybuf_fill);
-    SDL_Vertex vertex_1 = {{10.5, 10.5}, {255, 0, 0, 255}, {1, 1}};
-    SDL_Vertex vertex_2 = {{20.5, 10.5}, {255, 0, 0, 255}, {1, 1}};
-    SDL_Vertex vertex_3 = {{10.5, 20.5}, {255, 0, 0, 255}, {1, 1}};
-    SDL_Vertex vertices[] = {
-        vertex_1,
-        vertex_2,
-        vertex_3
-    };
-    SDL_RenderGeometry(render, NULL, vertices, 3, NULL, 0);
+    #if defined(DEBUG_SPEW3D_RENDER3D)
+    printf("spew3d_camera3d.c: debug: "
+        "SDL2 render of geometry, "
+        "polygon queue length: %d\n", polybuf_fill);
+    #endif
+    SDL_SetRenderDrawColor(render, 255, 255, 255, 255);
+    SDL_SetRenderDrawBlendMode(render, SDL_BLENDMODE_BLEND);
+    i = 0;
+    while (i < polybuf_fill) {
+        s3d_renderpolygon *p = &polybuf[i];
+        SDL_Vertex vertex_1 = {
+            {p->vertex_pos[0].x, p->vertex_pos[0].y},
+            {255, 255, 255, 255},
+            {p->vertex_texcoord[0].x, p->vertex_texcoord[0].y}
+        };
+        SDL_Vertex vertex_2 = {
+            {p->vertex_pos[1].x, p->vertex_pos[1].y},
+            {255, 255, 255, 255},
+            {p->vertex_texcoord[1].x, p->vertex_texcoord[1].y}
+        };
+        SDL_Vertex vertex_3 = {
+            {p->vertex_pos[2].x, p->vertex_pos[2].y},
+            {255, 255, 255, 255},
+            {p->vertex_texcoord[2].x, p->vertex_texcoord[2].y}
+        };
+        SDL_Vertex vertices[] = {
+            vertex_1,
+            vertex_2,
+            vertex_3
+        };
+        SDL_Texture *tex = NULL;
+        if (p->polygon_texture != 0) {
+            mutex_Lock(_texlist_mutex);
+            tex = _internal_spew3d_MainThreadOnly_GetTex_nolock(
+                win, p->polygon_texture, 1
+            );
+            mutex_Release(_texlist_mutex);
+            if (tex == NULL) {
+                // Do we want some placeholder graphics here?
+            }
+        }
+        SDL_RenderGeometry(render, tex, vertices, 3, NULL, 0);
+        i++;
+    }
     #else
     // FIXME: Eventually implement custom software renderer
     #endif

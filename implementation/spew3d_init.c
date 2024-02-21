@@ -45,6 +45,9 @@ S3DHID int _internal_spew3d_InitSDLGraphics() {
     SDL_SetHintWithPriority(
         SDL_HINT_FRAMEBUFFER_ACCELERATION, "0",
         SDL_HINT_OVERRIDE);
+    SDL_SetHintWithPriority(
+        SDL_HINT_RENDER_SCALE_QUALITY, "0",
+        SDL_HINT_OVERRIDE);
     #ifdef SDL_HINT_WINDOWS_DPI_SCALING
     SDL_SetHintWithPriority(
         SDL_HINT_WINDOWS_DPI_SCALING, "1",

@@ -256,11 +256,23 @@ S3DHID int _spew3d_window_HandleSDLEvent(SDL_Event *e) {
         return 1;
     } else if (e->type == SDL_WINDOWEVENT) {
         s3d_window *win = spew3d_window_GetBySDLWindowID(e->window.windowID);
-        if (win != NULL && e->window.event == SDL_WINDOWEVENT_CLOSE) {
-            s3devent e2 = {0};
-            e2.kind = S3DEV_WINDOW_USER_CLOSE_REQUEST;
-            e2.window.win_id = win->id;
-            _s3devent_q_InsertForce(equser, &e2);
+        if (win != NULL) {
+            if (e->window.event == SDL_WINDOWEVENT_CLOSE) {
+                s3devent e2 = {0};
+                e2.kind = S3DEV_WINDOW_USER_CLOSE_REQUEST;
+                e2.window.win_id = win->id;
+                _s3devent_q_InsertForce(equser, &e2);
+            } else if (e->window.event == SDL_WINDOWEVENT_RESIZED) {
+                mutex_Lock(_win_id_mutex);
+                win->width = e->window.data1;
+                win->height = e->window.data2;
+                spew3d_window_UpdateGeometryInfo(win);
+                mutex_Release(_win_id_mutex);
+                s3devent e3 = {0};
+                e3.kind = S3DEV_WINDOW_RESIZED;
+                e3.window.win_id = win->id;
+                s3devent_q_Insert(equser, &e3);
+            }
         }
         return 1;
     }

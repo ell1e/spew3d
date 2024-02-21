@@ -302,6 +302,24 @@ S3DEXP s3d_rotation spew3d_obj3d_GetRotation(s3d_obj3d *obj) {
     return r;
 }
 
+S3DHID void spew3d_obj3d_SetRotation_nolock(
+        s3d_obj3d *obj, s3d_rotation rot
+        ) {
+    obj->rot = rot;
+}
+
+S3DEXP void spew3d_obj3d_SetRotation(
+        s3d_obj3d *obj, s3d_rotation rot
+        ) {
+    if (obj->owner) {
+        mutex_Lock(obj->owner->m);
+    }
+    spew3d_obj3d_SetRotation_nolock(obj, rot);
+    if (obj->owner) {
+        mutex_Release(obj->owner->m);
+    }
+}
+
 S3DEXP void spew3d_obj3d_LockAccess(s3d_obj3d *obj) {
     if (obj->owner) {
         mutex_Lock(obj->owner->m);

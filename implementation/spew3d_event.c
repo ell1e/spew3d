@@ -181,7 +181,6 @@ S3DEXP void s3devent_UpdateMainThread() {
     while (1) {
         spew3d_audio_mixer_UpdateAllOnMainThread();
         spew3d_audio_sink_MainThreadUpdate();
-        
 
         s3devent e = {0};
         if (!s3devent_q_Pop(eq, &e))

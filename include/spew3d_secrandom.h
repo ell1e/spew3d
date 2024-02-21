@@ -32,6 +32,9 @@ license, see accompanied LICENSE.md.
 
 int spew3d_secrandom_GetBytes(char *ptr, size_t amount);
 
+int64_t spew3d_secrandom_RandIntRange(int64_t min, int64_t max);
+
+int64_t spew3d_secrandom_RandInt();
 
 #endif  // SPEW3D_SECRANDOM_H_
 

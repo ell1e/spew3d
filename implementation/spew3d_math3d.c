@@ -61,7 +61,7 @@ S3DEXP void spew3d_math3d_split_fovs_from_fov(
     forward_vec.x *= scaler;
     forward_vec.y = (double)pixel_width / 2.0;
     s3d_pos new_forward_vec = {0};
-    new_forward_vec.x = spew3d_math3d_len(forward_vec);
+    new_forward_vec.x = forward_vec.x;
     double hori_fov = spew3d_math3d_anglefromto(
         &new_forward_vec, &forward_vec
     ) * 2;
@@ -92,26 +92,46 @@ S3DEXP void spew3d_math3d_transform3d(
         s3d_rotation model_world_rotation,
         s3d_pos *out_pos
         ) {
+    /*printf("INPUT POS BEFORE MODEL TRANSFORM: %f,%f,%f\n",
+        (double)input_pos.x, (double)input_pos.y,
+        (double)input_pos.z);
+    printf("MODEL WORLD POS %f, %f, %f\n",
+        (double)model_world_pos.x,
+        (double)model_world_pos.y,
+        (double)model_world_pos.z);*/
     spew3d_math3d_rotate(&input_pos, &model_world_rotation);
     spew3d_math3d_add(&input_pos, &model_world_pos);
+    /*printf("INPUT POS AFTER MODEL TRANSFORM: %f,%f,%f\n",
+        (double)input_pos.x, (double)input_pos.y,
+        (double)input_pos.z);
+    printf("CAM WORLD POS %f, %f, %f, "
+        "ANGLES roll=%f,hori=%f,verti=%f\n",
+        (double)cam_info->cam_pos.x,
+        (double)cam_info->cam_pos.y,
+        (double)cam_info->cam_pos.z,
+        (double)cam_info->cam_rotation.roll,
+        (double)cam_info->cam_rotation.hori,
+        (double)cam_info->cam_rotation.verti);*/
     spew3d_math3d_sub(&input_pos, &cam_info->cam_pos);
 
     s3d_rotation reverse;
     reverse.roll = -cam_info->cam_rotation.roll;
     reverse.hori = -cam_info->cam_rotation.hori;
     reverse.verti = -cam_info->cam_rotation.verti;
-
     spew3d_math3d_rotate(&input_pos, &reverse);
+    /*printf("INPUT POS AFTER CAM SPACE TRANSFORM: %f,%f,%f\n",
+        (double)input_pos.x, (double)input_pos.y,
+        (double)input_pos.z);*/
     if (S3DUNLIKELY(!cam_info->cache_set)) {
         cam_info->cache_set = 1;
         cam_info->cached_screen_plane_x = 10000;
 
-        s3d_point vec2d_to_left_side;
+        s3d_point vec2d_to_left_side = {0};
         vec2d_to_left_side.y = 0;
         vec2d_to_left_side.x =
             cam_info->cached_screen_plane_x;
         spew3d_math2d_rotate(&vec2d_to_left_side,
-            cam_info->cam_horifov);
+            cam_info->cam_horifov / 2.0);
         assert(vec2d_to_left_side.x > 0);
         spew3d_math2d_scale(&vec2d_to_left_side,
             cam_info->cached_screen_plane_x /
@@ -121,12 +141,12 @@ S3DEXP void spew3d_math3d_transform3d(
             -vec2d_to_left_side.y
         );
 
-        s3d_point vec2d_to_top_end;
+        s3d_point vec2d_to_top_end = {0};
         vec2d_to_top_end.y = 0;
         vec2d_to_top_end.x =
             cam_info->cached_screen_plane_x;
         spew3d_math2d_rotate(&vec2d_to_top_end,
-            cam_info->cam_vertifov);
+            cam_info->cam_vertifov / 2.0);
         assert(vec2d_to_top_end.x > 0);
         spew3d_math2d_scale(&vec2d_to_top_end,
             cam_info->cached_screen_plane_x /
@@ -137,12 +157,12 @@ S3DEXP void spew3d_math3d_transform3d(
         );
 
         cam_info->cached_screen_plane_pixel_ywidth = (
-            (double)cam_info->cached_screen_plane_yleftoffset /
+            fabs((double)cam_info->cached_screen_plane_yleftoffset) /
             ((double)cam_info->viewport_pixel_width / 2.0)
         );
         cam_info->cached_screen_plane_pixel_zwidth = (
-            (double)cam_info->cached_screen_plane_yleftoffset /
-            ((double)cam_info->viewport_pixel_width / 2.0)
+            (double)cam_info->cached_screen_plane_ztopoffset /
+            ((double)cam_info->viewport_pixel_height / 2.0)
         );
         cam_info->cached_screen_plane_pixel_mixedwidth = (
             (double)cam_info->cached_screen_plane_pixel_ywidth +
@@ -150,20 +170,48 @@ S3DEXP void spew3d_math3d_transform3d(
         ) / 2.0;
     }
 
-    /*if (enable_scaling_depth)
+    double dist_to_plane_factor = fmin(
+        input_pos.x / cam_info->cached_screen_plane_x,
+        9999
+    );
+    /*if (enable_scaling_depth)  // We might need this some day.
         input_pos.x = (
-            input_pos.x /
-            cam_info->cached_screen_plane_pixel_mixedwidth
+            input_pos.x / (
+            cam_info->cached_screen_plane_pixel_mixedwidth *
+            dist_to_plane_factor)
         );*/
-    input_pos.y = (
-        input_pos.y /
-        cam_info->cached_screen_plane_pixel_ywidth
-    );
-    input_pos.z = (
-        input_pos.z /
-        cam_info->cached_screen_plane_pixel_ywidth
-    );
-    *out_pos = input_pos;
+    /*printf("RENDER PLANE DIMENSIONS: yleftoffset=%f,"
+        "ztopoffset=%f, depth=%f, render plane aspect=%f, "
+        "canvasw,h=%f,%f hori fov=%f verti fov=%f "
+        "canvas aspect=%f "
+        "dist_to_plane_factor=%f "
+        "pixel slice ywidth=%f, pixel slice zwidth=%f\n",
+        (double)cam_info->cached_screen_plane_yleftoffset,
+        (double)cam_info->cached_screen_plane_ztopoffset,
+        (double)cam_info->cached_screen_plane_x,
+        (double)cam_info->cached_screen_plane_yleftoffset /
+        (double)cam_info->cached_screen_plane_ztopoffset,
+        (double)cam_info->viewport_pixel_width,
+        (double)cam_info->viewport_pixel_height,
+        (double)cam_info->cam_horifov,
+        (double)cam_info->cam_vertifov,
+        (double)cam_info->viewport_pixel_width /
+        (double)cam_info->viewport_pixel_height,
+        (double)dist_to_plane_factor,
+        (double)cam_info->cached_screen_plane_pixel_ywidth,
+        (double)cam_info->cached_screen_plane_pixel_zwidth
+    );*/
+    out_pos->x = (
+        input_pos.y / (
+        cam_info->cached_screen_plane_pixel_ywidth *
+        dist_to_plane_factor)
+    ) + (double)cam_info->viewport_pixel_width / 2.0;
+    out_pos->y = (double)cam_info->viewport_pixel_height - ((
+        input_pos.z / (
+        cam_info->cached_screen_plane_pixel_zwidth *
+        dist_to_plane_factor)
+    ) + ((double)cam_info->viewport_pixel_height / 2.0));
+    out_pos->z = input_pos.x;
 }
 
 S3DEXP void spew3d_math3d_rotate(

@@ -25,35 +25,27 @@ Alternatively, at your option, this file is offered under the Apache 2
 license, see accompanied LICENSE.md.
 */
 
-#ifndef SPEW3D_CAMERA3D_H_
-#define SPEW3D_CAMERA3D_H_
+#ifndef SPEW3D_ITEMSORT_H_
+#define SPEW3D_ITEMSORT_H_
 
 #include <stdint.h>
 
-typedef struct s3d_window s3d_window;
-typedef struct s3d_scene3d s3d_scene3d;
-typedef struct s3d_rotation s3d_rotation;
-typedef struct s3d_pos s3d_pos;
-typedef struct s3d_point s3d_point;
-typedef uint32_t s3d_material_t;
-typedef uint64_t s3d_texture_t;
+#define S3D_SORT_ERR_UNSORTABLE -3
+#define S3D_SORT_ERR_OOM -2
 
-S3DEXP s3d_obj3d *spew3d_camera3d_CreateForScene(
-    s3d_scene3d *scene
+typedef struct s3d_sortstructcache s3d_sortstructcache;
+
+S3DEXP s3d_sortstructcache *s3d_itemsort_CreateCache();
+
+S3DEXP void s3d_itemsort_FreeCache(s3d_sortstructcache *cache);
+
+int s3d_itemsort_Do(
+    void *sortdata, int64_t sortdatabytes, int64_t itemsize,
+    int (*compareFunc)(void *item1, void *item2),
+    s3d_sortstructcache *cache,
+    int *out_erroroom, int *out_errorunsortable
 );
 
-S3DEXP void spew3d_camera3d_RenderToWindow(
-    s3d_obj3d *cam, s3d_window *win
-);
 
-typedef struct s3d_renderpolygon {
-    s3d_pos vertex_pos[3];
-    s3d_pos vertex_normal[3];
-    s3d_point vertex_texcoord[3];
-    s3d_color vertex_emit[3];
-    s3d_material_t polygon_material;
-    s3d_texture_t polygon_texture;
-} s3d_renderpolygon;
-
-#endif  // SPEW3D_CAMERA3D_H_
+#endif  // SPEW3D_ITEMSORT_H_
 

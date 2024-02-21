@@ -50,7 +50,7 @@ int main(int argc, const char **argv) {
                 break;
             }
         }
-        spew3d_window_FillWithColor(win, 1.0, 1.0, 1.0);
+        spew3d_window_FillWithColor(win, 0.9, 0.5, 0.8);
 
         s3d_point p = spew3d_window_GetWindowSize(win);
         p.x /= 2.0;

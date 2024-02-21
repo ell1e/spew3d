@@ -83,6 +83,8 @@ license, see accompanied LICENSE.md.
 
 // Some debug options:
 #ifdef SPEW3D_DEBUG_OUTPUT
+//#define DEBUG_SPEW3D_RENDER3D
+//#define DEBUG_SPEW3D_TRANSFORM3D
 #define DEBUG_SPEW3D_FS
 #define DEBUG_SPEW3D_VFS
 #define DEBUG_SPEW3D_TEXTURE

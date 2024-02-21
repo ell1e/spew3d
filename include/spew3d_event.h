@@ -37,6 +37,8 @@ enum S3DEventKind {
     S3DEV_WINDOW_RESIZED,
     S3DEV_WINDOW_USER_CLOSE_REQUEST,
 
+    S3DEV_MOUSE_MOVE,
+
     S3DEV_APP_QUIT_REQUEST = 30,
 
     S3DEV_INTERNAL_CMD_WIN_OPEN = 10000,
@@ -64,9 +66,14 @@ typedef struct s3devent {
         struct window {
             uint32_t win_id;
         } window;
+        struct mousemove {
+            uint32_t win_id;
+            s3dnum_t mouse_rel_x, mouse_rel_y;
+            s3dnum_t mouse_x, mouse_y;
+        };
         struct drawprimitive {
             uint32_t win_id;
-            double red, green, blue;
+            s3dnum_t red, green, blue;
         } drawprimitive;
         struct texturelock {
             s3d_texture_t tid;

@@ -163,6 +163,38 @@ int spew3d_secrandom_GetBytes(char *ptr, size_t amount) {
     #endif
 }
 
+int64_t spew3d_secrandom_RandIntRange(int64_t min, int64_t max) {
+    assert(max >= min);
+    uint64_t range = max - min;
+    if (range == 0)
+        return min;
+    if (range == UINT64_MAX)
+        return spew3d_secrandom_RandInt();
+    range++;  // Inclusive maximum.
+    uint64_t safe_modulo_range = (
+        ((int64_t)(UINT64_MAX / range)) * range
+    );
+    if (safe_modulo_range < range)
+        safe_modulo_range = range;
+    uint64_t i = 0;
+    while (1) {
+        while (!spew3d_secrandom_GetBytes((char *)&i, sizeof(i))) {
+            // Repeat until we get a value.
+        }
+        if (i < safe_modulo_range)
+            break;
+    }
+    return min + (i % range);
+}
+
+int64_t spew3d_secrandom_RandInt() {
+    int64_t i = 0;
+    while (!spew3d_secrandom_GetBytes((char *)&i, sizeof(i))) {
+        // Repeat until we get a value.
+    }
+    return i;
+}
+
 
 #endif  // SPEW3D_IMPLEMENTATION
 

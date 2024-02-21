@@ -214,7 +214,7 @@ static int _internal_spew3d_ForceLoadTexture(s3d_texture_t tid) {
 }
 
 #ifndef SPEW3D_OPTION_DISABLE_SDL
-static int _internal_spew3d_TextureToGPU(
+S3DHID int _internal_spew3d_TextureToGPU(
         s3d_window *win,
         s3d_texture_t tid, int alpha,
         SDL_Texture **out_tex
@@ -254,9 +254,28 @@ static int _internal_spew3d_TextureToGPU(
         extrainfo->height,
         32, extrainfo->width * 4, 0x000000ff,
         0x0000ff00, 0x00ff0000,
-        (alpha ? 0xff000000 : 0));
+        0xff000000
+    );
     if (!s)
         return 0;
+    if (!alpha) {
+        SDL_LockSurface(s);
+        uint32_t pitch = s->pitch;
+        uint8_t *p = (uint8_t *)s->pixels;
+        const uint32_t p2end_offset = s->w *4;
+        uint32_t y = 0;
+        while (y < s->h) {
+            uint8_t *p2 = p;
+            uint8_t *p2end = p2 + p2end_offset;
+            while (p2 != p2end) {
+                p2[3] = 255;
+                p2 += 4;
+            }
+            p += pitch;
+            y++;
+        }
+        SDL_UnlockSurface(s);
+    }
     SDL_SetHintWithPriority(SDL_HINT_RENDER_SCALE_QUALITY, "0",
         SDL_HINT_OVERRIDE); 
     if (alpha) {
@@ -659,6 +678,36 @@ S3DEXP int spew3d_texture_DrawAtCanvasPixels(
     return s3devent_q_Insert(_s3devent_GetInternalQueue(), &e);
 }
 
+#ifndef SPEW3D_OPTION_DISABLE_SDL
+S3DHID SDL_Texture *_internal_spew3d_MainThreadOnly_GetTex_nolock(
+        s3d_window *win, s3d_texture_t tex, int withalphachannel
+        ) {
+    assert(mutex_IsLocked(_texlist_mutex));
+    s3d_texture_info *tinfo = _internal_spew3d_texinfo_nolock(tex);
+    spew3d_texture_extrainfo *extrainfo = (
+        spew3d_extrainfo(tex)
+    );
+    if (!_internal_spew3d_ForceLoadTexture(tex))
+        return NULL;
+    SDL_Texture *sdltex = NULL;
+    int gpuupload = _internal_spew3d_TextureToGPU(
+        win, tex, withalphachannel, &sdltex
+    );
+    if (gpuupload == 0) {
+        tinfo->loadingfailed = 1;
+        #if defined(DEBUG_SPEW3D_TEXTURE)
+        fprintf(stderr,
+            "spew3d_texture.c: debug: "
+            "spew3d_texture_DrawToCanvas(): "
+            "failed to access, decode, or "
+            "do GPU upload of texture\n");
+        #endif
+        return NULL;
+    }
+    return sdltex;
+}
+#endif
+
 S3DHID int _spew3d_texture_ProcessSpriteDrawReq(s3devent *e) {
     assert(mutex_IsLocked(_texlist_mutex));
 
@@ -692,7 +741,7 @@ S3DHID int _spew3d_texture_ProcessSpriteDrawReq(s3devent *e) {
         if (transparency < (1.0 / 256.0) * 0.5)
             return 1;
 
-        // FIXME: implement this.
+        // FIXME: implement this, the no SDL2 render path.
         return 1;
     }
     #ifndef SPEW3D_OPTION_DISABLE_SDL
@@ -700,20 +749,10 @@ S3DHID int _spew3d_texture_ProcessSpriteDrawReq(s3devent *e) {
     spew3d_window_GetSDLWindowAndRenderer(
         win, NULL, &renderer
     );
-    SDL_Texture *tex = NULL;
-    assert(!tinfo->loadingfailed);
-    int gpuupload = _internal_spew3d_TextureToGPU(
-        win, tid, withalphachannel, &tex
+    SDL_Texture *tex = _internal_spew3d_MainThreadOnly_GetTex_nolock(
+        win, tid, withalphachannel
     );
-    if (gpuupload == 0) {
-        tinfo->loadingfailed = 1;
-        #if defined(DEBUG_SPEW3D_TEXTURE)
-        fprintf(stderr,
-            "spew3d_texture.c: debug: "
-            "spew3d_texture_DrawToCanvas(): "
-            "failed to access, decode, or "
-            "do GPU upload of texture\n");
-        #endif
+    if (!tex) {
         return 1;
     }
 
@@ -746,6 +785,8 @@ S3DHID int _spew3d_texture_ProcessSpriteDrawReq(s3devent *e) {
         ((int32_t)(extrainfo->height * scale) / 2) : 0);
     r.w = round(extrainfo->width * scale);
     r.h = round(extrainfo->height * scale);
+    SDL_SetRenderDrawBlendMode(renderer,
+        SDL_BLENDMODE_BLEND);
     if (SDL_RenderCopyEx(renderer, tex, NULL, &r,
             -angle, NULL, SDL_FLIP_NONE) != 0)
         return 1;
