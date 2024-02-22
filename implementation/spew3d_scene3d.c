@@ -240,6 +240,7 @@ S3DEXP void spew3d_obj3d_Destroy(s3d_obj3d *obj) {
         mutex_Lock(s->m);
     }
     obj->wasdeleted = 1;
+    int result = spew3d_Deletion_Queue(DELETION_OBJ3D, obj);
     if (s) {
         mutex_Release(s->m);
     }

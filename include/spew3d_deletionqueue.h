@@ -28,5 +28,20 @@ license, see accompanied LICENSE.md.
 #ifndef SPEW3D_DELETIONQUEUES_H_
 #define SPEW3D_DELETIONQUEUES_H_
 
+enum DeletionKind {
+    DELETION_INVALID = 0,
+    DELETION_WINDOW = 1,
+    DELETION_OBJ3D,
+    DELETION_GEOM,
+    DELETION_LVLBOX
+};
+
+typedef struct s3d_deletionqueueitem {
+    int kind;
+    void *item;
+} s3d_deletionqueueitem;
+
+S3DEXP int spew3d_Deletion_Queue(int kind, void *item);
+
 #endif  // SPEW3D_DELETIONQUEUES_H_
 

@@ -63,6 +63,7 @@ typedef struct spew3d_texture_extrainfo {
     char *pixels;
     uint32_t width, height;
     int forcenosdl;
+    uint64_t last_use_ts;
 
     #ifndef SPEW3D_OPTION_DISABLE_SDL
     SDL_Texture *sdltexture_alpha, *sdltexture_noalpha;

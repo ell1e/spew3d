@@ -70,7 +70,7 @@ typedef struct s3devent {
             uint32_t win_id;
             s3dnum_t mouse_rel_x, mouse_rel_y;
             s3dnum_t mouse_x, mouse_y;
-        };
+        } mousemove;
         struct drawprimitive {
             uint32_t win_id;
             s3dnum_t red, green, blue;

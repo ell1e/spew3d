@@ -499,6 +499,22 @@ S3DEXP void spew3d_window_Destroy(s3d_window *win) {
     _s3devent_q_InsertForce(eq, &e);
 }
 
+S3DHID void _spew3d_window_ActuallyDestroy(s3d_window *win) {
+    if (!win)
+        return;
+
+    #ifndef SPEW3D_OPTION_DISABLE_SDL
+    if (win->_sdl_outputrenderer != NULL && win->owns_sdl_renderer) {
+        SDL_DestroyRenderer(win->_sdl_outputrenderer);
+    }
+    win->_sdl_outputrenderer = NULL;
+    if (win->_sdl_outputwindow != NULL && win->owns_sdl_window) {
+        SDL_DestroyWindow(win->_sdl_outputwindow);
+    }
+    win->_sdl_outputwindow = NULL;
+    #endif
+}
+
 S3DHID int _spew3d_window_ProcessWinCloseReq(s3devent *ev) {
     if (!_internal_spew3d_InitSDLGraphics())
         return 0;
@@ -507,20 +523,9 @@ S3DHID int _spew3d_window_ProcessWinCloseReq(s3devent *ev) {
     if (!win)
         return 1;
 
-    #ifndef SPEW3D_OPTION_DISABLE_SDL
-    if (win->_sdl_outputrenderer != NULL && win->owns_sdl_renderer) {
-        SDL_DestroyRenderer(win->_sdl_outputrenderer);
-        return 1;
-    }
-    win->_sdl_outputrenderer = NULL;
-    if (win->_sdl_outputwindow != NULL && win->owns_sdl_window) {
-        SDL_DestroyWindow(win->_sdl_outputwindow);
-        return 1;
-    }
-    win->_sdl_outputwindow = NULL;
-    #endif
-
     win->wasclosed = 1;
+    int result = spew3d_Deletion_Queue(DELETION_WINDOW, win);
+
     return 1;
 }
 

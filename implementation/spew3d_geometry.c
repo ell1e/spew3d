@@ -438,29 +438,7 @@ S3DEXP void spew3d_geometry_Destroy(s3d_geometry *geometry) {
     if (!geometry)
         return;
     geometry->wasdeleted = 1;
-    mutex_Lock(geometrydestroylist_m);
-    if (geometrydestroylist_fill + 1 >
-            geometrydestroylist_alloc) {
-        uint32_t new_alloc = (
-            geometrydestroylist_fill + 1 + 32
-        ) * 2;
-        s3d_geometry **newlist = realloc(
-            geometrydestroylist,
-            sizeof(*geometrydestroylist) * new_alloc
-        );
-        if (!newlist) {
-            fprintf(stderr, "spew3d_geometry.c: error: "
-                "Failed to allocate deletion entry for "
-                "geometry entry. Will leak memory.");
-            mutex_Release(geometrydestroylist_m);
-            return;
-        }
-        geometrydestroylist = newlist;
-        geometrydestroylist_alloc = new_alloc;
-    }
-    geometrydestroylist[geometrydestroylist_fill] = geometry;
-    geometrydestroylist_fill++;
-    mutex_Release(geometrydestroylist_m);
+    int result = spew3d_Deletion_Queue(DELETION_GEOM, geometry);
 }
 
 S3DEXP int spew3d_geometry_Transform(
