@@ -114,11 +114,15 @@ S3DEXP void spew3d_math3d_transform3d(
         (double)cam_info->cam_rotation.verti);*/
     spew3d_math3d_sub(&input_pos, &cam_info->cam_pos);
 
-    s3d_rotation reverse;
-    reverse.roll = -cam_info->cam_rotation.roll;
-    reverse.hori = -cam_info->cam_rotation.hori;
-    reverse.verti = -cam_info->cam_rotation.verti;
-    spew3d_math3d_rotate(&input_pos, &reverse);
+    s3d_rotation reverse1 = {0};
+    reverse1.verti = -cam_info->cam_rotation.verti;
+    spew3d_math3d_rotate(&input_pos, &reverse1);
+    s3d_rotation reverse2 = {0};
+    reverse2.hori = -cam_info->cam_rotation.hori;
+    spew3d_math3d_rotate(&input_pos, &reverse2);
+    s3d_rotation reverse3 = {0};
+    reverse3.roll = -cam_info->cam_rotation.roll;
+    spew3d_math3d_rotate(&input_pos, &reverse3);
     /*printf("INPUT POS AFTER CAM SPACE TRANSFORM: %f,%f,%f\n",
         (double)input_pos.x, (double)input_pos.y,
         (double)input_pos.z);*/
@@ -171,7 +175,7 @@ S3DEXP void spew3d_math3d_transform3d(
     }
 
     double dist_to_plane_factor = fmin(
-        input_pos.x / cam_info->cached_screen_plane_x,
+        fabs(input_pos.x / cam_info->cached_screen_plane_x),
         9999
     );
     /*printf("RENDER PLANE DIMENSIONS: yleftoffset=%f,"

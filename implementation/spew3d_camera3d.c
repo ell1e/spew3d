@@ -158,6 +158,16 @@ S3DEXP s3d_obj3d *spew3d_camera3d_CreateForScene(
     return obj;
 }
 
+S3DEXP void spew3d_camera3d_SetFOV(
+        s3d_obj3d *cam, double fov
+        ) {
+    assert(_spew3d_scene3d_GetKind_nolock(cam) == OBJ3D_CAMERA);
+    s3d_camdata *camdata = _spew3d_scene3d_ObjExtraData_nolock(
+        cam
+    );
+    camdata->fov = fov;
+}
+
 S3DEXP void spew3d_camera3d_RenderToWindow(
         s3d_obj3d *cam, s3d_window *win
         ) {

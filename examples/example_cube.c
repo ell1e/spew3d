@@ -60,6 +60,7 @@ int main(int argc, const char **argv) {
     cam_pos.x = -3 * S3D_METER;
     cam_pos.z = 0.5 * S3D_METER;
     spew3d_obj3d_SetPos(camera, cam_pos);
+    spew3d_camera3d_SetFOV(camera, 100);
 
     // Enter main loop:
     printf("Entering main loop.\n");
@@ -85,8 +86,9 @@ int main(int argc, const char **argv) {
         r.roll = degree * 2;
         spew3d_obj3d_SetRotation(cube, r);
         s3d_rotation cam_rot = {0};
-        cam_rot.hori = 0;
-        //cam_rot.roll = degree * 1.2;
+        cam_rot.hori = -20 + degree * 0.1;
+        cam_rot.verti = sin(degree * 0.1) * 5.0;
+        cam_rot.roll = sin(degree * 0.06) * 30.0;
         spew3d_obj3d_SetRotation(camera, cam_rot);
 
         // Render scene:
