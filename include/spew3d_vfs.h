@@ -37,79 +37,86 @@ license, see accompanied LICENSE.md.
 // Mount an archive at the given path into the VFS space.
 // Returns a positive numeric id for the mount on success,
 // returns -1 on error.
-int64_t spew3d_vfs_MountArchiveFromDisk(
+S3DEXP int64_t spew3d_vfs_MountArchiveFromDisk(
     const char *path
 );
 
-char *spew3d_vfs_NormalizePath(const char *path);
+S3DEXP char *spew3d_vfs_NormalizePath(const char *path);
 
-int spew3d_vfs_FileToBytes(
+S3DEXP int spew3d_vfs_FileToBytes(
     const char *path, int flags,
     int *out_fserr,
     char **out_bytes,
     uint64_t *out_bytes_len
 );
 
-int spew3d_vfs_Exists(
+S3DEXP int spew3d_vfs_FileToBytesWithLimit(
+    const char *path, int flags, int64_t max_size_limit,
+    int *out_fserr,
+    char **out_bytes,
+    uint64_t *out_bytes_len
+);
+
+S3DEXP int spew3d_vfs_Exists(
     const char *path, int vfsflags, int *result, int *fserr
 );
 
 typedef struct SPEW3DVFS_FILE SPEW3DVFS_FILE;
 
-SPEW3DVFS_FILE *spew3d_vfs_fopen(
+S3DEXP SPEW3DVFS_FILE *spew3d_vfs_fopen(
     const char *path, const char *mode, int flags
 );
 
-int spew3d_vfs_ferror(SPEW3DVFS_FILE *f);
+S3DEXP int spew3d_vfs_ferror(SPEW3DVFS_FILE *f);
 
-SPEW3DVFS_FILE *spew3d_vfs_OwnThisFD(
+S3DEXP SPEW3DVFS_FILE *spew3d_vfs_OwnThisFD(
     FILE *f, const char *reopenmode
 );
 
-void spew3d_vfs_DetachFD(SPEW3DVFS_FILE *f);
+S3DEXP void spew3d_vfs_DetachFD(SPEW3DVFS_FILE *f);
 
 /// Check if the file position is at the end or not.
 /// Returns 1 if position is at the end of the file,
 /// otherwise 0.
-int spew3d_vfs_feof(SPEW3DVFS_FILE *f);
+S3DEXP int spew3d_vfs_feof(SPEW3DVFS_FILE *f);
 
-size_t spew3d_vfs_fread(
+S3DEXP size_t spew3d_vfs_fread(
     char *buffer, int bytes, int numn, SPEW3DVFS_FILE *f
 );   // sets errno = 0 on eof, errno = EIO on other error.
 
-int64_t spew3d_vfs_ftell(SPEW3DVFS_FILE *f);
+S3DEXP int64_t spew3d_vfs_ftell(SPEW3DVFS_FILE *f);
 
-void spew3d_vfs_fclose(SPEW3DVFS_FILE *f);
+S3DEXP void spew3d_vfs_fclose(SPEW3DVFS_FILE *f);
 
 /// Seek to the given absolute offset.
 /// Returns 0 on success, -1 on error.
-int spew3d_vfs_fseek(SPEW3DVFS_FILE *f, uint64_t offset);
+S3DEXP int spew3d_vfs_fseek(SPEW3DVFS_FILE *f, uint64_t offset);
 
 /// Seek to end of file. Returns 1 on success, 0 on error.
-int spew3d_vfs_fseektoend(SPEW3DVFS_FILE *f);
+S3DEXP int spew3d_vfs_fseektoend(SPEW3DVFS_FILE *f);
 
 /// Get next byte returned as value from 0 to 255,
 /// or a negative value on error.
-int spew3d_vfs_fgetc(SPEW3DVFS_FILE *f);
+S3DEXP int spew3d_vfs_fgetc(SPEW3DVFS_FILE *f);
 
 /// Peak at next byte but don't advance file position,
 /// returns byte as value from 0 to 255, or a negative
 /// value on error.
-int spew3d_vfs_peakc(SPEW3DVFS_FILE *f);
+S3DEXP int spew3d_vfs_peakc(SPEW3DVFS_FILE *f);
 
-size_t spew3d_vfs_fwrite(
+S3DEXP size_t spew3d_vfs_fwrite(
     const char *buffer, int bytes, int numn,
     SPEW3DVFS_FILE *f
 );
 
-int spew3d_vfs_Size(
+S3DEXP int spew3d_vfs_Size(
     const char *path, int vfsflags, uint64_t *result,
     int *fserr
 );
 
-SPEW3DVFS_FILE *spew3d_vfs_fdup(SPEW3DVFS_FILE *f);
+S3DEXP SPEW3DVFS_FILE *spew3d_vfs_fdup(SPEW3DVFS_FILE *f);
 
-int spew3d_vfs_flimitslice(
+S3DEXP int spew3d_vfs_flimitslice(
     SPEW3DVFS_FILE *f, uint64_t fileoffset, uint64_t maxlen
 );
 

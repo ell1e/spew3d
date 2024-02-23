@@ -15,6 +15,7 @@ int main(int argc, const char **argv) {
                 ".map", strlen(".map")) != 0) {
         printf("Please specify a level file as first argument! "
             "Like this: example_editor my_little_area.map");
+        return 1;
     }
 
     // First, ensure we're in the right folder:
@@ -35,10 +36,11 @@ int main(int argc, const char **argv) {
     }
 
     // Set up a level:
-    s3d_lvlbox *level = spew3d_lvlbox_New(
-        "grass.png", 0
+    s3d_lvlbox *level = NULL;
+    s3d_resourceload_job *job = spew3d_lvlbox_FromMapFile(
+        argv[1], 0, 1
     );
-    if (!level) {
+    if (!job) {
         failed: ;
         fprintf(stderr, "Failed to create scene or level.\n");
         return 1;
@@ -70,6 +72,18 @@ int main(int argc, const char **argv) {
             }
         }
 
+        // Process level loading:
+        if (!level && job != NULL) {
+            if (s3d_resourceload_IsDone(job)) {
+                level = spew3d_lvlbox_FromMapFileFinalize(job);
+                job = NULL;
+                if (!level) {
+                    spew3d_window_Destroy(win);
+                    goto failed;
+                }
+            }
+        }
+
         // Render scene:
         spew3d_window_FillWithColor(win, 1, 1, 1);
         spew3d_camera3d_RenderToWindow(camera, win);
@@ -80,3 +94,4 @@ int main(int argc, const char **argv) {
     printf("Shutting down\n");
     return 0;
 }
+

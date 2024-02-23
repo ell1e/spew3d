@@ -36,6 +36,9 @@ typedef struct s3d_resourceload_job {
     char *path;
     int vfsflags;
     int rltype;
+    void *extradata;
+    void *(*callback)(const char *path, int vfsflags,
+        void *extradata);
 
     int hasfinished, hasstarted, fserror,
         nonfserror, markeddeleted;
@@ -153,7 +156,7 @@ S3DHID static int s3d_resourceload_ProcessJob() {
             fprintf(stderr,
                 "spew3d_resourceload.c: debug: "
                 "s3d_resourceload_ProcessJob(): "
-                "failed to decode or allocate image "
+                "Failed to decode or allocate image "
                 "for texture: \"%s\" [job %p]\n",
                 job->path, job);
             #endif
@@ -175,6 +178,59 @@ S3DHID static int s3d_resourceload_ProcessJob() {
             "spew3d_resourceload.c: debug: "
             "s3d_resourceload_ProcessJob(): "
             "Succeeded for texture: \"%s\" (size: "
+            "%d,%d) [job %p]\n",
+            job->path, (int)job->w, (int)job->h,
+            job);
+        #endif
+        mutex_Release(_spew3d_resourceload_mutex);
+    } else if (job->callback != NULL) {
+        mutex_Lock(_spew3d_resourceload_mutex);
+        char *path = job->path != NULL ? strdup(job->path) : NULL;
+        int vfsflags = job->vfsflags;
+        void *extradata = job->extradata;
+        void *(*cb)(const char *path,
+                int vfsflags, void *extradata) =
+            job->callback;
+        if (path == NULL && job->path != NULL) {
+             fprintf(stderr,
+                "spew3d_resourceload.c: warning: "
+                "s3d_resourceload_ProcessJob(): "
+                "Failed to process job with "
+                "path \"%s\" [job %p], out of memory.\n",
+                rltype, job->path, job);
+            job->hasfinished = 1;
+            job->nonfserror = 1;
+            job->fserror = FSERR_SUCCESS;
+            mutex_Release(_spew3d_resourceload_mutex);
+            return 1;
+        }
+        mutex_Release(_spew3d_resourceload_mutex);
+        void *result = cb(path, vfsflags, extradata);
+        mutex_Lock(_spew3d_resourceload_mutex);
+        if (!result) {
+            #if defined(DEBUG_SPEW3D_RESOURCELOAD)
+            fprintf(stderr,
+                "spew3d_resourceload.c: debug: "
+                "s3d_resourceload_ProcessJob(): "
+                "Callback returned failure for generic job: "
+                "\"%s\" [job %p]\n",
+                job->path, job);
+            #endif
+            job->hasfinished = 1;
+            job->nonfserror = 1;
+            job->fserror = FSERR_SUCCESS;
+            mutex_Release(_spew3d_resourceload_mutex);
+            return 1;
+        }
+        job->result.generic.callback_result = result;
+        job->hasfinished = 1;
+        job->nonfserror = 0;
+        job->fserror = FSERR_SUCCESS;
+        #if defined(DEBUG_SPEW3D_RESOURCELOAD)
+        fprintf(stderr,
+            "spew3d_resourceload.c: debug: "
+            "s3d_resourceload_ProcessJob(): "
+            "Succeeded for generic job: \"%s\" (size: "
             "%d,%d) [job %p]\n",
             job->path, (int)job->w, (int)job->h,
             job);
@@ -247,6 +303,17 @@ S3DHID static void _s3d_resourceload_JobThread(
 S3DEXP s3d_resourceload_job *s3d_resourceload_NewJob(
         const char *path, int rltype, int vfsflags
         ) {
+    return s3d_resourceload_NewJobWithCallback(
+        path, rltype, vfsflags, NULL, NULL
+    );
+}
+
+S3DEXP s3d_resourceload_job *s3d_resourceload_NewJobWithCallback(
+        const char *path, int rltype, int vfsflags,
+        void *(*callback)(const char *path, int vfsflags,
+            void *extradata),
+        void *extradata
+        ) {
     mutex_Lock(_spew3d_resourceload_mutex);
     if (_imgloader_process_thread == NULL) {
         _imgloader_process_thread = (
@@ -267,6 +334,8 @@ S3DEXP s3d_resourceload_job *s3d_resourceload_NewJob(
     );
     if (!job) return NULL;
     memset(job, 0, sizeof(*job));
+    job->extradata = extradata;
+    job->callback = callback;
     job->path = strdup(path);
     if (!job->path) {
         free(job);

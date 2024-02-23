@@ -730,8 +730,20 @@ char *spew3d_vfs_NormalizePath(const char *path) {
     return p;
 }
 
-int spew3d_vfs_FileToBytes(
+S3DEXP int spew3d_vfs_FileToBytes(
         const char *path, int vfsflags,
+        int *out_fserr,
+        char **out_bytes,
+        uint64_t *out_bytes_len
+        ) {
+    return spew3d_vfs_FileToBytesWithLimit(
+        path, vfsflags, -1, out_fserr, out_bytes,
+        out_bytes_len
+    );
+}
+
+S3DEXP int spew3d_vfs_FileToBytesWithLimit(
+        const char *path, int vfsflags, int64_t max_size_limit,
         int *out_fserr,
         char **out_bytes,
         uint64_t *out_bytes_len
@@ -751,6 +763,7 @@ int spew3d_vfs_FileToBytes(
         #endif
 
         // FIXME.
+        assert(0);
     }
 
     // Fall back to filesystem if not in VFS:
@@ -791,7 +804,8 @@ int spew3d_vfs_FileToBytes(
                 "for file contents failed\n");
             #endif
             fclose(f);
-            *out_fserr = FSERR_OUTOFMEMORY;
+            if (out_fserr != NULL)
+                *out_fserr = FSERR_OUTOFMEMORY;
             return 0;
         }
         char *p = result_bytes;
@@ -822,13 +836,26 @@ int spew3d_vfs_FileToBytes(
                 else if (errno == EACCES)
                     _err = FSERR_NOPERMISSION;
                 #endif
-                *out_fserr = _err;
+                if (out_fserr != NULL)
+                    *out_fserr = _err;
                 return 0;
             }
             p += (uint64_t)result;
             bytesread += (uint64_t)result;
+            if (bytesread > max_size_limit) {
+                #if defined(DEBUG_SPEW3D_VFS)
+                fprintf(stderr, "spew3d_vfs.c: debug: "
+                    "spew3d_vfs_FileToBytes: Exceeded max. size.\n");
+                #endif
+                fclose(f);
+                free(result_bytes);
+                if (out_fserr != NULL)
+                    *out_fserr = FSERR_TARGETTOOLARGE;
+                return 0;
+            }
         }
-        *out_fserr = FSERR_SUCCESS;
+        if (out_fserr != NULL)
+            *out_fserr = FSERR_SUCCESS;
         *out_bytes = result_bytes;
         *out_bytes_len = filesize;
         #if defined(DEBUG_SPEW3D_VFS)
@@ -838,7 +865,8 @@ int spew3d_vfs_FileToBytes(
         return 1;
     }
 
-    *out_fserr = FSERR_NOSUCHTARGET;
+    if (out_fserr != NULL)
+        *out_fserr = FSERR_NOSUCHTARGET;
     return 0;
 }
 

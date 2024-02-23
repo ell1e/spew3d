@@ -32,7 +32,9 @@ typedef struct s3d_resourceload_job s3d_resourceload_job;
 
 enum ResourceLoadType {
     RLTYPE_INVALID = 0,
-    RLTYPE_IMAGE = 1
+    RLTYPE_IMAGE = 1,
+    RLTYPE_LVLBOX = 2,
+    RLTYPE_LVLBOX_STORE = 3
 };
 
 typedef struct s3d_resourceload_result {
@@ -42,8 +44,18 @@ typedef struct s3d_resourceload_result {
             void *pixels;
             uint64_t w, h;
         } resource_image;
+        struct generic {
+            void *callback_result;
+        } generic;
     };
 } s3d_resourceload_result;
+
+S3DEXP s3d_resourceload_job *s3d_resourceload_NewJobWithCallback(
+    const char *path, int rltype, int vfsflags,
+    void *(*callback)(const char *path, int vfsflags,
+        void *extradata),
+    void *extradata
+);
 
 S3DEXP s3d_resourceload_job *s3d_resourceload_NewJob(
     const char *path, int rltype, int vfsflags
