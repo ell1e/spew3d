@@ -762,15 +762,100 @@ S3DEXP int spew3d_vfs_FileToBytesWithLimit(
             "spew3d_vfs_FileToBytes trying to read from VFS\n");
         #endif
 
-        // FIXME.
-        assert(0);
+        mutex_Lock(spew3d_vfs_mutex);
+        char *pathfixed = spew3d_vfs_NormalizePath(path);
+        if (!pathfixed) {
+            if (out_fserr != NULL)
+                *out_fserr = FSERR_OUTOFMEMORY;
+            mutex_Release(spew3d_vfs_mutex);
+            return 0;
+        }
+        spew3d_vfs_mount *mount = _spew3d_global_mount_list;
+        while (mount) {
+            int foundasfolder = 0;
+            int64_t foundidx = -1;
+            if (spew3d_archive_GetEntryIndex(
+                    mount->archive, pathfixed, &foundidx,
+                    &foundasfolder
+                    )) {
+                int64_t _size = (
+                    spew3d_archive_GetEntrySize(
+                        mount->archive, foundidx)
+                );;
+                char *result_bytes = NULL;
+                if (_size < 0) {
+                    ioerror_vfs: ;
+                    #if defined(DEBUG_SPEW3D_VFS)
+                    fprintf(stderr, "spew3d_vfs.c: debug: "
+                        "spew3d_vfs_FileToBytes: "
+                        "IO error reading VFS archive.\n");
+                    #endif
+                    if (out_fserr != NULL)
+                        *out_fserr = FSERR_IOERROR;
+                    free(pathfixed);
+                    free(result_bytes);  // When coming from 'goto' below.
+                    mutex_Release(spew3d_vfs_mutex);
+                    return 0;
+                }
+                if (max_size_limit >= 0 && _size > max_size_limit) {
+                    #if defined(DEBUG_SPEW3D_VFS)
+                    fprintf(stderr, "spew3d_vfs.c: debug: "
+                        "spew3d_vfs_FileToBytes: Exceeded max. size.\n");
+                    #endif
+                    if (out_fserr != NULL)
+                        *out_fserr = FSERR_TARGETTOOLARGE;
+                    free(pathfixed);
+                    mutex_Release(spew3d_vfs_mutex);
+                    return 0;
+                }
+                result_bytes = malloc(
+                    (_size > 0ULL ? _size : 1ULL)
+                );
+                if (!result_bytes) {
+                    #if defined(DEBUG_SPEW3D_VFS)
+                    fprintf(stderr, "spew3d_vfs.c: debug: "
+                        "spew3d_vfs_FileToBytes: Allocating buffer "
+                        "for file contents failed.\n");
+                    #endif
+                    if (out_fserr != NULL)
+                        *out_fserr = FSERR_OUTOFMEMORY;
+                    free(pathfixed);
+                    mutex_Release(spew3d_vfs_mutex);
+                    return 0;
+                }
+                if (!spew3d_archive_ReadFileByteSlice(
+                        mount->archive, foundidx,
+                        0, result_bytes, _size
+                        )) {
+                    goto ioerror_vfs;
+                }
+                mutex_Release(spew3d_vfs_mutex);
+
+                if (out_fserr != NULL)
+                    *out_fserr = FSERR_SUCCESS;
+                *out_bytes = result_bytes;
+                *out_bytes_len = _size;
+                #if defined(DEBUG_SPEW3D_VFS)
+                fprintf(stderr, "spew3d_vfs.c: debug: "
+                    "spew3d_vfs_FileToBytes: Completed successfully.\n");
+                #endif
+                return 1;
+            }
+            mount = mount->next;
+        }
+        free(pathfixed);
+        mutex_Release(spew3d_vfs_mutex);
+        #if defined(DEBUG_SPEW3D_VFS)
+        fprintf(stderr, "spew3d_vfs.c: debug: "
+            "spew3d_vfs_FileToBytes: Path not found in VFS mounts.\n");
+        #endif
     }
 
     // Fall back to filesystem if not in VFS:
     if ((vfsflags & VFSFLAG_NO_REALDISK_ACCESS) == 0) {
         #if defined(DEBUG_SPEW3D_VFS)
         fprintf(stderr, "spew3d_vfs.c: debug: "
-            "spew3d_vfs_FileToBytes falling back to disk\n");
+            "spew3d_vfs_FileToBytes: Falling back to disk...\n");
         #endif
         int ferr = 0;
         FILE *f = spew3d_fs_OpenFromPath(
@@ -779,7 +864,7 @@ S3DEXP int spew3d_vfs_FileToBytesWithLimit(
         if (!f) {
             #if defined(DEBUG_SPEW3D_VFS)
             fprintf(stderr, "spew3d_vfs.c: debug: "
-                "spew3d_vfs_FileToBytes: disk file open failed\n");
+                "spew3d_vfs_FileToBytes: Disk file open failed.\n");
             #endif
             *out_fserr = ferr;
             return 0;
@@ -788,20 +873,25 @@ S3DEXP int spew3d_vfs_FileToBytesWithLimit(
         if (!spew3d_fs_GetSize(path, &filesize, &ferr)) {
             #if defined(DEBUG_SPEW3D_VFS)
             fprintf(stderr, "spew3d_vfs.c: debug: "
-                "spew3d_vfs_FileToBytes: getting size failed\n");
+                "spew3d_vfs_FileToBytes: Getting size failed.\n");
             #endif
             fclose(f);
-            *out_fserr = ferr;
+            if (out_fserr != NULL)
+                *out_fserr = ferr;
             return 0;
-        } 
-        char *result_bytes = malloc(
+        }
+        char *result_bytes = NULL;
+        if (filesize > max_size_limit) {
+            goto toolarge_disk;
+        }
+        result_bytes = malloc(
             (filesize > 0ULL ? filesize : 1ULL)
         );
         if (!result_bytes) {
             #if defined(DEBUG_SPEW3D_VFS)
             fprintf(stderr, "spew3d_vfs.c: debug: "
-                "spew3d_vfs_FileToBytes: allocating buffer "
-                "for file contents failed\n");
+                "spew3d_vfs_FileToBytes: Allocating buffer "
+                "for file contents failed.\n");
             #endif
             fclose(f);
             if (out_fserr != NULL)
@@ -818,7 +908,7 @@ S3DEXP int spew3d_vfs_FileToBytesWithLimit(
             if ((uint64_t)result != readchunk) {
                 #if defined(DEBUG_SPEW3D_VFS)
                 fprintf(stderr, "spew3d_vfs.c: debug: "
-                    "spew3d_vfs_FileToBytes: got fread() error\n");
+                    "spew3d_vfs_FileToBytes: Got fread() error.\n");
                 #endif
                 fclose(f);
                 free(result_bytes);
@@ -843,6 +933,7 @@ S3DEXP int spew3d_vfs_FileToBytesWithLimit(
             p += (uint64_t)result;
             bytesread += (uint64_t)result;
             if (bytesread > max_size_limit) {
+                toolarge_disk: ;
                 #if defined(DEBUG_SPEW3D_VFS)
                 fprintf(stderr, "spew3d_vfs.c: debug: "
                     "spew3d_vfs_FileToBytes: Exceeded max. size.\n");
@@ -860,7 +951,7 @@ S3DEXP int spew3d_vfs_FileToBytesWithLimit(
         *out_bytes_len = filesize;
         #if defined(DEBUG_SPEW3D_VFS)
         fprintf(stderr, "spew3d_vfs.c: debug: "
-            "spew3d_vfs_FileToBytes completed successfully\n");
+            "spew3d_vfs_FileToBytes Completed successfully.\n");
         #endif
         return 1;
     }
