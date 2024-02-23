@@ -64,7 +64,13 @@ S3DHID static void _spew3d_lvlbox_ActuallyDestroy(
         ) {
     if (!lvlbox)
         return;
-    
+
+    uint32_t i = 0;
+    while (i < lvlbox->chunk_count) {
+        _spew3d_lvlbox_FreeChunkContents(&lvlbox->chunk[i]);
+        i++;
+    }
+    free(lvlbox->chunk);
 }
 
 S3DEXP void spew3d_lvlbox_Destroy(
@@ -534,7 +540,9 @@ S3DEXP int spew3d_lvlbox_ExpandToPosition(
 }
 
 struct lvlbox_load_settings {
-    int create_file_if_missing;
+    int new_if_missing;
+    char *new_default_tex;
+    int new_default_tex_vfs_flags;
 };
 
 S3DHID void *_spew3d_lvlbox_DoMapLoad(
@@ -551,6 +559,18 @@ S3DHID void *_spew3d_lvlbox_DoMapLoad(
             10 * 1024 * 1024,
             NULL, &result, &result_len
             )) {
+        int _exists = 0;
+        if (settings->new_if_missing &&
+                spew3d_vfs_Exists(
+                map_file_path, map_file_vfs_flags, &_exists, NULL
+                ) && !_exists) {
+            s3d_lvlbox *lvlbox = spew3d_lvlbox_New(
+                settings->new_default_tex,
+                settings->new_default_tex_vfs_flags
+            );
+            free(settings);
+            return lvlbox;
+        }
         free(settings);
         return NULL;
     }
@@ -569,20 +589,37 @@ S3DHID void *_spew3d_lvlbox_DoMapLoad(
     return lvlbox;
 }
 
-S3DEXP s3d_resourceload_job *spew3d_lvlbox_FromMapFile(
+S3DEXP s3d_resourceload_job *spew3d_lvlbox_FromMapFileOrNew(
         const char *map_file_path, int map_file_vfs_flags,
-        int create_file_if_missing
+        int new_if_missing,
+        const char *new_default_tex, int new_default_tex_vfs_flags
         ) {
     struct lvlbox_load_settings *settings = malloc(sizeof(*settings));
     if (!settings)
         return NULL;
     memset(settings, 0, sizeof(*settings));
-    settings->create_file_if_missing = 1;
+    settings->new_if_missing = new_if_missing;
+    if (new_default_tex != NULL) {
+        settings->new_default_tex = strdup(new_default_tex);
+        if (settings->new_default_tex == NULL) {
+            free(settings);
+            return NULL;
+        }
+    }
+    settings->new_default_tex_vfs_flags = new_default_tex_vfs_flags;
     s3d_resourceload_job *job = s3d_resourceload_NewJobWithCallback(
         map_file_path, RLTYPE_LVLBOX, map_file_vfs_flags,
         _spew3d_lvlbox_DoMapLoad, settings
     );
     return job;
+}
+
+S3DEXP s3d_resourceload_job *spew3d_lvlbox_FromMapFile(
+        const char *map_file_path, int map_file_vfs_flags
+        ) {
+    return spew3d_lvlbox_FromMapFileOrNew(
+        map_file_path, map_file_vfs_flags, 0, NULL, 0
+    );
 }
 
 S3DEXP s3d_lvlbox *spew3d_lvlbox_FromMapFileFinalize(

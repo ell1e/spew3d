@@ -100,43 +100,43 @@ S3DHID static int s3d_resourceload_ProcessJob() {
     mutex_Release(_spew3d_resourceload_mutex);
 
     assert(!job->hasfinished);
-    int fserr = 0;
-    char *imgcompressed = NULL;
-    uint64_t imgcompressedlen = 0;
-    if (!spew3d_vfs_FileToBytes(
-            job->path, job->vfsflags, &fserr,
-            &imgcompressed, &imgcompressedlen
-            )) {
+    if (rltype == RLTYPE_IMAGE) {
+        int fserr = 0;
+        char *imgcompressed = NULL;
+        uint64_t imgcompressedlen = 0;
+        if (!spew3d_vfs_FileToBytes(
+                job->path, job->vfsflags, &fserr,
+                &imgcompressed, &imgcompressedlen
+                )) {
+            #if defined(DEBUG_SPEW3D_RESOURCELOAD)
+            fprintf(stderr,
+                "spew3d_resourceload.c: debug: "
+                "s3d_resourceload_ProcessJob(): "
+                "failed to read disk data for "
+                "texture: \"%s\" [job %p]\n",
+                job->path, job);
+            #endif
+
+            mutex_Lock(_spew3d_resourceload_mutex);
+            if (job->markeddeleted) {
+                _s3d_resourceload_FreeJob(job);
+                mutex_Release(_spew3d_resourceload_mutex);
+                return 1;
+            }
+            job->fserror = fserr;
+            assert(job->fserror != FSERR_SUCCESS);
+            job->hasfinished = 1;
+            mutex_Release(_spew3d_resourceload_mutex);
+            return 1;
+        }
         #if defined(DEBUG_SPEW3D_RESOURCELOAD)
         fprintf(stderr,
             "spew3d_resourceload.c: debug: "
             "s3d_resourceload_ProcessJob(): "
-            "failed to read disk data for "
-            "texture: \"%s\" [job %p]\n",
+            "decoding this texture: %s [job %p]\n",
             job->path, job);
         #endif
 
-        mutex_Lock(_spew3d_resourceload_mutex);
-        if (job->markeddeleted) {
-            _s3d_resourceload_FreeJob(job);
-            mutex_Release(_spew3d_resourceload_mutex);
-            return 1;
-        }        
-        job->fserror = fserr;
-        assert(job->fserror != FSERR_SUCCESS);
-        job->hasfinished = 1;
-        mutex_Release(_spew3d_resourceload_mutex);
-        return 1;
-    }
-    #if defined(DEBUG_SPEW3D_RESOURCELOAD)
-    fprintf(stderr,
-        "spew3d_resourceload.c: debug: "
-        "s3d_resourceload_ProcessJob(): "
-        "decoding this texture: %s [job %p]\n",
-        job->path, job);
-    #endif
-
-    if (rltype == RLTYPE_IMAGE) {
         int w = 0;
         int h = 0;
         int n = 0;

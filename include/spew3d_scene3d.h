@@ -36,6 +36,7 @@ enum Obj3dKind {
     OBJ3D_MESH,
     OBJ3D_SPRITE3D,
     OBJ3D_CAMERA,
+    OBJ3D_LVLBOX
 };
 
 typedef struct s3d_scenecolorinfo {
@@ -56,6 +57,11 @@ S3DEXP s3d_scenecolorinfo spew3d_scene3d_GetColorInfo(
 
 S3DEXP s3d_obj3d *spew3d_scene3d_AddMeshObj(
     s3d_scene3d *sc, s3d_geometry *geom, int object_owns_mesh
+);
+
+S3DEXP s3d_obj3d *spew3d_scene3d_AddLvlboxObj(
+    s3d_scene3d *sc, s3d_lvlbox *lvlbox,
+    int object_owns_lvlbox
 );
 
 S3DEXP int spew3d_scene3d_AddPreexistingObj(

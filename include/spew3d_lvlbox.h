@@ -129,8 +129,13 @@ S3DEXP int spew3d_lvlbox_SetFloorTextureAt(
 );
 
 S3DEXP s3d_resourceload_job *spew3d_lvlbox_FromMapFile(
+    const char *map_file_path, int map_file_vfs_flags
+);
+
+S3DEXP s3d_resourceload_job *spew3d_lvlbox_FromMapFileOrNew(
     const char *map_file_path, int map_file_vfs_flags,
-    int create_file_if_missing
+    int new_if_missing,
+    const char *new_default_tex, int new_default_tex_vfs_flags
 );
 
 S3DEXP s3d_lvlbox *spew3d_lvlbox_FromMapFileFinalize(

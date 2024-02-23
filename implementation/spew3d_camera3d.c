@@ -42,6 +42,7 @@ typedef struct s3d_window s3d_window;
 #define RENDERENTRY_SPRITE3D 1
 #define RENDERENTRY_MESH 2
 #define RENDERENTRY_LIGHT 3
+#define RENDERENTRY_LVLBOX 4
 
 typedef struct s3d_queuedrenderentry {
     int kind;
@@ -58,6 +59,11 @@ typedef struct s3d_queuedrenderentry {
             s3d_rotation world_rotation;
             s3d_pos world_pos;
         } rendersprite3d;
+        struct renderlvlbox {
+            s3d_lvlbox *lvlbox;
+            s3d_rotation world_rotation;
+            s3d_pos world_pos;
+        } renderlvlbox;
     };
 } s3d_queuedrenderentry;
 
@@ -85,6 +91,9 @@ S3DEXP s3d_scene3d *spew3d_obj3d_GetScene_nolock(
 );
 S3DEXP int _spew3d_obj3d_GetWasDeleted_nolock(
     s3d_obj3d *obj
+);
+S3DHID void _spew3d_scene3d_GetObjLvlbox_nolock(
+    s3d_obj3d *obj, s3d_lvlbox **lvlbox
 );
 S3DHID void _spew3d_scene3d_GetObjMeshes_nolock(
     s3d_obj3d *obj, s3d_geometry **first_mesh,
@@ -278,7 +287,9 @@ S3DHID int _spew3d_camera3d_ProcessDrawToWindowReq(s3devent *ev) {
             continue;
         }
         int kind = _spew3d_scene3d_GetKind_nolock(obj);
-        if (kind != OBJ3D_MESH && kind != OBJ3D_SPRITE3D) {
+        if (kind != OBJ3D_MESH && kind != OBJ3D_SPRITE3D &&
+                kind != OBJ3D_LVLBOX
+                ) {
             i++;
             continue;
         }
@@ -306,8 +317,18 @@ S3DHID int _spew3d_camera3d_ProcessDrawToWindowReq(s3devent *ev) {
             // FIXME. Actually save some info on sprite, somehow.
             memset(&queue[queuefill], 0, sizeof(queue[queuefill]));
             queue[queuefill].kind = RENDERENTRY_SPRITE3D;
-            queue[queuefill].rendermesh.world_pos = pos;
-            queue[queuefill].rendermesh.world_rotation = rot;
+            queue[queuefill].rendersprite3d.world_pos = pos;
+            queue[queuefill].rendersprite3d.world_rotation = rot;
+            i++;
+            continue;
+        } else if (kind == OBJ3D_LVLBOX) {
+            memset(&queue[queuefill], 0, sizeof(queue[queuefill]));
+            queue[queuefill].kind = RENDERENTRY_LVLBOX;
+            _spew3d_scene3d_GetObjLvlbox_nolock(
+                obj, &queue[queuefill].renderlvlbox.lvlbox
+            );
+            queue[queuefill].renderlvlbox.world_pos = pos;
+            queue[queuefill].renderlvlbox.world_rotation = rot;
             i++;
             continue;
         }

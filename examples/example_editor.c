@@ -14,7 +14,7 @@ int main(int argc, const char **argv) {
             memcmp(argv[1] + strlen(argv[1]) - strlen(".map"),
                 ".map", strlen(".map")) != 0) {
         printf("Please specify a level file as first argument! "
-            "Like this: example_editor my_little_area.map");
+            "Like this: example_editor my_little_area.map\n");
         return 1;
     }
 
@@ -36,9 +36,10 @@ int main(int argc, const char **argv) {
     }
 
     // Set up a level:
-    s3d_lvlbox *level = NULL;
-    s3d_resourceload_job *job = spew3d_lvlbox_FromMapFile(
-        argv[1], 0, 1
+    s3d_lvlbox *level_contents = NULL;
+    s3d_obj3d *level = NULL;
+    s3d_resourceload_job *job = spew3d_lvlbox_FromMapFileOrNew(
+        argv[1], 0, 1, "grass", 0
     );
     if (!job) {
         failed: ;
@@ -75,12 +76,16 @@ int main(int argc, const char **argv) {
         // Process level loading:
         if (!level && job != NULL) {
             if (s3d_resourceload_IsDone(job)) {
-                level = spew3d_lvlbox_FromMapFileFinalize(job);
-                job = NULL;
-                if (!level) {
+                level_contents = spew3d_lvlbox_FromMapFileFinalize(job);
+                job = NULL;  // This was destroyed by finalize call.
+                if (!level_contents) {
                     spew3d_window_Destroy(win);
                     goto failed;
                 }
+                level = spew3d_scene3d_AddLvlboxObj(
+                    scene, level_contents, 1
+                );
+                level_contents = NULL;  // Now owned by level object.
             }
         }
 
