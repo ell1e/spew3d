@@ -781,7 +781,7 @@ S3DEXP int spew3d_vfs_FileToBytesWithLimit(
                 int64_t _size = (
                     spew3d_archive_GetEntrySize(
                         mount->archive, foundidx)
-                );;
+                );
                 char *result_bytes = NULL;
                 if (_size < 0) {
                     ioerror_vfs: ;
@@ -866,7 +866,8 @@ S3DEXP int spew3d_vfs_FileToBytesWithLimit(
             fprintf(stderr, "spew3d_vfs.c: debug: "
                 "spew3d_vfs_FileToBytes: Disk file open failed.\n");
             #endif
-            *out_fserr = ferr;
+            if (out_fserr != NULL)
+                *out_fserr = ferr;
             return 0;
         }
         uint64_t filesize = 0;
