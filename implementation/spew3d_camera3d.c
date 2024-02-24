@@ -438,6 +438,19 @@ S3DHID int _spew3d_camera3d_ProcessDrawToWindowReq(s3devent *ev) {
                 // Ran out of memory. Not much we can do.
                 i += 1;
             }
+        } else if (queue[i].kind == RENDERENTRY_LVLBOX) {
+            rinfo.dynlight_mode = DLRD_LIT_FLAT;
+            int try_add = spew3d_lvlbox_Transform(
+                queue[i].renderlvlbox.lvlbox,
+                &queue[i].renderlvlbox.world_pos,
+                &queue[i].renderlvlbox.world_rotation,
+                &cinfo,
+                &rinfo, &polybuf, &polybuf_fill, &polybuf_alloc
+            );
+            if (!try_add) {
+                // Ran out of memory. Not much we can do.
+                i += 1;
+            }
         }
         i++;
     }

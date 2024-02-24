@@ -316,6 +316,8 @@ S3DHID int _spew3d_lvlbox_ShiftChunks_nolock(
         return 0;
     memset(new_chunk, 0, sizeof(*lvlbox->chunk) *
         chunk_size_x * chunk_size_y);
+
+    // Copy over things to new arena in shifted position:
     int32_t x = 0;
     while (x < chunk_size_x) {
         int32_t y = 0;
@@ -335,8 +337,30 @@ S3DHID int _spew3d_lvlbox_ShiftChunks_nolock(
                 (chunk_size_x * (y + shift_y)) +
                 (x + shift_x)
             );
+            _spew3d_lvlbox_FreeChunkContents(
+                &lvlbox->chunk[chunk_offset_new]
+            );
             memcpy(&new_chunk[chunk_offset_new],
                 &lvlbox->chunk[chunk_offset_old],
+                sizeof(*lvlbox->chunk));
+            memset(&lvlbox->chunk[chunk_offset_old], 0,
+                sizeof(*lvlbox->chunk));
+            y++;
+        }
+        x++;
+    }
+    // Free remaining old stuff in old lvlbox->chunk arena:
+    x = 0;
+    while (x < chunk_size_x) {
+        int32_t y = 0;
+        while (y < chunk_size_y) {
+            uint32_t chunk_offset_old = (
+                (chunk_size_x * y) + x
+            );
+            _spew3d_lvlbox_FreeChunkContents(
+                &lvlbox->chunk[chunk_offset_old]
+            );
+            memset(&lvlbox->chunk[chunk_offset_old], 0,
                 sizeof(*lvlbox->chunk));
             y++;
         }
@@ -376,6 +400,8 @@ S3DHID int _spew3d_lvlbox_ResizeChunksY_nolock(
             );
             memcpy(&new_chunk[chunk_offset_new],
                 &lvlbox->chunk[chunk_offset_old],
+                sizeof(*lvlbox->chunk));
+            memset(&lvlbox->chunk[chunk_offset_old], 0,
                 sizeof(*lvlbox->chunk));
             y++;
         }
@@ -430,6 +456,8 @@ S3DHID int _spew3d_lvlbox_ResizeChunksX_nolock(
             );
             memcpy(&new_chunk[chunk_offset_new],
                 &lvlbox->chunk[chunk_offset_old],
+                sizeof(*lvlbox->chunk));
+            memset(&lvlbox->chunk[chunk_offset_old], 0,
                 sizeof(*lvlbox->chunk));
             y++;
         }
@@ -887,12 +915,319 @@ S3DEXP int spew3d_lvlbox_SetFloorTextureAt(
         segment_no = 0;
     }
     assert(segment_no >= 0 && segment_no < tile->segment_count);
+    tile->segment[segment_no].cache.is_up_to_date = 0;
     tile->segment[segment_no].floor_tex.name = set_tex_name;
     tile->segment[segment_no].floor_tex.vfs_flags = vfsflags;
     tile->segment[segment_no].floor_tex.id = tid;
     mutex_Release(_lvlbox_Internal(lvlbox)->m);
     return 1;
 }
+
+#define LVLBOX_TRANSFORM_QUEUEGROW(x) \
+    if (rfill + (uint32_t)x > ralloc) {\
+        uint32_t newalloc = (\
+            rfill + (uint32_t)x + 1 + 6\
+        ) * 2;\
+        s3d_renderpolygon *newqueue = realloc(\
+            rqueue, sizeof(*newqueue) * newalloc\
+        );\
+        if (!newqueue)\
+            return 0;\
+        rqueue = newqueue;\
+        ralloc = newalloc;\
+        *render_queue = rqueue;\
+        *render_alloc = ralloc;\
+    }
+
+S3DEXP int spew3d_lvlbox_Transform(
+        s3d_lvlbox *lvlbox,
+        s3d_pos *model_pos,
+        s3d_rotation *model_rotation,
+        s3d_transform3d_cam_info *cam_info,
+        s3d_geometryrenderlightinfo *render_light_info,
+        s3d_renderpolygon **render_queue,
+        uint32_t *render_fill, uint32_t *render_alloc
+        ) {
+    assert(render_light_info->dynlight_mode !=
+        DLRD_INVALID);
+    
+    s3d_pos geometry_shift = lvlbox->offset;
+    s3d_pos effective_model_pos = {0};
+    if (model_pos != NULL)
+        memcpy(&effective_model_pos, model_pos,
+            sizeof(*model_pos));
+    s3d_rotation effective_model_rot = {0};
+    if (model_rotation != NULL)
+        memcpy(&effective_model_rot, model_rotation,
+            sizeof(*model_rotation));
+
+    s3d_renderpolygon *rqueue = *render_queue;
+    uint32_t ralloc = *render_alloc;
+    uint32_t rfill = *render_fill;
+    LVLBOX_TRANSFORM_QUEUEGROW(10);
+    
+    assert(ralloc > 0 && rqueue != NULL);
+    /*const int have_vertex_normals = (
+        geometry->per_vertex_normals_computed
+    );
+    double multiplier_vertex_light = (
+        geometry->per_polygon_emit_computed ? 1.0 : 0.0
+    );
+    s3d_color scene_ambient = render_light_info->ambient_emit;
+    if (render_light_info->dynlight_mode == DLRD_UNLIT) {
+        if (geometry->per_polygon_emit_computed) {
+            // Use mesh light instead:
+            scene_ambient.red = 0.0;
+            scene_ambient.green = 0.0;
+            scene_ambient.blue = 0.0;
+        } else {
+            // Just go full bright:
+            scene_ambient.red = 1.0;
+            scene_ambient.green = 1.0;
+            scene_ambient.blue = 1.0;
+        }
+    }*/
+    
+    uint32_t i = 0;
+    while (i < lvlbox->chunk_count) {
+        uint32_t k = 0;
+        while (k < (uint32_t)LVLBOX_CHUNK_SIZE *
+                (uint32_t)LVLBOX_CHUNK_SIZE) {
+            
+            k++;
+        }
+        i++;
+    }
+
+    /*uint32_t rfill_old = rfill;
+    uint32_t ioffset = 0;
+    uint32_t i = 0;
+    while (i < geometry->polygon_count) {
+        assert(rfill >= 0 && rfill < ralloc);
+        assert(ioffset <= geometry->polygon_count * 3 - 3);
+        rqueue[rfill].polygon_texture = (
+            geometry->polygon_texture[i]
+        );
+        s3d_pos vertex_positions[3];
+
+        // First vertex:
+        #if defined(DEBUG_SPEW3D_TRANSFORM3D)
+        printf("spew3d_geometry.c: debug: geom %p "
+            "vertex #%d input world x,y,z %f,%f,%f\n",
+            geometry, ioffset,
+            (double)geometry->vertex[
+                geometry->polygon_vertexindex[ioffset]
+            ].x,
+            (double)geometry->vertex[
+                geometry->polygon_vertexindex[ioffset]
+            ].y,
+            (double)geometry->vertex[
+                geometry->polygon_vertexindex[ioffset]
+            ].z);
+        #endif
+        spew3d_math3d_transform3d(
+            geometry->vertex[
+                geometry->polygon_vertexindex[ioffset]
+            ],
+            cam_info, effective_model_pos,
+            effective_model_rot,
+            &rqueue[rfill].vertex_pos_pixels[0],
+            &rqueue[rfill].vertex_pos[0]
+        );
+        #if defined(DEBUG_SPEW3D_TRANSFORM3D)
+        printf("spew3d_geometry.c: debug: geom %p "
+            "vertex #%d output world x,y,z %f,%f,%f\n",
+            geometry, ioffset,
+            (double)rqueue[rfill].vertex_pos_pixels[0].x,
+            (double)rqueue[rfill].vertex_pos_pixels[0].y,
+            (double)rqueue[rfill].vertex_pos_pixels[0].z);
+        #endif
+        rqueue[rfill].vertex_texcoord[0] = (
+            geometry->polygon_texcoord[ioffset]
+        );
+        rqueue[rfill].vertex_emit[0] = (
+            geometry->polygon_vertexcolors[ioffset]
+        );
+        rqueue[rfill].vertex_emit[0].red = fmax((
+            rqueue[rfill].vertex_emit[0].red *
+            multiplier_vertex_light), scene_ambient.red
+        );
+        rqueue[rfill].vertex_emit[0].green = fmax((
+            rqueue[rfill].vertex_emit[0].green *
+            multiplier_vertex_light), scene_ambient.green
+        );
+        rqueue[rfill].vertex_emit[0].blue = fmax((
+            rqueue[rfill].vertex_emit[0].blue *
+            multiplier_vertex_light), scene_ambient.blue
+        );
+        ioffset++;
+
+        // Second vertex:
+        #if defined(DEBUG_SPEW3D_TRANSFORM3D)
+        printf("spew3d_geometry.c: debug: geom %p "
+            "vertex #%d input world x,y,z %f,%f,%f\n",
+            geometry, ioffset,
+            (double)geometry->vertex[
+                geometry->polygon_vertexindex[ioffset]
+            ].x,
+            (double)geometry->vertex[
+                geometry->polygon_vertexindex[ioffset]
+            ].y,
+            (double)geometry->vertex[
+                geometry->polygon_vertexindex[ioffset]
+            ].z);
+        #endif
+        spew3d_math3d_transform3d(
+            geometry->vertex[
+                geometry->polygon_vertexindex[ioffset]
+            ],
+            cam_info, effective_model_pos,
+            effective_model_rot,
+            &rqueue[rfill].vertex_pos_pixels[1],
+            &rqueue[rfill].vertex_pos[1]
+        );
+        #if defined(DEBUG_SPEW3D_TRANSFORM3D)
+        printf("spew3d_geometry.c: debug: geom %p "
+            "vertex #%d output world x,y,z %f,%f,%f\n",
+            geometry, ioffset,
+            (double)rqueue[rfill].vertex_pos_pixels[1].x,
+            (double)rqueue[rfill].vertex_pos_pixels[1].y,
+            (double)rqueue[rfill].vertex_pos_pixels[1].z);
+        #endif
+        rqueue[rfill].vertex_texcoord[1] = (
+            geometry->polygon_texcoord[ioffset]
+        );
+        rqueue[rfill].vertex_emit[1] = (
+            geometry->polygon_vertexcolors[ioffset]
+        );
+        rqueue[rfill].vertex_emit[1].red = fmax((
+            rqueue[rfill].vertex_emit[1].red *
+            multiplier_vertex_light), scene_ambient.red
+        );
+        rqueue[rfill].vertex_emit[1].green = fmax((
+            rqueue[rfill].vertex_emit[1].green *
+            multiplier_vertex_light), scene_ambient.green
+        );
+        rqueue[rfill].vertex_emit[1].blue = fmax((
+            rqueue[rfill].vertex_emit[1].blue *
+            multiplier_vertex_light), scene_ambient.blue
+        );
+        ioffset++;
+
+        // Third vertex:
+        #if defined(DEBUG_SPEW3D_TRANSFORM3D)
+        printf("spew3d_geometry.c: debug: geom %p "
+            "vertex #%d input world x,y,z %f,%f,%f\n",
+            geometry, ioffset,
+            (double)geometry->vertex[
+                geometry->polygon_vertexindex[ioffset]
+            ].x,
+            (double)geometry->vertex[
+                geometry->polygon_vertexindex[ioffset]
+            ].y,
+            (double)geometry->vertex[
+                geometry->polygon_vertexindex[ioffset]
+            ].z);
+        #endif
+        spew3d_math3d_transform3d(
+            geometry->vertex[
+                geometry->polygon_vertexindex[ioffset]
+            ],
+            cam_info, effective_model_pos,
+            effective_model_rot,
+            &rqueue[rfill].vertex_pos_pixels[2],
+            &rqueue[rfill].vertex_pos[2]
+        );
+        #if defined(DEBUG_SPEW3D_TRANSFORM3D)
+        printf("spew3d_geometry.c: debug: geom %p "
+            "vertex #%d output world x,y,z %f,%f,%f\n",
+            geometry, ioffset,
+            (double)rqueue[rfill].vertex_pos_pixels[2].x,
+            (double)rqueue[rfill].vertex_pos_pixels[2].y,
+            (double)rqueue[rfill].vertex_pos_pixels[2].z);
+        #endif
+        rqueue[rfill].vertex_texcoord[2] = (
+            geometry->polygon_texcoord[ioffset]
+        );
+        rqueue[rfill].vertex_emit[2] = (
+            geometry->polygon_vertexcolors[ioffset]
+        );
+        rqueue[rfill].vertex_emit[2].red = fmax((
+            rqueue[rfill].vertex_emit[2].red *
+            multiplier_vertex_light), scene_ambient.red
+        );
+        rqueue[rfill].vertex_emit[2].green = fmax((
+            rqueue[rfill].vertex_emit[2].green *
+            multiplier_vertex_light), scene_ambient.green
+        );
+        rqueue[rfill].vertex_emit[2].blue = fmax((
+            rqueue[rfill].vertex_emit[2].blue *
+            multiplier_vertex_light), scene_ambient.blue
+        );
+        ioffset++;
+
+        // Compute center:
+        s3d_pos center;
+        center.x = (rqueue[rfill].vertex_pos[0].x +
+            rqueue[rfill].vertex_pos[1].x +
+            rqueue[rfill].vertex_pos[2].x) / 3.0;
+        center.y = (rqueue[rfill].vertex_pos[0].y +
+            rqueue[rfill].vertex_pos[1].y +
+            rqueue[rfill].vertex_pos[2].y) / 3.0;
+        center.z = (rqueue[rfill].vertex_pos[0].z +
+            rqueue[rfill].vertex_pos[1].z +
+            rqueue[rfill].vertex_pos[2].z) / 3.0;
+        rqueue[rfill].center = center;
+        rqueue[rfill].min_depth = fmin(fmin(
+            rqueue[rfill].vertex_pos[0].x,
+            rqueue[rfill].vertex_pos[1].x),
+            rqueue[rfill].vertex_pos[2].x);
+        rqueue[rfill].max_depth = fmax(fmax(
+            rqueue[rfill].vertex_pos[0].x,
+            rqueue[rfill].vertex_pos[1].x),
+            rqueue[rfill].vertex_pos[2].x);
+
+        // If the polygon as a whole isn't in front of the camera, clip it:
+        if (rqueue[rfill].max_depth < 0 || center.x < 0) {
+            i++;
+            // No rfill++ here since we're abandoning this slot.
+            continue;
+        }
+
+        // Misc:
+        rqueue[rfill].polygon_material = (
+            geometry->polygon_material[i]
+        );
+        memset(&rqueue[rfill].vertex_normal[0], 0,
+            sizeof(rqueue[rfill].vertex_normal[0]) * 3);
+
+        rfill++;
+        i++;
+    }
+    if (render_light_info->dynlight_mode >= DLRD_LIT_FULLY) {
+        ioffset = 0;
+        i = 0;
+        while (i < geometry->polygon_count) {
+            if (have_vertex_normals) {
+                /// FIXME
+                assert(0);
+            } else {
+                rqueue[rfill_old + i].vertex_normal[0] =
+                    geometry->polygon_normal[i];
+                rqueue[rfill_old + i].vertex_normal[1] =
+                    geometry->polygon_normal[i];
+                rqueue[rfill_old + i].vertex_normal[2] =
+                    geometry->polygon_normal[i];
+            }
+            // FIXME: also compute the actual light here.
+            i++;
+        }
+    }*/
+    *render_fill = rfill;
+    return 1;
+}
+
+#undef LVLBOX_TRANSFORM_QUEUEGROW
 
 #endif  // SPEW3D_IMPLEMENTATION
 

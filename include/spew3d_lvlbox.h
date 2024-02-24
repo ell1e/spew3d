@@ -61,6 +61,28 @@ typedef struct s3d_lvlbox_wallinfo {
     s3d_lvlbox_texinfo bottom_part_tex;
 } s3d_lvlbox_wallinfo;
 
+typedef struct s3d_lvlbox_tilepolygon {
+    s3d_pos vertex[3];
+    s3d_point texcoord[3];
+    s3d_pos normal[3];
+    s3d_color light_emit[3];
+    s3d_material_t material;
+    s3d_texture_t texture;
+} s3d_lvlbox_tilepolygon;
+
+typedef struct s3d_lvlbox_tilecache {
+    uint8_t is_up_to_date;
+
+    uint16_t cached_floor_polygon_count;
+    s3d_lvlbox_tilepolygon *cached_floor_polygon;
+
+    uint16_t cached_ceiling_polygon_count;
+    s3d_lvlbox_tilepolygon *cached_ceiling_polygon;
+
+    uint16_t cached_wall_polygon_count;
+    s3d_lvlbox_tilepolygon *cached_wall_polygon;
+} s3d_lvlbox_tilecache;
+
 typedef struct s3d_lvlbox_vertsegment {
     s3d_lvlbox_texinfo floor_tex;
     s3dnum_t floor_z[4];
@@ -70,6 +92,8 @@ typedef struct s3d_lvlbox_vertsegment {
 
     s3d_lvlbox_texinfo ceiling_tex;
     s3dnum_t ceiling_z[4];
+
+    s3d_lvlbox_tilecache cache;
 } s3d_lvlbox_vertsegment;
 
 typedef struct s3d_lvlbox_tile {
@@ -77,6 +101,8 @@ typedef struct s3d_lvlbox_tile {
 
     s3d_lvlbox_vertsegment *segment;
     int segment_count;
+    
+    
 } s3d_lvlbox_tile;
 
 typedef struct s3d_lvlbox_chunk {
@@ -153,6 +179,16 @@ S3DEXP char *spew3d_lvlbox_ToString(
 
 S3DEXP s3d_lvlbox *spew3d_lvlbox_FromString(
     const char *s, uint32_t slen
+);
+
+S3DEXP int spew3d_lvlbox_Transform(
+    s3d_lvlbox *lvlbox,
+    s3d_pos *model_pos,
+    s3d_rotation *model_rotation,
+    s3d_transform3d_cam_info *cam_info,
+    s3d_geometryrenderlightinfo *render_light_info,
+    s3d_renderpolygon **render_queue,
+    uint32_t *render_fill, uint32_t *render_alloc
 );
 
 #endif  // SPEW3D_LVLBOX_H_
