@@ -83,6 +83,16 @@ static inline s3dnum_t spew3d_math3d_dist(
     return sqrt(x_exp + y_exp + z_exp);
 }
 
+static inline s3d_pos spew3d_math3d_average(
+        s3d_pos *v1, s3d_pos *v2
+        ) {
+    s3d_pos result;
+    result.x = (v1->x + v2->x) / 2.0;
+    result.y = (v1->y + v2->y) / 2.0;
+    result.z = (v1->z + v2->z) / 2.0;
+    return result;
+}
+
 static inline s3dnum_t spew3d_math3d_len(
         s3d_pos p
         ) {
@@ -90,6 +100,27 @@ static inline s3dnum_t spew3d_math3d_len(
     double y_exp = (0.0 - p.y) * (0.0 - p.y);
     double z_exp = (0.0 - p.z) * (0.0 - p.z);
     return sqrt(x_exp + y_exp + z_exp);
+}
+
+static inline void spew3d_math3d_normalize(
+        s3d_pos *v1
+        ) {
+    s3dnum_t l = spew3d_math3d_len(*v1);
+    if (fabs(l) <= 0.0001) {
+        v1->x = 0;
+        v1->y = 0;
+        v1->z = 0;
+    } else {
+        v1->x /= l;
+        v1->y /= l;
+        v1->z /= l;
+    }
+}
+
+static inline s3dnum_t spew3d_math3d_flip(s3d_pos *p) {
+    p->x = -p->x;
+    p->y = -p->y;
+    p->z = -p->z;
 }
 
 static inline s3dnum_t spew3d_math3d_upperbounddist(
@@ -127,6 +158,16 @@ S3DEXP void spew3d_math3d_split_fovs_from_fov(
     uint32_t pixel_height,
     s3dnum_t *output_horifov,
     s3dnum_t *output_vertifov
+);
+
+S3DEXP void spew3d_math3d_cross_product(
+    s3d_pos *v1, s3d_pos *v2, s3d_pos *out
+);
+
+S3DEXP void spew3d_math3d_polygon_normal(
+    s3d_pos *v1, s3d_pos *v2, s3d_pos *v3,
+    int do_normalize,
+    s3d_pos *out
 );
 
 S3DEXP void spew3d_math3d_transform3d(

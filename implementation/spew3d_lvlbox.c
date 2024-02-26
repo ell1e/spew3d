@@ -1,4 +1,4 @@
-/* Copyright (c) 2020-2024, ellie/@ell1e & Spew3D Team (see AUTHORS.md).
+/* Copyright (c) 2024, ellie/@ell1e & Spew3D Team (see AUTHORS.md).
 
 Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions are met:
@@ -34,10 +34,389 @@ typedef struct s3d_lvlbox_internal {
     s3d_mutex *m;
 } s3d_lvlbox_internal;
 
+S3DHID int spew3d_lvlbox_TryUpdateTileCache_nolock(
+    s3d_lvlbox *lvlbox,
+    uint32_t chunk_index, uint32_t tile_index
+);
+S3DHID int _spew3d_lvlbox_SetFloorTextureAt_nolock(
+    s3d_lvlbox *lvlbox, s3d_pos pos,
+    const char *texname, int vfsflags
+);
+S3DHID void _spew3d_lvlbox_TileAndChunkIndexToPos_nolock(
+    s3d_lvlbox *lvlbox, uint32_t chunk_index, uint32_t tile_index,
+    uint32_t *out_chunk_x, uint32_t *out_chunk_y,
+    uint32_t *out_tile_x, uint32_t *out_tile_y,
+    s3d_pos *out_tile_lower_end_corner
+);
+S3DHID int _spew3d_lvlbox_GetNeighborNormalsAtCorner_nolock(
+    s3d_lvlbox *lvlbox, uint32_t chunk_index,
+    uint32_t tile_index, int corner, int check_for_ceiling,
+    uint32_t neighbor_chunk_index, uint32_t neighbr_tile_index,
+    s3dnum_t floor_height, s3d_pos *out_normal
+);
+S3DHID int _spew3d_lvlbox_ExpandToPosition_nolock(
+    s3d_lvlbox *box, s3d_pos pos
+);
+S3DHID int _spew3d_lvlbox_GetNeighborTile_nolock(
+    s3d_lvlbox *lvlbox,
+    uint32_t chunk_index, uint32_t tile_index,
+    int32_t shift_x, int32_t shift_y,
+    uint32_t *out_neighbor_chunk_index,
+    uint32_t *out_neighbor_tile_index
+);
+S3DHID int32_t _spew3d_lvlbox_TileVertPosToSegmentNo_nolock(
+    s3d_lvlbox *lvlbox,
+    s3d_lvlbox_tile *tile, s3dnum_t pos_z,
+    int ignore_lvlbox_offset
+);
+
 S3DHID static s3d_lvlbox_internal *_lvlbox_Internal(
         s3d_lvlbox *lvlbox
         ) {
     return (s3d_lvlbox_internal *)lvlbox->_internal;
+}
+
+S3DHID static void _spew3d_lvlbox_FreeTileCacheContents(
+        s3d_lvlbox_tilecache *cache
+        ) {
+    if (!cache)
+        return;
+    if (cache->cached_floor != NULL)
+        free(cache->cached_floor);
+    cache->cached_floor_polycount = 0;
+    cache->cached_floor = NULL;
+    if (cache->cached_ceiling != NULL)
+        free(cache->cached_ceiling);
+    cache->cached_ceiling_polycount = 0;
+    cache->cached_ceiling = NULL;
+    if (cache->cached_wall != NULL)
+        free(cache->cached_wall);
+    cache->cached_wall_polycount = 0;
+    cache->cached_wall = NULL;
+    cache->is_up_to_date = 0;
+    cache->flat_normals_set = 0;
+}
+
+S3DHID void _spew3d_lvlbox_TileAndChunkIndexToPos_nolock(
+        s3d_lvlbox *lvlbox, uint32_t chunk_index,
+        uint32_t tile_index,
+        uint32_t *out_chunk_x, uint32_t *out_chunk_y,
+        uint32_t *out_tile_x, uint32_t *out_tile_y,
+        s3d_pos *out_tile_lower_end_corner
+        ) {
+    uint32_t chunk_x = (chunk_index %
+        (uint32_t)lvlbox->chunk_extent_x);
+    uint32_t chunk_y = (chunk_index - chunk_x) /
+        (uint32_t)lvlbox->chunk_extent_x;
+    uint32_t tile_x = (tile_index %
+        (uint32_t)LVLBOX_CHUNK_SIZE);
+    uint32_t tile_y = (tile_index - tile_x) /
+        (uint32_t)LVLBOX_CHUNK_SIZE;
+    if (out_chunk_x) *out_chunk_x = chunk_x;
+    if (out_chunk_y) *out_chunk_y = chunk_y;
+    if (out_tile_x) *out_tile_x = tile_x;
+    if (out_tile_y) *out_tile_y = tile_y;
+    if (out_tile_lower_end_corner != NULL) {
+        s3d_pos pos;
+        pos.x = lvlbox->offset.x + (s3dnum_t)chunk_x *
+            (s3dnum_t)(LVLBOX_CHUNK_SIZE * LVLBOX_CHUNK_SIZE) +
+            (s3dnum_t)tile_x * (s3dnum_t)(LVLBOX_TILE_SIZE);
+        pos.y = lvlbox->offset.y + (s3dnum_t)chunk_y *
+            (s3dnum_t)(LVLBOX_CHUNK_SIZE * LVLBOX_CHUNK_SIZE) +
+            (s3dnum_t)tile_y * (s3dnum_t)(LVLBOX_TILE_SIZE);
+        pos.z = 0;
+        *out_tile_lower_end_corner = pos;
+    }
+}
+
+S3DHID int _spew3d_lvlbox_GetNeighborTileVertSegment_nolock(
+        s3d_lvlbox *lvlbox,
+        uint32_t chunk_index, uint32_t tile_index,
+        int segment_no,
+        uint32_t shift_x, uint32_t shift_y,
+        int check_step_height_at_floor,
+        int check_step_height_at_ceiling,
+        double max_step_height, int dont_limit_negative_steps,
+        int dont_require_height_at_entire_edge,
+        s3d_pos *optional_ref_pos, int ref_pos_ignores_level_offset,
+        uint32_t *out_neighbor_chunk_index,
+        uint32_t *out_neighbor_tile_index,
+        int32_t *out_neighbor_segment_no,
+        s3dnum_t *out_rel_step_height,
+        s3dnum_t *out_abs_step_height
+        ) {
+    uint32_t neighbor_chunk_index;
+    uint32_t neighbor_tile_index;
+    int result = _spew3d_lvlbox_GetNeighborTile_nolock(
+        lvlbox, chunk_index, tile_index, shift_x, shift_y,
+        &neighbor_chunk_index, &neighbor_tile_index
+    );
+    if (!result)
+        return 0;
+
+    if (max_step_height < 0.01) {
+        max_step_height = 0.01;
+    }
+
+    s3d_pos ref_pos = {0};
+    ref_pos.x = LVLBOX_TILE_SIZE * 0.5;
+    ref_pos.y = LVLBOX_TILE_SIZE * 0.5;
+    if (optional_ref_pos != NULL) {
+        ref_pos = *optional_ref_pos;
+        if (ref_pos_ignores_level_offset) {
+            ref_pos.x += lvlbox->offset.x;
+            ref_pos.y += lvlbox->offset.y;
+            ref_pos.z += lvlbox->offset.z;
+        }
+        s3d_pos tile_lower_border;
+        _spew3d_lvlbox_TileAndChunkIndexToPos_nolock(
+            lvlbox, chunk_index, tile_index, NULL,
+            NULL, NULL, NULL, &tile_lower_border
+        );
+        ref_pos.x = fmax(0.0, fmin(1.0,
+            ref_pos.x - tile_lower_border.x
+        ));
+        ref_pos.y = fmax(0.0, fmin(1.0,
+            ref_pos.y - tile_lower_border.y
+        ));
+    }
+    s3d_lvlbox_tile *our_tile = (
+        &lvlbox->chunk[chunk_index].tile[tile_index]
+    );
+    s3d_lvlbox_tile *neighbor_tile = (
+        &lvlbox->chunk[neighbor_chunk_index].tile[neighbor_tile_index]
+    );
+    if (!our_tile->occupied || !neighbor_tile->occupied)
+        return 0;
+    s3d_lvlbox_vertsegment *our_seg = &our_tile->segment[segment_no];
+
+    double rel_step_height;
+    double abs_step_height;
+
+    int32_t neighbor_segment_no = -1;
+    uint32_t i = 0;
+    while (i < neighbor_tile->segment_count) {
+        s3d_lvlbox_vertsegment *neighbor_seg = (
+            &neighbor_tile->segment[i]
+        );
+        double height1, height2, height1weighting, ledge1abs, ledge2abs;
+        if (shift_y < 0) {  // To left.
+            if (shift_x < 0) {
+                // Back left.
+                if (check_step_height_at_floor) {
+                    height1 = (neighbor_seg->floor_z[0] -
+                        our_seg->floor_z[2]);
+                    ledge1abs = neighbor_seg->floor_z[0];
+                    height2 = height1;
+                    ledge2abs = ledge1abs;
+                    height1weighting = 1;
+                }
+                if (check_step_height_at_ceiling) {
+                    height1 = (neighbor_seg->ceiling_z[0] -
+                        our_seg->ceiling_z[2]);
+                    ledge1abs = neighbor_seg->ceiling_z[0];
+                    height2 = height1;
+                    ledge2abs = ledge1abs;
+                    height1weighting = 1;
+                }
+            } else if (shift_x == 0) {
+                // Left side.
+                if (check_step_height_at_floor) {
+                    height1 = (neighbor_seg->floor_z[0] -
+                        our_seg->floor_z[3]);
+                    ledge1abs = neighbor_seg->floor_z[0];
+                    height2 = (neighbor_seg->floor_z[1] -
+                        our_seg->floor_z[2]);
+                    ledge2abs = neighbor_seg->floor_z[1];
+                    height1weighting = ref_pos.x;
+                }
+                if (check_step_height_at_ceiling) {
+                    height1 = (neighbor_seg->ceiling_z[0] -
+                        our_seg->ceiling_z[3]);
+                    ledge1abs = neighbor_seg->ceiling_z[0];
+                    height2 = (neighbor_seg->ceiling_z[1] -
+                        our_seg->ceiling_z[2]);
+                    ledge2abs = neighbor_seg->ceiling_z[1];
+                    height1weighting = ref_pos.x;
+                }
+            } else {
+                assert(shift_x > 0);
+                // Front left.
+                if (check_step_height_at_floor) {
+                    height1 = (neighbor_seg->floor_z[1] -
+                        our_seg->floor_z[3]);
+                    ledge1abs = neighbor_seg->floor_z[1];
+                    height2 = height1;
+                    ledge2abs = ledge1abs;
+                    height1weighting = 1;
+                }
+                if (check_step_height_at_ceiling) {
+                    height1 = (neighbor_seg->ceiling_z[1] -
+                        our_seg->ceiling_z[3]);
+                    ledge1abs = neighbor_seg->ceiling_z[1];
+                    height2 = height1;
+                    ledge2abs = ledge1abs;
+                    height1weighting = 1;
+                }
+            }
+        } else if (shift_y == 0) {  // To front or back.
+            assert(shift_x != 0);
+            if (shift_x > 0) {
+                // In front.
+                if (check_step_height_at_floor) {
+                    height1 = (neighbor_seg->floor_z[1] -
+                        our_seg->floor_z[0]);
+                    ledge1abs = neighbor_seg->floor_z[1];
+                    height2 = (neighbor_seg->floor_z[2] -
+                        our_seg->floor_z[3]);
+                    ledge2abs = neighbor_seg->floor_z[2];
+                    height1weighting = ref_pos.y;
+                }
+                if (check_step_height_at_ceiling) {
+                    height1 = (neighbor_seg->ceiling_z[1] -
+                        our_seg->ceiling_z[0]);
+                    ledge1abs = neighbor_seg->ceiling_z[1];
+                    height2 = (neighbor_seg->ceiling_z[2] -
+                        our_seg->ceiling_z[3]);
+                    ledge2abs = neighbor_seg->ceiling_z[2];
+                    height1weighting = ref_pos.y;
+                }
+            } else {
+                assert(shift_x < 0);
+                // In the back.
+                if (check_step_height_at_floor) {
+                    height1 = (neighbor_seg->floor_z[0] -
+                        our_seg->floor_z[1]);
+                    ledge1abs = neighbor_seg->floor_z[0];
+                    height2 = (neighbor_seg->floor_z[3] -
+                        our_seg->floor_z[2]);
+                    ledge2abs = neighbor_seg->floor_z[3];
+                    height1weighting = ref_pos.y;
+                }
+                if (check_step_height_at_ceiling) {
+                    height1 = (neighbor_seg->ceiling_z[0] -
+                        our_seg->ceiling_z[1]);
+                    ledge1abs = neighbor_seg->ceiling_z[0];
+                    height2 = (neighbor_seg->ceiling_z[3] -
+                        our_seg->ceiling_z[2]);
+                    ledge2abs = neighbor_seg->ceiling_z[3];
+                    height1weighting = ref_pos.y;
+                }
+            }
+        } else {  // To the right
+            assert(shift_y > 0);
+            if (shift_x < 0) {
+                // Back right.
+                if (check_step_height_at_floor) {
+                    height1 = (neighbor_seg->floor_z[3] -
+                        our_seg->floor_z[1]);
+                    ledge1abs = neighbor_seg->floor_z[3];
+                    height2 = height1;
+                    ledge2abs = ledge1abs;
+                    height1weighting = 1;
+                }
+                if (check_step_height_at_ceiling) {
+                    height1 = (neighbor_seg->ceiling_z[3] -
+                        our_seg->ceiling_z[1]);
+                    ledge1abs = neighbor_seg->ceiling_z[3];
+                    height2 = height1;
+                    ledge2abs = ledge1abs;
+                    height1weighting = 1;
+                }
+            } else if (shift_x == 0) {
+                // Right side.
+                if (check_step_height_at_floor) {
+                    height1 = (neighbor_seg->floor_z[2] -
+                        our_seg->floor_z[1]);
+                    ledge1abs = neighbor_seg->floor_z[2];
+                    height2 = (neighbor_seg->floor_z[3] -
+                        our_seg->floor_z[0]);
+                    ledge2abs = neighbor_seg->floor_z[3];
+                    height1weighting = (1 - ref_pos.x);
+                }
+                if (check_step_height_at_ceiling) {
+                    height1 = (neighbor_seg->ceiling_z[2] -
+                        our_seg->ceiling_z[1]);
+                    ledge1abs = neighbor_seg->ceiling_z[2];
+                    height2 = (neighbor_seg->ceiling_z[3] -
+                        our_seg->ceiling_z[0]);
+                    ledge2abs = neighbor_seg->ceiling_z[3];
+                    height1weighting = (1 - ref_pos.x);
+                }
+            } else {
+                assert(shift_x > 0);
+                // Front right.
+                if (check_step_height_at_floor) {
+                    height1 = (neighbor_seg->floor_z[2] -
+                        our_seg->floor_z[0]);
+                    ledge1abs = neighbor_seg->floor_z[2];
+                    height2 = height1;
+                    ledge2abs = ledge1abs;
+                    height1weighting = 1;
+                }
+                if (check_step_height_at_ceiling) {
+                    height1 = (neighbor_seg->ceiling_z[2] -
+                        our_seg->ceiling_z[0]);
+                    ledge1abs = neighbor_seg->ceiling_z[2];
+                    height2 = height1;
+                    ledge2abs = ledge1abs;
+                    height1weighting = 1;
+                }
+            }
+        }
+        int skip = 0;
+        if (!dont_require_height_at_entire_edge) {
+            if (height1 > max_step_height ||
+                    (!dont_limit_negative_steps &&
+                    fabs(height1) > max_step_height)) {
+                skip = 1;
+            } else {
+                if (height2 > max_step_height ||
+                        (!dont_limit_negative_steps &&
+                        fabs(height2) > max_step_height))
+                    skip = 1;
+            }
+            if (!skip) {
+                rel_step_height = (
+                    height1 * height1weighting +
+                    height2 * (1.0 - height1weighting)
+                );
+            }
+        } else {
+            double relevant_height = (
+                height1 * height1weighting +
+                height2 * (1.0 - height1weighting)
+            );
+            if (relevant_height > max_step_height ||
+                    (!dont_limit_negative_steps &&
+                    fabs(relevant_height) > max_step_height)) {
+                skip = 1;
+            }
+            if (!skip) {
+                rel_step_height = relevant_height;
+            }
+        }
+        if (!skip) {
+            abs_step_height = (
+                ledge1abs * height1weighting +
+                ledge2abs * (1.0 - height1weighting)
+            );
+            neighbor_segment_no = i;
+            break;
+        }
+        i++;
+    }
+    if (out_neighbor_chunk_index)
+        *out_neighbor_chunk_index = neighbor_chunk_index;
+    if (out_neighbor_tile_index)
+        *out_neighbor_tile_index = neighbor_tile_index;
+    if (out_neighbor_segment_no)
+        *out_neighbor_segment_no = neighbor_segment_no;
+    if (out_rel_step_height)
+        *out_rel_step_height = rel_step_height;
+    if (out_abs_step_height)
+        *out_abs_step_height = abs_step_height;
+    return 1;
 }
 
 S3DHID static void _spew3d_lvlbox_FreeChunkContents(
@@ -52,6 +431,9 @@ S3DHID static void _spew3d_lvlbox_FreeChunkContents(
         while (k < chunk->tile[i].segment_count) {
             if (chunk->tile[i].segment[k].floor_tex.name != NULL)
                 free(chunk->tile[i].segment[k].floor_tex.name);
+            _spew3d_lvlbox_FreeTileCacheContents(
+                &chunk->tile[i].segment[k].cache
+            );
             k++;
         }
         free(chunk->tile[i].segment);
@@ -71,6 +453,469 @@ S3DHID static void _spew3d_lvlbox_ActuallyDestroy(
         i++;
     }
     free(lvlbox->chunk);
+}
+
+S3DHID int _spew3d_lvlbox_GetNeighborTile_nolock(
+        s3d_lvlbox *lvlbox,
+        uint32_t chunk_index, uint32_t tile_index,
+        int32_t shift_x, int32_t shift_y,
+        uint32_t *out_neighbor_chunk_index,
+        uint32_t *out_neighbor_tile_index
+        ) {
+    uint32_t chunk_x, chunk_y, tile_x, tile_y;
+    _spew3d_lvlbox_TileAndChunkIndexToPos_nolock(
+        lvlbox, chunk_index, tile_index, &chunk_x,
+        &chunk_y, &tile_x, &tile_y, NULL
+    );
+
+    int32_t neighbor_tile_x = (int32_t)tile_x + shift_x;
+    int32_t neighbor_tile_y = (int32_t)tile_y + shift_y;
+    int32_t neighbor_chunk_x = chunk_x;
+    int32_t neighbor_chunk_y = chunk_y;
+    while (neighbor_tile_x < 0) {
+        neighbor_tile_x += LVLBOX_CHUNK_SIZE;
+        neighbor_chunk_x--;
+    }
+    if (neighbor_chunk_x < 0)
+        return 0;
+    while (neighbor_tile_y < 0) {
+        neighbor_tile_y += LVLBOX_CHUNK_SIZE;
+        neighbor_chunk_y--;
+    }
+    if (neighbor_chunk_y < 0)
+        return 0;
+    while (neighbor_tile_x >= LVLBOX_CHUNK_SIZE) {
+        neighbor_tile_x -= LVLBOX_CHUNK_SIZE;
+        neighbor_chunk_x++;
+    }
+    if (neighbor_chunk_x > lvlbox->chunk_extent_x)
+        return 0;
+    while (neighbor_tile_y >= LVLBOX_CHUNK_SIZE) {
+        neighbor_tile_y -= LVLBOX_CHUNK_SIZE;
+        neighbor_chunk_y++;
+    }
+    uint32_t new_chunk_index = (
+        neighbor_chunk_y * (uint32_t)lvlbox->chunk_extent_x +
+        neighbor_chunk_x
+    );
+    if (new_chunk_index >= lvlbox->chunk_count)
+        return 0;
+    *out_neighbor_chunk_index = new_chunk_index;
+    uint32_t new_tile_index = (
+        neighbor_tile_y * (uint32_t)LVLBOX_CHUNK_SIZE +
+        neighbor_tile_x
+    );
+    *out_neighbor_tile_index = new_tile_index;
+    return 1;
+}
+
+S3DHID int _spew3d_lvlbox_GetNeighborNormalsAtCorner_nolock(
+        s3d_lvlbox *lvlbox, uint32_t chunk_index,
+        uint32_t tile_index, int corner, int check_for_ceiling,
+        uint32_t neighbor_chunk_index, uint32_t neighbor_tile_index,
+        s3dnum_t floor_height, s3d_pos *out_normal
+        ) {
+    if (chunk_index >= lvlbox->chunk_count)
+        return 0;
+    if (tile_index >= LVLBOX_CHUNK_SIZE * LVLBOX_CHUNK_SIZE)
+        return 0;
+    if (neighbor_chunk_index >= lvlbox->chunk_count)
+        return 0;
+    if (neighbor_tile_index >= LVLBOX_CHUNK_SIZE * LVLBOX_CHUNK_SIZE)
+        return 0;
+    if (corner < 0 || corner >= 4)
+        return 0;
+
+    uint32_t our_chunk_x, our_chunk_y, our_tile_x, our_tile_y;
+    _spew3d_lvlbox_TileAndChunkIndexToPos_nolock(
+        lvlbox, chunk_index, tile_index,
+        &our_chunk_x, &our_chunk_y, &our_tile_x, &our_tile_y, NULL
+    );
+    uint32_t neighbor_chunk_x, neighbor_chunk_y,
+        neighbor_tile_x, neighbor_tile_y;
+    _spew3d_lvlbox_TileAndChunkIndexToPos_nolock(
+        lvlbox, chunk_index, tile_index,
+        &neighbor_chunk_x, &neighbor_chunk_y,
+        &neighbor_tile_x, &neighbor_tile_y, NULL
+    );
+    if ((int32_t)neighbor_chunk_x < (int32_t)our_chunk_x - 1 ||
+            (int32_t)neighbor_chunk_x > (int32_t)our_chunk_x + 1 ||
+            (int32_t)neighbor_chunk_y < (int32_t)our_chunk_y - 1 ||
+            (int32_t)neighbor_chunk_y > (int32_t)our_chunk_y + 1)
+        return 0;
+
+    int neighbor_corner = corner;
+    if (neighbor_chunk_y == our_chunk_y - 1) {
+        if (neighbor_chunk_x == our_chunk_x) {
+            if (corner == 3) neighbor_corner = 0;
+            else if (corner == 2) neighbor_corner = 1;
+            else return 0;
+        } else if (neighbor_chunk_x == our_chunk_x + 1) {
+            if (corner == 3) neighbor_corner = 1;
+            else return 0;
+        } else {
+            assert(neighbor_chunk_x == our_chunk_x - 1);
+            if (corner == 2) neighbor_corner = 0;
+            else return 0;
+        }
+    } else if (neighbor_chunk_y == our_chunk_y + 1) {
+        if (neighbor_chunk_x == our_chunk_x) {
+            if (corner == 0) neighbor_corner = 3;
+            else if (corner == 1) neighbor_corner = 2;
+            else return 0;
+        } else if (neighbor_chunk_x == our_chunk_x + 1) {
+            if (corner == 0) neighbor_corner = 2;
+            else return 0;
+        } else {
+            assert(neighbor_chunk_x == our_chunk_x - 1);
+            if (corner == 1) neighbor_corner = 3;
+            else return 0;
+        }
+    } else {
+        assert(neighbor_chunk_y == our_chunk_y);
+        if (neighbor_chunk_x == our_chunk_x) {
+            // Nothing to change.
+        } else if (neighbor_chunk_x == our_chunk_x + 1) {
+            if (corner == 0) neighbor_corner = 1;
+            else if (corner == 3) neighbor_corner = 1;
+            else return 0;
+        } else {
+            assert(neighbor_chunk_x == our_chunk_x - 1);
+            if (corner == 1) neighbor_corner == 0;
+            else if (corner == 2) neighbor_corner = 3;
+            else return 0;
+        }
+    }
+
+    s3d_lvlbox_tile *neighbor_tile = (
+        &lvlbox->chunk[chunk_index].tile[tile_index]
+    );
+    if (check_for_ceiling) {
+        int32_t i = 0;
+        while (i < neighbor_tile->segment_count) {
+            if (fabs(neighbor_tile->segment[i].ceiling_z[corner] -
+                    floor_height) <= 0.01) {
+                assert(neighbor_tile->segment[i].cache.flat_normals_set);
+                if (out_normal)
+                    *out_normal = neighbor_tile->segment[i].cache.
+                        ceiling_flat_corner_normals[corner];
+                return 1;
+            }
+            i++;
+        }
+    } else {
+        int32_t i = 0;
+        while (i < neighbor_tile->segment_count) {
+            if (fabs(neighbor_tile->segment[i].floor_z[corner] -
+                    floor_height) <= 0.01) {
+                assert(neighbor_tile->segment[i].cache.flat_normals_set);
+                if (out_normal)
+                    *out_normal = neighbor_tile->segment[i].cache.
+                        floor_flat_corner_normals[corner];
+                return 1;
+            }
+            i++;
+        }
+    }
+    return 0;
+}
+
+S3DHID int _spew3d_lvlbox_TryUpdateTileCache_nolock_Ex(
+        s3d_lvlbox *lvlbox,
+        uint32_t chunk_index, uint32_t tile_index,
+        int stop_after_flat_normals_floor
+        ) {
+    uint32_t chunk_x, chunk_y, tile_x, tile_y;
+    s3d_pos tile_lower_end;
+    _spew3d_lvlbox_TileAndChunkIndexToPos_nolock(
+        lvlbox, chunk_index, tile_index, &chunk_x,
+        &chunk_y, &tile_x, &tile_y, &tile_lower_end
+    );
+
+    s3d_lvlbox_tile *tile = (
+        &lvlbox->chunk[chunk_index].tile[tile_index]
+    );
+    uint32_t i = 0;
+    while (i < tile->segment_count) {
+        if (tile->segment[i].cache.is_up_to_date) {
+            i++;
+            continue;
+        }
+        s3d_lvlbox_tilecache *cache = (
+            &tile->segment[i].cache
+        );
+        const uint32_t segment_no =i;
+
+        // Set up floor list for use:
+        if (cache->cached_floor_polycount != 2) {
+            cache->flat_normals_set = 0;
+            s3d_lvlbox_tilepolygon *new_polys = (
+                malloc(sizeof(*new_polys) * 2)
+            );
+            if (!new_polys) {
+                return 0;
+            }
+            if (cache->cached_floor != NULL)
+                free(cache->cached_floor);
+            cache->cached_floor = new_polys;
+            cache->cached_floor_polycount = 2;
+        }
+
+        // Set up flat, unsmoothed floor polygons if needed:
+        if (!cache->flat_normals_set) {
+            memset(&cache->cached_floor[0], 0,
+                sizeof(cache->cached_floor[0]) *
+                cache->cached_floor_polycount);
+            cache->flat_normals_set = 1;
+            double diagonalfrontleftbackright = fabs(
+                tile->segment[segment_no].floor_z[3] -
+                tile->segment[segment_no].floor_z[1]
+            );
+            double diagonalfrontrightbackleft = fabs(
+                tile->segment[segment_no].floor_z[0] -
+                tile->segment[segment_no].floor_z[2]
+            );
+
+            s3d_pos back_left = tile_lower_end;
+            s3d_pos back_right = back_left;
+            back_right.y += (s3dnum_t)LVLBOX_TILE_SIZE;
+            s3d_pos front_left = back_left;
+            front_left.x += (s3dnum_t)LVLBOX_TILE_SIZE;
+            s3d_pos front_right = back_right;
+            front_right.x += (s3dnum_t)LVLBOX_TILE_SIZE;
+
+            s3d_point texcoord_back_left = {0};
+            texcoord_back_left.y = 1.0;
+            s3d_point texcoord_back_right = {0};
+            texcoord_back_right.x = 1.0;
+            texcoord_back_right.y = 1.0;
+            s3d_point texcoord_front_left = {0};
+            s3d_point texcoord_front_right = {0};
+            texcoord_front_right.x = 1.0;
+
+            if (diagonalfrontrightbackleft >
+                    diagonalfrontleftbackright) {
+                cache->floor_split_from_front_left = 1;
+                cache->cached_floor[0].vertex[0] = front_left;
+                cache->cached_floor[0].vertex[1] = front_right;
+                cache->cached_floor[0].vertex[2] = back_right;
+                cache->cached_floor[0].texcoord[0] =
+                    texcoord_front_left;
+                cache->cached_floor[0].texcoord[1] =
+                    texcoord_front_right;
+                cache->cached_floor[0].texcoord[2] =
+                    texcoord_back_right;
+                spew3d_math3d_polygon_normal(
+                    &cache->cached_floor[0].vertex[0],
+                    &cache->cached_floor[0].vertex[1],
+                    &cache->cached_floor[0].vertex[2],
+                    1, &cache->cached_floor[0].polynormal
+                );
+                if (cache->cached_floor[0].polynormal.z < 0)
+                    spew3d_math3d_flip(
+                        &cache->cached_floor[0].polynormal
+                    );
+                cache->cached_floor[1].vertex[0] = back_right;
+                cache->cached_floor[1].vertex[1] = back_left;
+                cache->cached_floor[1].vertex[2] = front_left;
+                cache->cached_floor[1].texcoord[0] =
+                    texcoord_back_right;
+                cache->cached_floor[1].texcoord[1] =
+                    texcoord_back_left;
+                cache->cached_floor[1].texcoord[2] =
+                    texcoord_front_left;
+                spew3d_math3d_polygon_normal(
+                    &cache->cached_floor[1].vertex[0],
+                    &cache->cached_floor[1].vertex[1],
+                    &cache->cached_floor[1].vertex[2],
+                    1, &cache->cached_floor[1].polynormal
+                );
+                if (cache->cached_floor[1].polynormal.z < 0)
+                    spew3d_math3d_flip(
+                        &cache->cached_floor[1].polynormal
+                    );
+                cache->floor_flat_corner_normals[0] =
+                    cache->cached_floor[0].polynormal;
+                cache->floor_flat_corner_normals[2] =
+                    cache->cached_floor[1].polynormal;
+                cache->floor_flat_corner_normals[1] = spew3d_math3d_average(
+                    &cache->cached_floor[0].polynormal,
+                    &cache->cached_floor[1].polynormal
+                );
+                cache->floor_flat_corner_normals[3] = spew3d_math3d_average(
+                    &cache->cached_floor[0].polynormal,
+                    &cache->cached_floor[1].polynormal
+                );
+            } else {
+                cache->floor_split_from_front_left = 0;
+                cache->cached_floor[0].vertex[0] = front_left;
+                cache->cached_floor[0].vertex[1] = front_right;
+                cache->cached_floor[0].vertex[2] = back_left;
+                cache->cached_floor[0].texcoord[0] =
+                    texcoord_front_left;
+                cache->cached_floor[0].texcoord[1] =
+                    texcoord_front_right;
+                cache->cached_floor[0].texcoord[2] =
+                    texcoord_back_left;
+                spew3d_math3d_polygon_normal(
+                    &cache->cached_floor[0].vertex[0],
+                    &cache->cached_floor[0].vertex[1],
+                    &cache->cached_floor[0].vertex[2],
+                    1, &cache->cached_floor[0].polynormal
+                );
+                if (cache->cached_floor[0].polynormal.z < 0)
+                    spew3d_math3d_flip(
+                        &cache->cached_floor[0].polynormal
+                    );
+                cache->cached_floor[1].vertex[0] = back_left;
+                cache->cached_floor[1].vertex[1] = front_right;
+                cache->cached_floor[1].vertex[2] = back_right;
+                cache->cached_floor[1].texcoord[0] =
+                    texcoord_back_left;
+                cache->cached_floor[1].texcoord[1] =
+                    texcoord_front_right;
+                cache->cached_floor[1].texcoord[2] =
+                    texcoord_back_right;
+                spew3d_math3d_polygon_normal(
+                    &cache->cached_floor[1].vertex[0],
+                    &cache->cached_floor[1].vertex[1],
+                    &cache->cached_floor[1].vertex[2],
+                    1, &cache->cached_floor[1].polynormal
+                );
+                if (cache->cached_floor[1].polynormal.z < 0)
+                    spew3d_math3d_flip(
+                        &cache->cached_floor[1].polynormal
+                    );
+                cache->floor_flat_corner_normals[1] =
+                    cache->cached_floor[1].polynormal;
+                cache->floor_flat_corner_normals[3] =
+                    cache->cached_floor[0].polynormal;
+                cache->floor_flat_corner_normals[0] = spew3d_math3d_average(
+                    &cache->cached_floor[0].polynormal,
+                    &cache->cached_floor[1].polynormal
+                );
+                cache->floor_flat_corner_normals[2] = spew3d_math3d_average(
+                    &cache->cached_floor[0].polynormal,
+                    &cache->cached_floor[1].polynormal
+                );
+            }
+        }
+        i++;
+    }
+    if (stop_after_flat_normals_floor)
+        return 1;
+    i = 0;
+    while (i < tile->segment_count) {
+        if (tile->segment[i].cache.is_up_to_date) {
+            i++;
+            continue;
+        }
+        s3d_lvlbox_tilecache *cache = (
+            &tile->segment[i].cache
+        );
+        const uint32_t segment_no = i;
+
+        // Set up smooth, complex floor polygons:
+        assert(cache->flat_normals_set);
+        assert(cache->cached_floor_polycount >= 2);
+        s3d_pos final_neighbor_normals[4] = {0};
+        int corner = 0;
+        while (corner < 4) {
+            final_neighbor_normals[corner] =
+                tile->segment[i].cache.floor_flat_corner_normals[0];
+            int corners_collected = 1;
+
+            int32_t x = -2;
+            while (x < 1) {  // First, ensure neighbors have normals:
+                x++;
+                int32_t y = -2;
+                while (y < 1) {
+                    y++;
+                    if (x == 0 && y == 0)
+                        continue;
+                    int32_t neighbor_tile_x = (int32_t)tile_x + x;
+                    int32_t neighbor_tile_y = (int32_t)tile_y + y;
+                    int32_t neighbor_chunk_x = chunk_x;
+                    int32_t neighbor_chunk_y = chunk_y;
+                    while (neighbor_tile_x < 0) {
+                        neighbor_tile_x += LVLBOX_CHUNK_SIZE;
+                        neighbor_chunk_x--;
+                    }
+                    while (neighbor_tile_x >= LVLBOX_CHUNK_SIZE) {
+                        neighbor_tile_x -= LVLBOX_CHUNK_SIZE;
+                        neighbor_chunk_x++;
+                    }
+                    while (neighbor_tile_y < 0) {
+                        neighbor_tile_y += LVLBOX_CHUNK_SIZE;
+                        neighbor_chunk_y--;
+                    }
+                    while (neighbor_tile_y >= LVLBOX_CHUNK_SIZE) {
+                        neighbor_tile_y -= LVLBOX_CHUNK_SIZE;
+                        neighbor_chunk_y++;
+                    }
+                    if (neighbor_chunk_x < 0 || neighbor_chunk_y < 0)
+                        continue;
+                    uint32_t neighbor_chunk_index = neighbor_chunk_y *
+                        lvlbox->chunk_extent_x + neighbor_chunk_x;
+                    uint32_t neighbor_tile_index = neighbor_tile_y *
+                        LVLBOX_CHUNK_SIZE + neighbor_tile_x;
+                    if (neighbor_chunk_index >= lvlbox->chunk_count ||
+                            neighbor_tile_index >=
+                            LVLBOX_CHUNK_SIZE * LVLBOX_CHUNK_SIZE)
+                        continue;
+                    double height = tile->segment[i].floor_z[corner];
+                    int have_neighbor = (
+                        _spew3d_lvlbox_TryUpdateTileCache_nolock_Ex(
+                            lvlbox, neighbor_chunk_index,
+                            neighbor_tile_index,
+                            1  // Important to avoid infinite recursion.
+                        )
+                    );
+                    if (!have_neighbor)
+                        return 0;
+
+                    s3d_pos corner_normal;
+                    int r = _spew3d_lvlbox_GetNeighborNormalsAtCorner_nolock(
+                        lvlbox, chunk_index, tile_index, corner, 0,
+                        neighbor_chunk_index, neighbor_tile_index,
+                        height, &corner_normal
+                    );
+                    if (!r)
+                        continue;
+                    final_neighbor_normals[corner].x += corner_normal.x;
+                    final_neighbor_normals[corner].y += corner_normal.y;
+                    final_neighbor_normals[corner].z += corner_normal.z;
+                    corners_collected++;
+                    y++;
+                }
+                x++;
+            }
+            if (corners_collected > 1) {
+                final_neighbor_normals[corner].x /= (
+                    (s3dnum_t)corners_collected
+                );
+                final_neighbor_normals[corner].y /= (
+                    (s3dnum_t)corners_collected
+                );
+                final_neighbor_normals[corner].z /= (
+                    (s3dnum_t)corners_collected
+                );
+            }
+            spew3d_math3d_normalize(
+                &final_neighbor_normals[corner]
+            );
+            corner++;
+        }
+        i++;
+    }
+}
+
+S3DHID int spew3d_lvlbox_TryUpdateTileCache_nolock(
+        s3d_lvlbox *lvlbox, uint32_t chunk_index, uint32_t tile_index
+        ) {
+    return _spew3d_lvlbox_TryUpdateTileCache_nolock_Ex(
+        lvlbox, chunk_index, tile_index, 0
+    );
 }
 
 S3DEXP void spew3d_lvlbox_Destroy(
@@ -114,12 +959,12 @@ S3DHID int32_t _spew3d_lvlbox_WorldPosToChunkIndex_nolock(
 
 S3DHID double _spew3d_lvlbox_TileFloorHeightAtInSegment_nolock(
         s3d_lvlbox *lvlbox, s3d_pos local_pos,
-        int32_t chunk_idx,
-        int32_t tile_idx, int segment_no
+        int32_t chunk_index,
+        int32_t tile_index, int segment_no
         ) {
     assert(lvlbox != NULL);
     s3d_lvlbox_tile *tile = (
-        &lvlbox->chunk[chunk_idx].tile[tile_idx]
+        &lvlbox->chunk[chunk_index].tile[tile_index]
     );
     assert(segment_no >= 0 && segment_no < tile->segment_count);
     local_pos.x = fmax(0, fmin((double)LVLBOX_TILE_SIZE, local_pos.x));
@@ -144,20 +989,53 @@ S3DHID double _spew3d_lvlbox_TileFloorHeightAtInSegment_nolock(
 
 S3DEXP double spew3d_lvlbox_TileFloorHeightAtInSegment(
         s3d_lvlbox *lvlbox, s3d_pos local_pos,
-        int32_t chunk_idx,
-        int32_t tile_idx, int segment_no
+        int32_t chunk_index,
+        int32_t tile_index, int segment_no
         ) {
     mutex_Lock(_lvlbox_Internal(lvlbox)->m);
     double result = _spew3d_lvlbox_TileFloorHeightAtInSegment_nolock(
-        lvlbox, local_pos, chunk_idx, tile_idx, segment_no
+        lvlbox, local_pos, chunk_index, tile_index, segment_no
     );
     mutex_Release(_lvlbox_Internal(lvlbox)->m);
     return result;
 }
 
+S3DHID int32_t _spew3d_lvlbox_TileVertPosToSegmentNo_nolock(
+        s3d_lvlbox *lvlbox,
+        s3d_lvlbox_tile *tile, s3dnum_t pos_z,
+        int ignore_lvlbox_offset
+        ) {
+    if (!tile->occupied)
+        return -1;
+    if (!ignore_lvlbox_offset)
+        pos_z -= lvlbox->offset.z;
+    int i = 0;
+    while (i < tile->segment_count) {
+        double floor_min_z = INT32_MAX;
+        double ceiling_max_z = INT32_MIN;
+        int match = 0;
+        int k = 0;
+        while (k < 4) {
+            floor_min_z = fmin(floor_min_z,
+                tile->segment[i].floor_z[k]);
+            ceiling_max_z = fmax(ceiling_max_z,
+                tile->segment[i].ceiling_z[k]);
+            k++;
+        }
+        if ((pos_z > floor_min_z || i == 0) &&
+                (pos_z < floor_min_z ||
+                i >= tile->segment_count - 1)) {
+            break;
+        }
+        i++;
+    }
+    assert(i < tile->segment_count);
+    return i;
+}
+
 S3DHID int _spew3d_lvlbox_WorldPosToTilePos_nolock(
         s3d_lvlbox *lvlbox, s3d_pos pos, int ignore_lvlbox_offset,
-        int32_t *out_chunk_idx, int32_t *out_tile_idx,
+        int32_t *out_chunk_index, int32_t *out_tile_index,
         s3d_pos *out_tile_lower_bound,
         s3d_pos *out_tile_pos_offset,
         int32_t *out_segment_no
@@ -170,15 +1048,15 @@ S3DHID int _spew3d_lvlbox_WorldPosToTilePos_nolock(
         pos.y -= lvlbox->offset.y;
         pos.z -= lvlbox->offset.z;
     }
-    int32_t chunk_idx = _spew3d_lvlbox_WorldPosToChunkIndex_nolock(
+    int32_t chunk_index = _spew3d_lvlbox_WorldPosToChunkIndex_nolock(
         lvlbox, pos, 1
     );
-    if (chunk_idx < 0)
+    if (chunk_index < 0)
         return 0;
-    assert(chunk_idx < lvlbox->chunk_count);
+    assert(chunk_index < lvlbox->chunk_count);
 
-    int32_t chunk_x = (chunk_idx % lvlbox->chunk_extent_x);
-    int32_t chunk_y = (chunk_idx - chunk_x) / lvlbox->chunk_extent_x;
+    int32_t chunk_x = (chunk_index % lvlbox->chunk_extent_x);
+    int32_t chunk_y = (chunk_index - chunk_x) / lvlbox->chunk_extent_x;
     s3dnum_t chunk_offset_x = (s3dnum_t)chunk_x * (
         ((s3dnum_t)LVLBOX_TILE_SIZE) *
         ((s3dnum_t)LVLBOX_CHUNK_SIZE));
@@ -199,54 +1077,34 @@ S3DHID int _spew3d_lvlbox_WorldPosToTilePos_nolock(
         tile_x = (int32_t)LVLBOX_CHUNK_SIZE - 1;
     if (tile_y >= (int32_t)LVLBOX_CHUNK_SIZE)
         tile_y = (int32_t)LVLBOX_CHUNK_SIZE - 1;
-    int32_t tile_idx = (
+    int32_t tile_index = (
         tile_y * (int32_t)LVLBOX_CHUNK_SIZE + tile_x
     );
-    assert(tile_idx >= 0 &&
-        tile_idx < (int32_t)(LVLBOX_CHUNK_SIZE * LVLBOX_CHUNK_SIZE));
-    if (out_chunk_idx != NULL)
-        *out_chunk_idx = chunk_idx;
-    if (out_tile_idx != NULL)
-        *out_tile_idx = tile_idx;
+    assert(tile_index >= 0 &&
+        tile_index < (int32_t)(LVLBOX_CHUNK_SIZE * LVLBOX_CHUNK_SIZE));
+    if (out_chunk_index != NULL)
+        *out_chunk_index = chunk_index;
+    if (out_tile_index != NULL)
+        *out_tile_index = tile_index;
     if (out_tile_pos_offset != NULL || out_segment_no != NULL) {
         s3d_lvlbox_tile *tile = (
-            &lvlbox->chunk[chunk_idx].tile[tile_idx]
+            &lvlbox->chunk[chunk_index].tile[tile_index]
         );
         s3d_pos offset = {0};
         offset.x = pos.x - (s3dnum_t)tile_x *
             (s3dnum_t)LVLBOX_TILE_SIZE;
         offset.y = pos.y - (s3dnum_t)tile_y *
             (s3dnum_t)LVLBOX_TILE_SIZE;
-        int32_t segment_no = -1;
-        if (tile->occupied) {
-            int i = 0;
-            while (i < tile->segment_count) {
-                double floor_min_z = INT32_MAX;
-                double ceiling_max_z = INT32_MIN;
-                int match = 0;
-                int k = 0;
-                while (k < 4) {
-                    floor_min_z = fmin(floor_min_z,
-                        tile->segment[i].floor_z[k]);
-                    ceiling_max_z = fmax(ceiling_max_z,
-                        tile->segment[i].ceiling_z[k]);
-                    k++;
-                }
-                if ((offset.z > floor_min_z || i == 0) &&
-                        (offset.z < floor_min_z ||
-                        i >= tile->segment_count - 1)) {
-                    break;
-                }
-                i++;
-            }
-            assert(i < tile->segment_count);
-            segment_no = i;
-        }
+        int32_t segment_no = (
+            _spew3d_lvlbox_TileVertPosToSegmentNo_nolock(
+                lvlbox, tile, offset.z, 1
+            )
+        );
         if (out_tile_pos_offset != NULL) {
             if (segment_no >= 0) {
                 offset.z -= (
                     _spew3d_lvlbox_TileFloorHeightAtInSegment_nolock(
-                        lvlbox, offset, chunk_idx, tile_idx, segment_no
+                        lvlbox, offset, chunk_index, tile_index, segment_no
                     ));
             }
             *out_tile_pos_offset = offset;
@@ -269,13 +1127,13 @@ S3DHID int _spew3d_lvlbox_WorldPosToTilePos_nolock(
                 (s3dnum_t)LVLBOX_CHUNK_SIZE) +
             lvlbox->offset.y;
         tile_lower_bound.z = lvlbox->offset.z;
-        if (lvlbox->chunk[chunk_idx].tile[tile_idx].occupied) {
+        if (lvlbox->chunk[chunk_index].tile[tile_index].occupied) {
             double min_z = INT32_MAX;
             int k = 0;
             while (k < 4) {
                 min_z = fmin(min_z,
-                    lvlbox->chunk[chunk_idx].
-                    tile[tile_idx].segment[0].floor_z[k]);
+                    lvlbox->chunk[chunk_index].
+                    tile[tile_index].segment[0].floor_z[k]);
                 k++;
             }
             tile_lower_bound.z = min_z;
@@ -287,7 +1145,7 @@ S3DHID int _spew3d_lvlbox_WorldPosToTilePos_nolock(
 
 S3DEXP int spew3d_lvlbox_WorldPosToTilePos(
         s3d_lvlbox *lvlbox, s3d_pos pos, int ignore_lvlbox_offset,
-        int32_t *out_chunk_idx, int32_t *out_tile_idx,
+        int32_t *out_chunk_index, int32_t *out_tile_index,
         s3d_pos *out_tile_lower_bound,
         s3d_pos *out_tile_pos_offset,
         int32_t *out_segment_no
@@ -295,7 +1153,7 @@ S3DEXP int spew3d_lvlbox_WorldPosToTilePos(
     mutex_Lock(_lvlbox_Internal(lvlbox)->m);
     int32_t idx = _spew3d_lvlbox_WorldPosToTilePos_nolock(
         lvlbox, pos, ignore_lvlbox_offset,
-        out_chunk_idx, out_tile_idx,
+        out_chunk_index, out_tile_index,
         out_tile_lower_bound, out_tile_pos_offset,
         out_segment_no
     );
@@ -497,6 +1355,17 @@ S3DEXP int32_t spew3d_lvlbox_WorldPosToChunkIndex(
 }
 
 S3DEXP int spew3d_lvlbox_ExpandToPosition(
+        s3d_lvlbox *lvlbox, s3d_pos pos
+        ) {
+    mutex_Lock(_lvlbox_Internal(lvlbox)->m);
+    int result = _spew3d_lvlbox_ExpandToPosition_nolock(
+        lvlbox, pos
+    );
+    mutex_Release(_lvlbox_Internal(lvlbox)->m);
+    return result;
+}
+
+S3DHID int _spew3d_lvlbox_ExpandToPosition_nolock(
         s3d_lvlbox *lvlbox, s3d_pos pos
         ) {
     mutex_Lock(_lvlbox_Internal(lvlbox)->m);
@@ -794,10 +1663,14 @@ S3DEXP s3d_lvlbox *spew3d_lvlbox_FromString(
 }
 
 #undef CHECK_STR
+#undef CHECK_SPACE
 
 S3DEXP char *spew3d_lvlbox_ToString(
         s3d_lvlbox *lvlbox, uint32_t *out_slen
         ) {
+    mutex_Lock(_lvlbox_Internal(lvlbox)->m);
+
+    mutex_Release(_lvlbox_Internal(lvlbox)->m);
     return NULL;
 }
 
@@ -842,7 +1715,7 @@ S3DEXP s3d_lvlbox *spew3d_lvlbox_New(
             (s3dnum_t)LVLBOX_TILE_SIZE) * 0.5;
         pos.y = ((s3dnum_t)LVLBOX_CHUNK_SIZE *
             (s3dnum_t)LVLBOX_TILE_SIZE) * 0.5;
-        if (!spew3d_lvlbox_SetFloorTextureAt(
+        if (!_spew3d_lvlbox_SetFloorTextureAt_nolock(
                 lvlbox, pos, default_tex, default_tex_vfs_flags
                 )) {
             _spew3d_lvlbox_ActuallyDestroy(lvlbox);
@@ -856,28 +1729,37 @@ S3DEXP int spew3d_lvlbox_SetFloorTextureAt(
         s3d_lvlbox *lvlbox, s3d_pos pos,
         const char *texname, int vfsflags
         ) {
-    if (!spew3d_lvlbox_ExpandToPosition(lvlbox, pos)) {
+    mutex_Lock(_lvlbox_Internal(lvlbox)->m);
+    int result = _spew3d_lvlbox_SetFloorTextureAt_nolock(
+        lvlbox, pos, texname, vfsflags);
+    mutex_Release(_lvlbox_Internal(lvlbox)->m);
+    return result;
+}
+
+S3DHID int _spew3d_lvlbox_SetFloorTextureAt_nolock(
+        s3d_lvlbox *lvlbox, s3d_pos pos,
+        const char *texname, int vfsflags
+        ) {
+    if (!_spew3d_lvlbox_ExpandToPosition_nolock(lvlbox, pos)) {
         return 0;
     }
-    int32_t chunk_idx, tile_idx;
+    int32_t chunk_index, tile_index;
     int32_t segment_no = -1;
     s3d_pos tile_lower_bound;
     s3d_pos pos_offset;
-    mutex_Lock(_lvlbox_Internal(lvlbox)->m);
+
     int result = _spew3d_lvlbox_WorldPosToTilePos_nolock(
-        lvlbox, pos, 0, &chunk_idx, &tile_idx,
+        lvlbox, pos, 0, &chunk_index, &tile_index,
         &tile_lower_bound, &pos_offset, &segment_no
     );
-    if (!result || tile_idx < 0) {
-        mutex_Release(_lvlbox_Internal(lvlbox)->m);
+    if (!result || tile_index < 0) {
         return 0;
     }
     s3d_lvlbox_tile *tile = &(
-        lvlbox->chunk[chunk_idx].tile[tile_idx]
+        lvlbox->chunk[chunk_index].tile[tile_index]
     );
     char *set_tex_name = strdup(texname);
     if (!set_tex_name) {
-        mutex_Release(_lvlbox_Internal(lvlbox)->m);
         return 0;
     }
     s3d_texture_t tid = spew3d_texture_FromFile(
@@ -885,7 +1767,6 @@ S3DEXP int spew3d_lvlbox_SetFloorTextureAt(
     );
     if (tid == 0) {
         free(set_tex_name);
-        mutex_Release(_lvlbox_Internal(lvlbox)->m);
         return 0;
     }
     if (!tile->occupied) {
@@ -894,7 +1775,6 @@ S3DEXP int spew3d_lvlbox_SetFloorTextureAt(
         tile->segment = malloc(sizeof(*tile->segment));
         if (!tile->segment) {
             free(set_tex_name);
-            mutex_Release(_lvlbox_Internal(lvlbox)->m);
             return 0;
         }
         tile->occupied = 1;
@@ -916,10 +1796,10 @@ S3DEXP int spew3d_lvlbox_SetFloorTextureAt(
     }
     assert(segment_no >= 0 && segment_no < tile->segment_count);
     tile->segment[segment_no].cache.is_up_to_date = 0;
+    tile->segment[segment_no].cache.flat_normals_set = 0;
     tile->segment[segment_no].floor_tex.name = set_tex_name;
     tile->segment[segment_no].floor_tex.vfs_flags = vfsflags;
     tile->segment[segment_no].floor_tex.id = tid;
-    mutex_Release(_lvlbox_Internal(lvlbox)->m);
     return 1;
 }
 

@@ -73,6 +73,48 @@ S3DEXP void spew3d_math3d_split_fovs_from_fov(
     *output_vertifov = verti_fov;
 }
 
+S3DEXP void spew3d_math3d_cross_product(
+        s3d_pos *v1, s3d_pos *v2, s3d_pos *out
+        ) {
+    s3dnum_t x = ((v1->y * v2->z) - (v1->z * v2->y));
+    s3dnum_t y = ((v1->x * v2->z) - (v1->z * v2->x));
+    s3dnum_t z = ((v1->x * v2->y) - (v1->y * v2->x));
+    out->x = x;
+    out->y = y;
+    out->z = z;
+}
+
+S3DEXP void spew3d_math3d_polygon_normal(
+        s3d_pos *v1, s3d_pos *v2, s3d_pos *v3,
+        int do_normalize,
+        s3d_pos *out
+        ) {
+    s3d_pos normal;
+    s3d_pos input1;
+    input1.x = v2->x - v1->x;
+    input1.y = v2->y - v1->y;
+    input1.z = v2->z - v1->z;
+    s3d_pos input2;
+    input2.x = v3->x - v1->x;
+    input2.y = v3->y - v1->y;
+    input2.z = v3->z - v1->z;
+    spew3d_math3d_cross_product(&input1, &input2,
+        &normal);
+    if (do_normalize) {
+        s3dnum_t len = spew3d_math3d_len(normal);
+        if (len >= (s3dnum_t)0.00001) {
+            normal.x /= len;
+            normal.y /= len;
+            normal.z /= len;
+        } else {
+            normal.x = 0;
+            normal.y = 0;
+            normal.z = 0;
+        }
+    }
+    *out = normal;
+}
+
 S3DEXP s3dnum_t spew3d_math3d_anglefromto(
         s3d_pos *p, s3d_pos *p2
         ) {

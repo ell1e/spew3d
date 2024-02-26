@@ -1,4 +1,4 @@
-/* Copyright (c) 2020-2024, ellie/@ell1e & Spew3D Team (see AUTHORS.md).
+/* Copyright (c) 2024, ellie/@ell1e & Spew3D Team (see AUTHORS.md).
 
 Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions are met:
@@ -64,6 +64,7 @@ typedef struct s3d_lvlbox_wallinfo {
 typedef struct s3d_lvlbox_tilepolygon {
     s3d_pos vertex[3];
     s3d_point texcoord[3];
+    s3d_pos polynormal;
     s3d_pos normal[3];
     s3d_color light_emit[3];
     s3d_material_t material;
@@ -71,16 +72,20 @@ typedef struct s3d_lvlbox_tilepolygon {
 } s3d_lvlbox_tilepolygon;
 
 typedef struct s3d_lvlbox_tilecache {
-    uint8_t is_up_to_date;
+    uint8_t is_up_to_date, flat_normals_set;
 
-    uint16_t cached_floor_polygon_count;
-    s3d_lvlbox_tilepolygon *cached_floor_polygon;
+    uint16_t cached_floor_polycount;
+    s3d_lvlbox_tilepolygon *cached_floor;
+    s3d_pos floor_flat_corner_normals[4];
+    int floor_split_from_front_left;
 
-    uint16_t cached_ceiling_polygon_count;
-    s3d_lvlbox_tilepolygon *cached_ceiling_polygon;
+    uint16_t cached_ceiling_polycount;
+    s3d_lvlbox_tilepolygon *cached_ceiling;
+    s3d_pos ceiling_flat_corner_normals[4];
+    int ceiling_split_from_front_left;
 
-    uint16_t cached_wall_polygon_count;
-    s3d_lvlbox_tilepolygon *cached_wall_polygon;
+    uint16_t cached_wall_polycount;
+    s3d_lvlbox_tilepolygon *cached_wall;
 } s3d_lvlbox_tilecache;
 
 typedef struct s3d_lvlbox_vertsegment {
@@ -101,8 +106,6 @@ typedef struct s3d_lvlbox_tile {
 
     s3d_lvlbox_vertsegment *segment;
     int segment_count;
-    
-    
 } s3d_lvlbox_tile;
 
 typedef struct s3d_lvlbox_chunk {
