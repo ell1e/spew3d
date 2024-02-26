@@ -319,6 +319,7 @@ S3DHID int _spew3d_camera3d_ProcessDrawToWindowReq(s3devent *ev) {
             queue[queuefill].kind = RENDERENTRY_SPRITE3D;
             queue[queuefill].rendersprite3d.world_pos = pos;
             queue[queuefill].rendersprite3d.world_rotation = rot;
+            queuefill++;
             i++;
             continue;
         } else if (kind == OBJ3D_LVLBOX) {
@@ -329,6 +330,7 @@ S3DHID int _spew3d_camera3d_ProcessDrawToWindowReq(s3devent *ev) {
             );
             queue[queuefill].renderlvlbox.world_pos = pos;
             queue[queuefill].renderlvlbox.world_rotation = rot;
+            queuefill++;
             i++;
             continue;
         }
