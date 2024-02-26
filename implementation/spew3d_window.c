@@ -38,6 +38,7 @@ license, see accompanied LICENSE.md.
 uint32_t _last_window_id = 0;
 s3d_mutex *_win_id_mutex = NULL;
 s3d_window **_global_win_registry = NULL;
+uint32_t _last_focus_window_id = 0;
 int _global_win_registry_fill =  0;
 int _global_win_registry_alloc = 0;
 
@@ -59,6 +60,10 @@ typedef struct s3d_window {
     } virtualwin;
     int32_t width, height;
 } s3d_window;
+
+S3DHID s3d_key_t _spew3d_keyboard_SDL_Key_To_S3D_Key(
+    SDL_Keycode sym, SDL_Scancode scancode
+);
 
 S3DHID __attribute__((constructor)) void _ensure_winid_mutex() {
     if (_win_id_mutex != NULL)
@@ -225,6 +230,40 @@ S3DHID s3d_window *spew3d_window_GetBySDLWindowID(uint32_t sdlid) {
 #endif
 
 #ifndef SPEW3D_OPTION_DISABLE_SDL
+static uint64_t _last_focus_update_ts = 0;
+S3DHID void _spew3d_window_UpdateSDLFocus() {
+    mutex_Lock(_win_id_mutex);
+    uint64_t now = spew3d_time_Ticks();
+    if (_last_focus_update_ts > 0 &&
+            _last_focus_update_ts + 1000 > now) {
+        mutex_Release(_win_id_mutex);
+        return;
+    }
+
+    int i = 0;
+    while (i < _global_win_registry_fill) {
+        if (!_global_win_registry[i]->_sdl_outputwindow) {
+            i++;
+            continue;
+        }
+        uint32_t flags = SDL_GetWindowFlags(
+            _global_win_registry[i]->_sdl_outputwindow
+        );
+        if ((flags & SDL_WINDOW_INPUT_FOCUS) != 0 ||
+                _last_focus_window_id == 0) {
+            _last_focus_window_id = (
+                _global_win_registry[i]->id
+            );
+            assert(_last_focus_window_id > 0);
+            break;
+        }
+        i++;
+    }
+    mutex_Release(_win_id_mutex);
+}
+#endif
+
+#ifndef SPEW3D_OPTION_DISABLE_SDL
 S3DHID int _spew3d_window_HandleSDLEvent(SDL_Event *e) {
     thread_MarkAsMainThread();
 
@@ -234,6 +273,7 @@ S3DHID int _spew3d_window_HandleSDLEvent(SDL_Event *e) {
     assert(eq != NULL);
     s3dequeue *equser = s3devent_GetMainQueue();
     assert(equser != NULL);
+    _spew3d_window_UpdateSDLFocus();
 
     if (e->type == SDL_QUIT) {
         s3devent e2 = {0};
@@ -253,6 +293,26 @@ S3DHID int _spew3d_window_HandleSDLEvent(SDL_Event *e) {
             i++;
         }
         mutex_Release(_win_id_mutex);
+        return 1;
+    } else if (e->type == SDL_KEYDOWN) {
+        mutex_Lock(_win_id_mutex);
+        if (_last_focus_window_id <= 0) {
+            mutex_Release(_win_id_mutex);
+            return 1;
+        }
+        s3d_key_t k = _spew3d_keyboard_SDL_Key_To_S3D_Key(
+            e->key.keysym.sym, e->key.keysym.scancode
+        );
+        if (k == S3D_KEY_INVALID) {
+            mutex_Release(_win_id_mutex);
+            return 1;
+        }
+        s3devent e2 = {0};
+        e2.kind = S3DEV_KEY_DOWN;
+        e2.key.win_id = _last_focus_window_id;
+        e2.key.key = k;
+        mutex_Release(_win_id_mutex);
+        s3devent_q_Insert(equser, &e2);
         return 1;
     } else if (e->type == SDL_WINDOWEVENT) {
         s3d_window *win = spew3d_window_GetBySDLWindowID(e->window.windowID);

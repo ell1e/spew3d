@@ -35,19 +35,21 @@ int main(int argc, const char **argv) {
         return 1;
     }
 
+    // Create the scene itself:
+    s3d_scene3d *scene = spew3d_scene3d_New(100, 3.0);
+    if (!scene) {
+        failed: ;
+        fprintf(stderr, "Failed to create scene or level.\n");
+        return 1;
+    }
+
     // Set up a level:
     s3d_lvlbox *level_contents = NULL;
     s3d_obj3d *level = NULL;
     s3d_resourceload_job *job = spew3d_lvlbox_FromMapFileOrNew(
         argv[1], 0, 1, "grass", 0
     );
-    if (!job) {
-        failed: ;
-        fprintf(stderr, "Failed to create scene or level.\n");
-        return 1;
-    }
-    s3d_scene3d *scene = spew3d_scene3d_New(100, 3.0);
-    if (!scene) goto failed;
+    if (!job) goto failed;
 
     // Set up a camera:
     s3d_obj3d *camera = spew3d_camera3d_CreateForScene(
@@ -55,6 +57,19 @@ int main(int argc, const char **argv) {
     );
     if (!camera) goto failed;
     spew3d_camera3d_SetFOV(camera, 100);
+
+    // Add some random cube:
+    s3d_geometry *cube_geo = spew3d_geometry_Create();
+    if (!cube_geo) goto failed;
+    if (!spew3d_geometry_AddCubeSimple(
+            cube_geo, 2.0 * S3D_METER,
+            spew3d_texture_FromFile("hello_world.png", 0), 0
+        )) goto failed;
+    s3d_obj3d *cube = spew3d_scene3d_AddMeshObj(scene, cube_geo, 1);
+    if (!cube) goto failed;
+    s3d_pos cube_pos = {0};
+    cube_pos.x = 3 * S3D_METER;
+    spew3d_obj3d_SetPos(cube, cube_pos);
 
     // Enter main loop:
     printf("Entering main loop.\n");

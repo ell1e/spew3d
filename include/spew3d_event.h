@@ -38,6 +38,8 @@ enum S3DEventKind {
     S3DEV_WINDOW_USER_CLOSE_REQUEST,
 
     S3DEV_MOUSE_MOVE,
+    S3DEV_KEY_DOWN,
+    S3DEV_KEY_UP,
 
     S3DEV_APP_QUIT_REQUEST = 30,
 
@@ -59,42 +61,53 @@ enum S3DEventKind {
 
 typedef uint64_t s3d_texture_t;
 typedef struct s3d_obj3d s3d_obj3d;
+typedef uint16_t s3d_key_t;
 
 typedef struct s3devent {
     int kind;
     union {
-        struct window {
-            uint32_t win_id;
-        } window;
-        struct mousemove {
-            uint32_t win_id;
-            s3dnum_t mouse_rel_x, mouse_rel_y;
-            s3dnum_t mouse_x, mouse_y;
-        } mousemove;
-        struct drawprimitive {
-            uint32_t win_id;
-            s3dnum_t red, green, blue;
-        } drawprimitive;
-        struct texturelock {
-            s3d_texture_t tid;
-            uint64_t lock_request_id;
-        } texturelock;
-        struct texdelete {
-            s3d_texture_t tid;
-        } texdelete;
-        struct spritedraw {
-            uint32_t win_id;
-            s3d_texture_t tid;
-            int32_t pixel_x, pixel_y;
-            int centered;
-            s3dnum_t scale, angle, tint_red, tint_green, tint_blue;
-            s3dnum_t transparency;
-            int withalphachannel;
-        } spritedraw;
-        struct cam3d {
-            uint32_t win_id;
-            s3d_obj3d *obj_ref;
-        } cam3d;
+        union {
+            /* PUBLIC EVENTS: */
+            struct window {
+                uint32_t win_id;
+            } window;
+            struct mouse {
+                uint32_t win_id;
+                s3dnum_t mouse_rel_x, mouse_rel_y;
+                s3dnum_t mouse_x, mouse_y;
+            } mouse;
+            struct key {
+                uint32_t win_id;
+                s3d_key_t key;
+            } key;
+        };
+        union {
+            /* INTERNAL EVENTS: */
+            struct drawprimitive {
+                uint32_t win_id;
+                s3dnum_t red, green, blue;
+            } drawprimitive;
+            struct texturelock {
+                s3d_texture_t tid;
+                uint64_t lock_request_id;
+            } texturelock;
+            struct texdelete {
+                s3d_texture_t tid;
+            } texdelete;
+            struct spritedraw {
+                uint32_t win_id;
+                s3d_texture_t tid;
+                int32_t pixel_x, pixel_y;
+                int centered;
+                s3dnum_t scale, angle, tint_red, tint_green, tint_blue;
+                s3dnum_t transparency;
+                int withalphachannel;
+            } spritedraw;
+            struct cam3d {
+                uint32_t win_id;
+                s3d_obj3d *obj_ref;
+            } cam3d;
+        };
     };
 } s3devent;
 
