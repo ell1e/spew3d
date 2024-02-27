@@ -352,7 +352,7 @@ void spew3d_window_Update_nolock(s3d_window *win) {
                         win->mouse_warp_target_y
                     );
                     win->ignore_mouse_motion_until_ts = (
-                        spew3d_time_Ticks() + 200
+                        spew3d_time_Ticks() + 500
                     );
                 } else {
                     win->backend->SetMouseGrabConstrained(
@@ -494,24 +494,36 @@ void spew3d_window_ProcessMouseMotion(
         _last_mouse_hover_window_id = win->id;
     }
     if (win->ignore_mouse_motion_until_ts > now) {
-        if (!is_in_window) {
-            win->mouseseeninwindow = 0;
+        if (win->mouse_lock_mode !=
+                S3D_MOUSE_LOCK_INVISIBLE_RELATIVE_MODE ||
+                !win->focused) {
+            if (!is_in_window) {
+                win->mouseseeninwindow = 0;
+            } else {
+                win->mouseseeninwindow = 1;
+                win->lastmousex = (int)mx;
+                win->lastmousey = (int)my;
+                win->lastmouseseen_ts = now;
+            }
         } else {
-            win->mouseseeninwindow = 1;
-            win->lastmousex = (int)mx;
-            win->lastmousey = (int)my;
-            win->lastmouseseen_ts = now;
-        }
-        if (win->mouse_lock_mode ==
-                S3D_MOUSE_LOCK_INVISIBLE_RELATIVE_MODE) {
-            int wx = win->mouse_warp_target_x;
-            int wy = win->mouse_warp_target_y;
-            win->backend->WarpMouse(
-                win->backend, win, win->backend_winfo,
-                wx, wy
-            );
-            win->lastmousex = wx;
-            win->lastmousex = wy;
+            assert(win->mouse_lock_mode ==
+                S3D_MOUSE_LOCK_INVISIBLE_RELATIVE_MODE);
+            if (is_in_window) {
+                int wx = win->mouse_warp_target_x;
+                int wy = win->mouse_warp_target_y;
+                if (wx != mx && wy != my) {
+                    win->backend->WarpMouse(
+                        win->backend, win, win->backend_winfo,
+                        wx, wy
+                    );
+                }
+                win->mouseseeninwindow = 1;
+                win->lastmousex = wx;
+                win->lastmousey = wy;
+                win->lastmouseseen_ts = now;
+            } else {
+                win->mouseseeninwindow = 0;
+            }
         }
         mutex_Release(_win_id_mutex);
         return;
@@ -523,6 +535,7 @@ void spew3d_window_ProcessMouseMotion(
             _graphics_backend_hidden_mouse_lock_mode)
     );
     int can_warp = (
+        win->focused &&
         win->mouse_lock_mode ==
             _graphics_backend_hidden_mouse_lock_mode
     );
