@@ -54,13 +54,6 @@ typedef struct s3d_window {
     int mouse_lock_mode;
     int focused;
 
-    #ifndef SPEW3D_OPTION_DISABLE_SDL
-    int owns_sdl_window;
-    SDL_Window *_sdl_outputwindow;
-    int owns_sdl_renderer;
-    SDL_Renderer *_sdl_outputrenderer;
-    #endif
-
     int32_t canvaswidth, canvasheight;
     s3dnum_t dpiscale;
     struct virtualwin {
@@ -88,6 +81,12 @@ S3DHID void _spew3d_keyboard_register_pressed_down(
 );
 S3DHID void _spew3d_keyboard_register_release(
     uint32_t window_id, s3d_key_t key
+);
+S3DHID void _s3d_sdl_GetWindowSDLRef(
+    s3d_window *win,
+    s3d_backend_windowing_wininfo *backend_winfo,
+    SDL_Window **out_win,
+    SDL_Renderer **out_renderer
 );
 
 S3DHID __attribute__((constructor)) void _ensure_winid_mutex() {
@@ -131,6 +130,28 @@ S3DHID void _spew3d_window_FreeContents(s3d_window *win) {
     }
     free(win->title);
 }
+
+#if !defined(SPEW3D_OPTION_DISABLE_SDL) &&\
+        defined(SPEW3D_OPTION_DISABLE_SDL_HEADER)
+// This won't be in the header, so define it here:
+S3DEXP void spew3d_window_GetSDLWindowAndRenderer(
+    s3d_window *win, SDL_Window **out_w,
+    SDL_Renderer **out_r
+);
+#endif
+
+#ifndef SPEW3D_OPTION_DISABLE_SDL
+S3DEXP void spew3d_window_GetSDLWindowAndRenderer_nolock(
+        s3d_window *win, SDL_Window **out_w,
+        SDL_Renderer **out_r
+        ) {
+    assert(win->backend->kind == S3D_BACKEND_WINDOWING_SDL);
+    _s3d_sdl_GetWindowSDLRef(
+        win, win->backend_winfo,
+        out_w, out_r
+    );
+}
+#endif
 
 S3DHID static s3d_window *spew3d_window_NewExEx(
         const char *title, uint32_t flags,
@@ -261,9 +282,12 @@ S3DHID s3d_window *spew3d_window_GetBySDLWindowID(uint32_t sdlid) {
     mutex_Lock(_win_id_mutex);
     int i = 0;
     while (i < _global_win_registry_fill) {
-        if (_global_win_registry[i]->_sdl_outputwindow != NULL &&
-                sdlid == SDL_GetWindowID(
-                _global_win_registry[i]->_sdl_outputwindow)) {
+        SDL_Window *sdlwin = NULL;
+        spew3d_window_GetSDLWindowAndRenderer_nolock(
+            _global_win_registry[i], &sdlwin, NULL
+        );
+        if (sdlwin != NULL &&
+                sdlid == SDL_GetWindowID(sdlwin)) {
             mutex_Release(_win_id_mutex);
             return _global_win_registry[i];
         }
@@ -294,30 +318,28 @@ void spew3d_window_Update_nolock(s3d_window *win) {
     #ifndef SPEW3D_OPTION_DISABLE_SDL
     if (win->id == _last_mouse_hover_window_id) {
         if (win->mouse_lock_mode != S3D_MOUSE_LOCK_DISABLED &&
-                win->_sdl_outputwindow != NULL &&
+                win->backend->WasWinObjCreated(
+                    win->backend, win, win->backend_winfo
+                ) &&
                 win->mouseseeninwindow &&
                 win->focused
                 ) {
             if (_graphics_backend_hidden_mouse_lock_mode !=
                     win->mouse_lock_mode) {
-                SDL_CaptureMouse(SDL_FALSE);
-                SDL_SetRelativeMouseMode(SDL_FALSE);
-                SDL_ShowCursor(SDL_ENABLE);
-                SDL_SetWindowGrab(win->_sdl_outputwindow, SDL_FALSE);
+
+                win->backend->ResetMouseGrab(
+                    win->backend, win, win->backend_winfo
+                );
 
                 _graphics_backend_hidden_mouse_lock_mode = (
                     win->mouse_lock_mode
                 );
-                if (win->mouse_lock_mode ==
-                        S3D_MOUSE_LOCK_INVISIBLE_RELATIVE_MODE) {
-                    SDL_ShowCursor(SDL_DISABLE);
-                } else {
-                    SDL_ShowCursor(SDL_ENABLE);
-                }
 
-                SDL_SetWindowGrab(win->_sdl_outputwindow, SDL_TRUE);
                 if (win->mouse_lock_mode ==
                         S3D_MOUSE_LOCK_INVISIBLE_RELATIVE_MODE) {
+                    win->backend->SetMouseGrabInvisibleRelative(
+                        win->backend, win, win->backend_winfo
+                    );
                     win->mouse_warp_target_x = (
                         floor((s3dnum_t)win->width / (s3dnum_t)2.0)
                     );
@@ -333,21 +355,24 @@ void spew3d_window_Update_nolock(s3d_window *win) {
                         spew3d_time_Ticks() + 200
                     );
                 } else {
-                    SDL_CaptureMouse(SDL_TRUE);
+                    win->backend->SetMouseGrabConstrained(
+                        win->backend, win, win->backend_winfo
+                    );
                 }
             }
         } else if (win->mouse_lock_mode == S3D_MOUSE_LOCK_DISABLED ||
                 !win->focused || win->wasclosed ||
-                win->_sdl_outputwindow == NULL) {
+                !win->backend->WasWinObjCreated(
+                    win->backend, win, win->backend_winfo
+                )) {
             if (_graphics_backend_hidden_mouse_lock_mode !=
                     S3D_MOUSE_LOCK_DISABLED) {
                 _graphics_backend_hidden_mouse_lock_mode = (
                     S3D_MOUSE_LOCK_DISABLED
                 );
-                SDL_CaptureMouse(SDL_FALSE);
-                SDL_SetRelativeMouseMode(SDL_FALSE);
-                SDL_ShowCursor(SDL_ENABLE);
-                SDL_SetWindowGrab(win->_sdl_outputwindow, SDL_FALSE);
+                win->backend->ResetMouseGrab(
+                    win->backend, win, win->backend_winfo
+                );
             }
         }
     }
@@ -368,13 +393,15 @@ S3DHID void _spew3d_window_UpdateSDLFocus() {
 
     int i = 0;
     while (i < _global_win_registry_fill) {
-        if (!_global_win_registry[i]->_sdl_outputwindow) {
+        SDL_Window *sdlwin = NULL;
+        spew3d_window_GetSDLWindowAndRenderer_nolock(
+            _global_win_registry[i], &sdlwin, NULL
+        );
+        if (!sdlwin) {
             i++;
             continue;
         }
-        uint32_t flags = SDL_GetWindowFlags(
-            _global_win_registry[i]->_sdl_outputwindow
-        );
+        uint32_t flags = SDL_GetWindowFlags(sdlwin);
         if ((flags & SDL_WINDOW_INPUT_FOCUS) != 0 ||
                 _last_keyboard_focus_window_id == 0) {
             previously_focused = _last_keyboard_focus_window_id;
@@ -850,69 +877,13 @@ S3DHID int _spew3d_window_ProcessWinOpenReq(s3d_event *ev) {
 
     uint32_t flags = win->flags;
     if ((flags & SPEW3D_WINDOW_FLAG_FORCE_HIDDEN_VIRTUAL) == 0) {
-        #ifndef SPEW3D_OPTION_DISABLE_SDL
-        int isfullscreen = (
-            (flags & SPEW3D_WINDOW_FLAG_FULLSCREEN) != 0
-        );
-
-        // Try to create a 3d accelerated OpenGL window:
-        SDL_Window *window = SDL_CreateWindow(
-            win->title, SDL_WINDOWPOS_UNDEFINED,
-            SDL_WINDOWPOS_UNDEFINED, win->width, win->height,
-            SDL_WINDOW_RESIZABLE|
-            (isfullscreen ? SDL_WINDOW_FULLSCREEN:0)|
-            (((flags &
-                    SPEW3D_WINDOW_FLAG_FORCE_NO_3D_ACCEL) == 0) ?
-                SDL_WINDOW_OPENGL:0)|
-            SDL_WINDOW_ALLOW_HIGHDPI);
-        SDL_Renderer *renderer = NULL;
-        if (window) {  // Try to create 3d accel OpenGL renderer:
-            renderer = SDL_CreateRenderer(window, -1,
-                SDL_RENDERER_PRESENTVSYNC|
-                (((flags &
-                        SPEW3D_WINDOW_FLAG_FORCE_NO_3D_ACCEL) == 0) ?
-                    SDL_RENDERER_ACCELERATED:
-                    SDL_RENDERER_SOFTWARE));
-            if (!renderer) {
-                SDL_DestroyWindow(window);
-                window = NULL;
-                // Failed. Go on and retry non-3d window...
-            } else {
-                win->owns_sdl_window = 1;
-                win->_sdl_outputwindow = window;
-                win->owns_sdl_renderer = 1;
-                win->_sdl_outputrenderer = renderer;
-                spew3d_window_UpdateGeometryInfo(win);
-                return 1;
-            }
-        }
-
-        // Try to create a non-OpenGL, likely unaccelerated window:
-        window = SDL_CreateWindow(
-            win->title, SDL_WINDOWPOS_UNDEFINED,
-            SDL_WINDOWPOS_UNDEFINED, win->width, win->height,
-            SDL_WINDOW_RESIZABLE|
-            (isfullscreen ? SDL_WINDOW_FULLSCREEN:0)|
-            SDL_WINDOW_ALLOW_HIGHDPI);
-        if (!window) {
+        if (!win->backend->CreateWinObj(
+                win->backend, win, win->backend_winfo,
+                win->flags, win->title, win->width, win->height)) {
             return 0;
         }
-        renderer = SDL_CreateRenderer(window, -1,
-            SDL_RENDERER_PRESENTVSYNC|SDL_RENDERER_SOFTWARE);
-        if (!renderer) {
-            SDL_DestroyWindow(window);
-            window = NULL;
-            return 0;
-        }
-
-        assert(window != NULL && renderer != NULL);
-        win->owns_sdl_window = 1;
-        win->_sdl_outputwindow = window;
-        win->owns_sdl_renderer = 1;
-        win->_sdl_outputrenderer = renderer;
         spew3d_window_UpdateGeometryInfo(win);
         return 1;
-        #endif  // ifndef SPEW3D_OPTION_DISABLE_SDL
     }
 
     // Create a virtual window:
@@ -950,8 +921,12 @@ S3DHID int _spew3d_window_ProcessWinUpdateCanvasReq(s3d_event *ev) {
         return 1;
 
     #ifndef SPEW3D_OPTION_DISABLE_SDL
-    if (win->_sdl_outputrenderer != NULL) {
-        SDL_RenderPresent(win->_sdl_outputrenderer);
+    SDL_Renderer *sdlrenderer = NULL;
+    spew3d_window_GetSDLWindowAndRenderer_nolock(
+        win, NULL, &sdlrenderer
+    );
+    if (sdlrenderer != NULL) {
+        SDL_RenderPresent(sdlrenderer);
         return 1;
     }
     #endif
@@ -985,17 +960,7 @@ S3DHID void _spew3d_window_ActuallyDestroy(s3d_window *win) {
             win->backend, win, win->backend_winfo
         );
     }
-
-    #ifndef SPEW3D_OPTION_DISABLE_SDL
-    if (win->_sdl_outputrenderer != NULL && win->owns_sdl_renderer) {
-        SDL_DestroyRenderer(win->_sdl_outputrenderer);
-    }
-    win->_sdl_outputrenderer = NULL;
-    if (win->_sdl_outputwindow != NULL && win->owns_sdl_window) {
-        SDL_DestroyWindow(win->_sdl_outputwindow);
-    }
-    win->_sdl_outputwindow = NULL;
-    #endif
+    free(win);
 }
 
 S3DHID int _spew3d_window_ProcessWinCloseReq(s3d_event *ev) {
@@ -1022,7 +987,12 @@ S3DHID int _spew3d_window_ProcessWinDrawFillReq(s3d_event *ev) {
         return 1;
 
     #ifndef SPEW3D_OPTION_DISABLE_SDL
-    if (win->_sdl_outputrenderer != NULL) {
+    SDL_Window *swin = NULL;
+    SDL_Renderer *sdlrenderer = NULL;
+    spew3d_window_GetSDLWindowAndRenderer_nolock(
+        win, &swin, &sdlrenderer
+    );
+    if (sdlrenderer != NULL) {
         double redv = fmax(0.0, fmin(255.0,
             (double)ev->drawprimitive.red * 256.0));
         double greenv = fmax(0.0, fmin(255.0,
@@ -1030,9 +1000,9 @@ S3DHID int _spew3d_window_ProcessWinDrawFillReq(s3d_event *ev) {
         double bluev = fmax(0.0, fmin(255.0,
             (double)ev->drawprimitive.blue * 256.0));
         SDL_SetRenderDrawColor(
-            win->_sdl_outputrenderer, redv, greenv, bluev, 255
+            sdlrenderer, redv, greenv, bluev, 255
         );
-        SDL_RenderClear(win->_sdl_outputrenderer);
+        SDL_RenderClear(sdlrenderer);
         return 1;
     }
     #endif
@@ -1080,33 +1050,15 @@ S3DEXP s3d_window *spew3d_window_NewEx(
         title, flags, 0, width, height);
 }
 
-#if !defined(SPEW3D_OPTION_DISABLE_SDL) &&\
-        defined(SPEW3D_OPTION_DISABLE_SDL_HEADER)
-// This won't be in the header, so define it here:
-S3DEXP void spew3d_window_GetSDLWindowAndRenderer(
-    s3d_window *win, SDL_Window **out_w,
-    SDL_Renderer **out_r
-);
-#endif
-
-#ifndef SPEW3D_OPTION_DISABLE_SDL
-S3DEXP void spew3d_window_GetSDLWindowAndRenderer_nolock(
-        s3d_window *win, SDL_Window **out_w,
-        SDL_Renderer **out_r
-        ) {
-    if (out_w) *out_w = win->_sdl_outputwindow;
-    if (out_r) *out_r = win->_sdl_outputrenderer;
-}
-#endif
-
 #ifndef SPEW3D_OPTION_DISABLE_SDL
 S3DEXP void spew3d_window_GetSDLWindowAndRenderer(
         s3d_window *win, SDL_Window **out_w,
         SDL_Renderer **out_r
         ) {
     mutex_Lock(_win_id_mutex);
-    if (out_w) *out_w = win->_sdl_outputwindow;
-    if (out_r) *out_r = win->_sdl_outputrenderer;
+    spew3d_window_GetSDLWindowAndRenderer_nolock(
+        win, out_w, out_r
+    );
     mutex_Release(_win_id_mutex);
 }
 #endif
@@ -1143,11 +1095,13 @@ S3DHID void spew3d_window_UpdateGeometryInfo(s3d_window *win) {
     assert(mutex_IsLocked(_win_id_mutex));
 
     #ifndef SPEW3D_OPTION_DISABLE_SDL
-    if (win->_sdl_outputwindow != NULL) {
-        SDL_Renderer *renderer = NULL;
-        SDL_Window *swin = win->_sdl_outputwindow;
-        spew3d_window_GetSDLWindowAndRenderer_nolock(
-            win, NULL, &renderer);
+    SDL_Window *swin = NULL;
+    SDL_Renderer *sdlrenderer = NULL;
+    spew3d_window_GetSDLWindowAndRenderer_nolock(
+        win, &swin, &sdlrenderer
+    );
+    if (swin != NULL) {
+        SDL_Renderer *renderer =sdlrenderer;
         if (!renderer) {
             win->dpiscale = 1;
             int w = win->width;

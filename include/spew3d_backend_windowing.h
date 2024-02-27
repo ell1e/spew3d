@@ -34,7 +34,13 @@ typedef struct s3d_backend_windowing s3d_backend_windowing;
 typedef struct s3d_backend_windowing_wininfo
     s3d_backend_windowing_wininfo;
 
+enum S3dBackendWindowingKind {
+    S3D_BACKEND_WINDOWING_INVALID = 0,
+    S3D_BACKEND_WINDOWING_SDL = 1
+};
+
 typedef struct s3d_backend_windowing {
+    int kind;
     s3d_backend_windowing_wininfo *(*CreateWinInfo)(
         s3d_backend_windowing *backend, s3d_window *win
     );
@@ -44,7 +50,30 @@ typedef struct s3d_backend_windowing {
     );
     void (*WarpMouse)(s3d_backend_windowing *backend,
         s3d_window *win, s3d_backend_windowing_wininfo *wininfo,
-        s3dnum_t x, s3dnum_t y);
+        s3dnum_t x, s3dnum_t y
+    );
+    int (*CreateWinObj)(
+        s3d_backend_windowing *backend, s3d_window *win,
+        s3d_backend_windowing_wininfo *backend_winfo,
+        uint32_t flags,
+        const char *title, uint32_t width, uint32_t height
+    );
+    int (*WasWinObjCreated)(
+        s3d_backend_windowing *backend, s3d_window *win,
+        s3d_backend_windowing_wininfo *backend_winfo
+    );
+    void (*ResetMouseGrab)(
+        s3d_backend_windowing *backend, s3d_window *win,
+        s3d_backend_windowing_wininfo *backend_winfo
+    );
+    void (*SetMouseGrabConstrained)(
+        s3d_backend_windowing *backend, s3d_window *win,
+        s3d_backend_windowing_wininfo *backend_winfo
+    );
+    void (*SetMouseGrabInvisibleRelative)(
+        s3d_backend_windowing *backend, s3d_window *win,
+        s3d_backend_windowing_wininfo *backend_winfo
+    );
     void *internal;
 } s3d_backend_windowing;
 
