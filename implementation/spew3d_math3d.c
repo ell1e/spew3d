@@ -156,12 +156,12 @@ S3DEXP void spew3d_math3d_transform3d(
         (double)cam_info->cam_rotation.verti);*/
     spew3d_math3d_sub(&input_pos, &cam_info->cam_pos);
 
-    s3d_rotation reverse1 = {0};
-    reverse1.verti = -cam_info->cam_rotation.verti;
-    spew3d_math3d_rotate(&input_pos, &reverse1);
     s3d_rotation reverse2 = {0};
     reverse2.hori = -cam_info->cam_rotation.hori;
     spew3d_math3d_rotate(&input_pos, &reverse2);
+    s3d_rotation reverse1 = {0};
+    reverse1.verti = -cam_info->cam_rotation.verti;
+    spew3d_math3d_rotate(&input_pos, &reverse1);
     s3d_rotation reverse3 = {0};
     reverse3.roll = -cam_info->cam_rotation.roll;
     spew3d_math3d_rotate(&input_pos, &reverse3);
