@@ -90,7 +90,7 @@ int main(int argc, const char **argv) {
             if (e.kind == S3DEV_MOUSE_MOVE) {
                 s3d_rotation rot = spew3d_obj3d_GetRotation(camera);
                 rot.hori += e.mouse.rel_x * 0.5;
-                rot.verti += e.mouse.rel_y * 0.5;
+                rot.verti -= e.mouse.rel_y * 0.5;
                 spew3d_obj3d_SetRotation(camera, rot);
             }
         }
