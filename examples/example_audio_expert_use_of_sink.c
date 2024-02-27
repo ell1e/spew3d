@@ -48,9 +48,9 @@ int main(int argc, const char **argv) {
     printf("Entering main loop\n");
     int notquit = 1;
     while (notquit) {
-        s3devent_UpdateMainThread();
-        s3devent e = {0};
-        while (s3devent_q_Pop(s3devent_GetMainQueue(), &e)) {
+        spew3d_event_UpdateMainThread();
+        s3d_event e = {0};
+        while (spew3d_event_q_Pop(spew3d_event_GetMainQueue(), &e)) {
             if (e.kind == S3DEV_WINDOW_USER_CLOSE_REQUEST ||
                     e.kind == S3DEV_APP_QUIT_REQUEST) {
                 notquit = 0;

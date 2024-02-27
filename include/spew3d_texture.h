@@ -36,6 +36,7 @@ license, see accompanied LICENSE.md.
 
 typedef uint64_t s3d_texture_t;
 typedef struct s3d_window s3d_window;
+typedef struct s3d_event s3d_event;
 
 typedef struct s3d_texture_info {
     char *idstring, *diskpath;
@@ -102,7 +103,9 @@ S3DEXP void spew3d_texture_LockPixelsToFinishEdit(
     s3d_texture_t tid
 );
 
-S3DEXP int spew3d_texture_MainThreadProcessEvent(s3devent *e);
+S3DEXP int spew3d_texture_InternalMainThreadProcessEvent(
+    s3d_event *e
+);
 
 S3DHID s3d_texture_info *_internal_spew3d_texinfo_nolock(
     s3d_texture_t id

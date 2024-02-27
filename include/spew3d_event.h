@@ -63,7 +63,7 @@ typedef uint64_t s3d_texture_t;
 typedef struct s3d_obj3d s3d_obj3d;
 typedef uint16_t s3d_key_t;
 
-typedef struct s3devent {
+typedef struct s3d_event {
     int kind;
     union {
         union {
@@ -109,23 +109,25 @@ typedef struct s3devent {
             } cam3d;
         };
     };
-} s3devent;
+} s3d_event;
 
-typedef struct s3dequeue s3dequeue;
+typedef struct s3d_equeue s3d_equeue;
 
-S3DEXP s3dequeue *s3devent_GetMainQueue();
+S3DEXP s3d_equeue *spew3d_event_GetMainQueue();
 
-S3DHID s3dequeue *_s3devent_GetInternalQueue();
+S3DHID s3d_equeue *_spew3d_event_GetInternalQueue();
 
-s3dequeue *s3devent_q_Create();
+S3DEXP s3d_equeue *spew3d_event_q_Create();
 
-S3DEXP int s3devent_q_Insert(s3dequeue *eq, const s3devent *ev);
+S3DEXP int spew3d_event_q_Insert(s3d_equeue *eq, const s3d_event *ev);
 
-S3DEXP int s3devent_q_IsEmpty(s3dequeue *eq);
+S3DEXP int spew3d_event_q_IsEmpty(s3d_equeue *eq);
 
-S3DEXP int s3devent_q_Pop(s3dequeue *eq, s3devent *writeto);
+S3DEXP int spew3d_event_q_Pop(s3d_equeue *eq, s3d_event *writeto);
 
-void s3devent_q_Free(s3dequeue *ev);
+S3DEXP void spew3d_event_q_Free(s3d_equeue *ev);
+
+S3DEXP void spew3d_event_UpdateMainThread();
 
 #endif  // SPEW3D_EVENT_H_
 

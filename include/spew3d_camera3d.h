@@ -30,6 +30,7 @@ license, see accompanied LICENSE.md.
 
 #include <stdint.h>
 
+typedef struct s3d_event s3d_event;
 typedef struct s3d_window s3d_window;
 typedef struct s3d_scene3d s3d_scene3d;
 typedef struct s3d_rotation s3d_rotation;
@@ -61,6 +62,10 @@ typedef struct s3d_renderpolygon {
     s3d_material_t polygon_material;
     s3d_texture_t polygon_texture;
 } s3d_renderpolygon;
+
+S3DEXP int spew3d_camera_InternalMainThreadProcessEvent(
+    s3d_event *e
+);
 
 #endif  // SPEW3D_CAMERA3D_H_
 

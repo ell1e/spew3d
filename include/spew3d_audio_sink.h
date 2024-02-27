@@ -147,5 +147,9 @@ S3DEXP void spew3d_audio_sink_AddRef(s3d_audio_sink *sink);
  */
 S3DEXP void spew3d_audio_sink_DelRef(s3d_audio_sink *sink);
 
+/// This is usually called by sdl_event.c for you, as part of
+/// spew3d_event_UpdateMainThread().
+S3DEXP void spew3d_audio_sink_InternalMainThreadUpdate();
+
 #endif  // SPEW3D_AUDIO_SINK_H_
 

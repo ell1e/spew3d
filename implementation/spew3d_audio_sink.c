@@ -398,7 +398,7 @@ S3DHID int _internal_spew3d_audio_sink_Process(s3d_audio_sink *sink) {
     return 1;
 }
 
-S3DEXP void spew3d_audio_sink_MainThreadUpdate() {
+S3DEXP void spew3d_audio_sink_InternalMainThreadUpdate() {
     _internal_spew3d_InitAudio();
 
     mutex_Lock(sink_list_mutex);

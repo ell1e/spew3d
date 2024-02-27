@@ -181,15 +181,15 @@ S3DEXP void spew3d_camera3d_RenderToWindow(
         s3d_obj3d *cam, s3d_window *win
         ) {
     assert(_spew3d_scene3d_GetKind_nolock(cam) == OBJ3D_CAMERA);
-    s3dequeue *eq = _s3devent_GetInternalQueue();
+    s3d_equeue *eq = _spew3d_event_GetInternalQueue();
     if (!eq)
         return;
 
-    s3devent e = {0};
+    s3d_event e = {0};
     e.kind = S3DEV_INTERNAL_CMD_CAM3D_DRAWTOWINDOW;
     e.cam3d.obj_ref = cam;
     e.cam3d.win_id = spew3d_window_GetID(win);
-    if (!s3devent_q_Insert(eq, &e))
+    if (!spew3d_event_q_Insert(eq, &e))
         return;
 }
 
@@ -215,7 +215,9 @@ S3DHID static int _depthCompareRenderPolygons(
     return 0;
 }
 
-S3DHID int _spew3d_camera3d_ProcessDrawToWindowReq(s3devent *ev) {
+S3DHID int _spew3d_camera3d_ProcessDrawToWindowReq(
+        s3d_event *ev
+        ) {
     if (!_internal_spew3d_InitSDLGraphics())
         return 0;
 
@@ -542,16 +544,18 @@ S3DHID int _spew3d_camera3d_ProcessDrawToWindowReq(s3devent *ev) {
     return 1;
 }
 
-S3DEXP int spew3d_camera_MainThreadProcessEvent(s3devent *e) {
+S3DEXP int spew3d_camera_InternalMainThreadProcessEvent(
+        s3d_event *e
+        ) {
     assert(thread_InMainThread());
 
-    s3dequeue *eq = _s3devent_GetInternalQueue();
+    s3d_equeue *eq = _spew3d_event_GetInternalQueue();
 
     mutex_Lock(_win_id_mutex);
     if (e->kind == S3DEV_INTERNAL_CMD_CAM3D_DRAWTOWINDOW) {
         if (!_spew3d_camera3d_ProcessDrawToWindowReq(e)) {
             mutex_Release(_win_id_mutex);
-            s3devent_q_Insert(eq, e);
+            spew3d_event_q_Insert(eq, e);
         }
         mutex_Release(_win_id_mutex);
         return 1;

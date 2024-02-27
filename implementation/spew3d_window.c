@@ -38,7 +38,8 @@ license, see accompanied LICENSE.md.
 uint32_t _last_window_id = 0;
 s3d_mutex *_win_id_mutex = NULL;
 s3d_window **_global_win_registry = NULL;
-uint32_t _last_focus_window_id = 0;
+uint32_t _last_keyboard_focus_window_id = 0;
+uint32_t _last_mouse_hover_window_id = 0;
 int _global_win_registry_fill =  0;
 int _global_win_registry_alloc = 0;
 
@@ -48,6 +49,7 @@ typedef struct s3d_window {
     char *title;
     int wasclosed;
     int32_t width, height;
+    int mouse_lock;
 
     #ifndef SPEW3D_OPTION_DISABLE_SDL
     int owns_sdl_window;
@@ -61,7 +63,7 @@ typedef struct s3d_window {
     struct virtualwin {
         s3d_texture_t canvas;
     } virtualwin;
-    int mouseseeninindow, fingerseeninindow;
+    int mouseseeninwindow, fingerseeninwindow;
     uint64_t lastmouseseen_ts;
     s3dnum_t lastmousex, lastmousey,
         lastfingerx, lastfingery;
@@ -129,7 +131,7 @@ S3DHID static s3d_window *spew3d_window_NewExEx(
         const char *title, uint32_t flags,
         int dontinitactualwindow, int32_t width, int32_t height
         ) {
-    s3dequeue *eq = _s3devent_GetInternalQueue();
+    s3d_equeue *eq = _spew3d_event_GetInternalQueue();
     assert(eq != NULL);
     _ensure_winid_mutex();
     assert(_win_id_mutex != NULL);
@@ -171,10 +173,10 @@ S3DHID static s3d_window *spew3d_window_NewExEx(
     }
 
     if (!dontinitactualwindow) {
-        s3devent e = {0};
+        s3d_event e = {0};
         e.kind = S3DEV_INTERNAL_CMD_WIN_OPEN;
         e.window.win_id = win->id;
-        if (!s3devent_q_Insert(eq, &e)) {
+        if (!spew3d_event_q_Insert(eq, &e)) {
             free(win->title);
             free(win);
             mutex_Release(_win_id_mutex);
@@ -252,14 +254,36 @@ S3DHID void _spew3d_window_HandleUnpressedKeyOnUnfocus(
         void *unused
         ) {
     mutex_Lock(_win_id_mutex);
-    s3dequeue *equser = s3devent_GetMainQueue();
+    s3d_equeue *equser = spew3d_event_GetMainQueue();
     assert(equser != NULL);
-    s3devent e2 = {0};
+    s3d_event e2 = {0};
     e2.kind = S3DEV_KEY_UP;
     e2.key.win_id = window_id;
     e2.key.key = key;
     mutex_Release(_win_id_mutex);
-    s3devent_q_Insert(equser, &e2);
+    spew3d_event_q_Insert(equser, &e2);
+}
+
+#ifndef SPEW3D_OPTION_DISABLE_SDL
+static int _sdl_cursor_was_hidden = 0;
+#endif
+void spew3d_window_Update_nolock(s3d_window *win) {
+    #ifndef SPEW3D_OPTION_DISABLE_SDL
+    if (win->id == _last_mouse_hover_window_id &&
+            win->mouse_lock &&
+            win->mouseseeninwindow
+            ) {
+        if (!_sdl_cursor_was_hidden) {
+            _sdl_cursor_was_hidden = 1;
+            SDL_ShowCursor(SDL_DISABLE);
+        }
+    } else {
+        if (_sdl_cursor_was_hidden) {
+            _sdl_cursor_was_hidden = 0;
+            SDL_ShowCursor(SDL_ENABLE);
+        }
+    }
+    #endif
 }
 
 #ifndef SPEW3D_OPTION_DISABLE_SDL
@@ -284,18 +308,18 @@ S3DHID void _spew3d_window_UpdateSDLFocus() {
             _global_win_registry[i]->_sdl_outputwindow
         );
         if ((flags & SDL_WINDOW_INPUT_FOCUS) != 0 ||
-                _last_focus_window_id == 0) {
-            previously_focused = _last_focus_window_id;
-            _last_focus_window_id = (
+                _last_keyboard_focus_window_id == 0) {
+            previously_focused = _last_keyboard_focus_window_id;
+            _last_keyboard_focus_window_id = (
                 _global_win_registry[i]->id
             );
-            assert(_last_focus_window_id > 0);
+            assert(_last_keyboard_focus_window_id > 0);
             break;
         }
         i++;
     }
     if (previously_focused != 0 &&
-            previously_focused != _last_focus_window_id
+            previously_focused != _last_keyboard_focus_window_id
             ) {
         mutex_Release(_win_id_mutex);
         _spew3d_keyboard_win_lose_keyboard(
@@ -314,9 +338,9 @@ S3DHID static void _force_unkeyboardfocus_win(
         ) {
     mutex_Lock(_win_id_mutex);
     uint32_t previously_focused = 0;
-    if (_last_focus_window_id == win->id) {
-        previously_focused = _last_focus_window_id;
-        _last_focus_window_id = 0;
+    if (_last_keyboard_focus_window_id == win->id) {
+        previously_focused = _last_keyboard_focus_window_id;
+        _last_keyboard_focus_window_id = 0;
     }
     mutex_Release(_win_id_mutex);
     if (previously_focused != 0) {
@@ -334,16 +358,16 @@ S3DHID int _spew3d_window_HandleSDLEvent(SDL_Event *e) {
 
     _ensure_winid_mutex();
     assert(_win_id_mutex != NULL);
-    s3dequeue *eq = _s3devent_GetInternalQueue();
+    s3d_equeue *eq = _spew3d_event_GetInternalQueue();
     assert(eq != NULL);
-    s3dequeue *equser = s3devent_GetMainQueue();
+    s3d_equeue *equser = spew3d_event_GetMainQueue();
     assert(equser != NULL);
     _spew3d_window_UpdateSDLFocus();
 
     if (e->type == SDL_QUIT) {
-        s3devent e2 = {0};
+        s3d_event e2 = {0};
         e2.kind = S3DEV_APP_QUIT_REQUEST;
-        _s3devent_q_InsertForce(equser, &e2);
+        _spew3d_event_q_InsertForce(equser, &e2);
         mutex_Lock(_win_id_mutex);
         int i = 0;
         while (i < _global_win_registry_fill) {
@@ -354,14 +378,14 @@ S3DHID int _spew3d_window_HandleSDLEvent(SDL_Event *e) {
             memset(&e2, 0, sizeof(e2));
             e2.kind = S3DEV_WINDOW_USER_CLOSE_REQUEST;
             e2.window.win_id = _global_win_registry[i]->id;
-            _s3devent_q_InsertForce(equser, &e2);
+            _spew3d_event_q_InsertForce(equser, &e2);
             i++;
         }
         mutex_Release(_win_id_mutex);
         return 1;
     } else if (e->type == SDL_KEYDOWN) {
         mutex_Lock(_win_id_mutex);
-        if (_last_focus_window_id <= 0) {
+        if (_last_keyboard_focus_window_id <= 0) {
             mutex_Release(_win_id_mutex);
             return 1;
         }
@@ -373,27 +397,27 @@ S3DHID int _spew3d_window_HandleSDLEvent(SDL_Event *e) {
             return 1;
         }
         if (!spew3d_keyboard_IsKeyPressed(
-                _last_focus_window_id, k
+                _last_keyboard_focus_window_id, k
                 )) {
             _spew3d_keyboard_register_pressed_down(
-                _last_focus_window_id, k
+                _last_keyboard_focus_window_id, k
             );
             assert(spew3d_keyboard_IsKeyPressed(
-                _last_focus_window_id, k
+                _last_keyboard_focus_window_id, k
             ));
-            s3devent e2 = {0};
+            s3d_event e2 = {0};
             e2.kind = S3DEV_KEY_DOWN;
-            e2.key.win_id = _last_focus_window_id;
+            e2.key.win_id = _last_keyboard_focus_window_id;
             e2.key.key = k;
             mutex_Release(_win_id_mutex);
-            s3devent_q_Insert(equser, &e2);
+            spew3d_event_q_Insert(equser, &e2);
         } else {
             mutex_Release(_win_id_mutex);
         }
         return 1;
     } else if (e->type == SDL_KEYUP) {
         mutex_Lock(_win_id_mutex);
-        if (_last_focus_window_id <= 0) {
+        if (_last_keyboard_focus_window_id <= 0) {
             mutex_Release(_win_id_mutex);
             return 1;
         }
@@ -405,14 +429,14 @@ S3DHID int _spew3d_window_HandleSDLEvent(SDL_Event *e) {
             return 1;
         }
         _spew3d_keyboard_register_release(
-            _last_focus_window_id, k
+            _last_keyboard_focus_window_id, k
         );
-        s3devent e2 = {0};
+        s3d_event e2 = {0};
         e2.kind = S3DEV_KEY_UP;
-        e2.key.win_id = _last_focus_window_id;
+        e2.key.win_id = _last_keyboard_focus_window_id;
         e2.key.key = k;
         mutex_Release(_win_id_mutex);
-        s3devent_q_Insert(equser, &e2);
+        spew3d_event_q_Insert(equser, &e2);
         return 1;
     } else if (e->type == SDL_MOUSEMOTION) {
         s3d_window *win = spew3d_window_GetBySDLWindowID(
@@ -425,23 +449,26 @@ S3DHID int _spew3d_window_HandleSDLEvent(SDL_Event *e) {
                 e->motion.x >= 0 && e->motion.x < win->width &&
                 e->motion.y >= 0 && e->motion.y < win->height
             );
+            if (is_in_window) {
+                _last_mouse_hover_window_id = win->id;
+            }
             s3dnum_t x = e->motion.x;
             s3dnum_t y = e->motion.y;
-            s3devent e2 = {0};
+            s3d_event e2 = {0};
             e2.kind = S3DEV_MOUSE_MOVE;
-            e2.mouse.win_id = _last_focus_window_id;
+            e2.mouse.win_id = _last_keyboard_focus_window_id;
             e2.mouse.x = x;
             e2.mouse.y = y;
-            if (win->mouseseeninindow &&
+            if (win->mouseseeninwindow &&
                     win->lastmouseseen_ts + 200 < now &&
                     (fabs(win->lastmousex - x) > 10 ||
                     fabs(win->lastmousey - y) > 10)) {
                 // XXX / Note: workaround for bugs like this one:
                 // https://github.com/libsdl-org/SDL/issues/9156
                 // (Basically, this doesn't look like a legit movement.)
-                win->mouseseeninindow = 0;
+                win->mouseseeninwindow = 0;
             }
-            if (win->mouseseeninindow && is_in_window) {
+            if (win->mouseseeninwindow && is_in_window) {
                 e2.mouse.rel_x = (
                     x - win->lastmousex
                 );
@@ -449,14 +476,14 @@ S3DHID int _spew3d_window_HandleSDLEvent(SDL_Event *e) {
                     y - win->lastmousey
                 );
             }
-            win->mouseseeninindow = is_in_window;
+            win->mouseseeninwindow = is_in_window;
             if (is_in_window) {
                 win->lastmousex = x;
                 win->lastmousey = y;
                 win->lastmouseseen_ts = now;
             }
             mutex_Release(_win_id_mutex);
-            s3devent_q_Insert(equser, &e2);
+            spew3d_event_q_Insert(equser, &e2);
         } else {
             mutex_Release(_win_id_mutex);
         }
@@ -483,12 +510,12 @@ S3DHID int _spew3d_window_HandleSDLEvent(SDL_Event *e) {
             }
             s3dnum_t x = (s3dnum_t)win->width * e->tfinger.x;
             s3dnum_t y = (s3dnum_t)win->height * e->tfinger.y;
-            s3devent e2 = {0};
+            s3d_event e2 = {0};
             e2.kind = S3DEV_MOUSE_MOVE;
-            e2.mouse.win_id = _last_focus_window_id;
+            e2.mouse.win_id = _last_keyboard_focus_window_id;
             e2.mouse.x = x;
             e2.mouse.y = y;
-            if (win->fingerseeninindow) {
+            if (win->fingerseeninwindow) {
                 e2.mouse.rel_x = (
                     x - win->lastfingerx
                 );
@@ -497,16 +524,16 @@ S3DHID int _spew3d_window_HandleSDLEvent(SDL_Event *e) {
                 );
             }
             if (e->type != SDL_FINGERUP) {
-                win->fingerseeninindow = 1;
+                win->fingerseeninwindow = 1;
                 win->lastfingerx = x;
                 win->lastfingery = y;
             } else {
-                win->fingerseeninindow = 0;
+                win->fingerseeninwindow = 0;
                 win->lastfingerx = 0;
                 win->lastfingery = 0;
             }
             mutex_Release(_win_id_mutex);
-            s3devent_q_Insert(equser, &e2);
+            spew3d_event_q_Insert(equser, &e2);
         } else {
             mutex_Release(_win_id_mutex);
         }
@@ -517,34 +544,34 @@ S3DHID int _spew3d_window_HandleSDLEvent(SDL_Event *e) {
         );
         if (win != NULL) {
             if (e->window.event == SDL_WINDOWEVENT_CLOSE) {
-                s3devent e2 = {0};
+                s3d_event e2 = {0};
                 e2.kind = S3DEV_WINDOW_USER_CLOSE_REQUEST;
                 e2.window.win_id = win->id;
-                _s3devent_q_InsertForce(equser, &e2);
+                _spew3d_event_q_InsertForce(equser, &e2);
             } else if (e->window.event == SDL_WINDOWEVENT_FOCUS_LOST) {
                 _force_unkeyboardfocus_win(win);
             } else if (e->window.event == SDL_WINDOWEVENT_LEAVE) {
                 win->lastmousex = 0;
                 win->lastmousey = 0;
-                win->mouseseeninindow = 0;
+                win->mouseseeninwindow = 0;
             } else if (e->window.event == SDL_WINDOWEVENT_HIDDEN ||
                     e->window.event == SDL_WINDOWEVENT_MINIMIZED) {
                 win->lastmousex = 0;
                 win->lastmousey = 0;
                 win->lastfingerx = 0;
                 win->lastfingery = 0;
-                win->fingerseeninindow = 0;
-                win->mouseseeninindow = 0;
+                win->fingerseeninwindow = 0;
+                win->mouseseeninwindow = 0;
             } else if (e->window.event == SDL_WINDOWEVENT_RESIZED) {
                 mutex_Lock(_win_id_mutex);
                 win->width = e->window.data1;
                 win->height = e->window.data2;
                 spew3d_window_UpdateGeometryInfo(win);
                 mutex_Release(_win_id_mutex);
-                s3devent e3 = {0};
+                s3d_event e3 = {0};
                 e3.kind = S3DEV_WINDOW_RESIZED;
                 e3.window.win_id = win->id;
-                s3devent_q_Insert(equser, &e3);
+                spew3d_event_q_Insert(equser, &e3);
             }
         }
         return 1;
@@ -553,49 +580,66 @@ S3DHID int _spew3d_window_HandleSDLEvent(SDL_Event *e) {
 }
 #endif
 
-S3DHID int _spew3d_window_ProcessWinOpenReq(s3devent *ev);
+S3DHID int _spew3d_window_ProcessWinOpenReq(s3d_event *ev);
 
-S3DHID int _spew3d_window_ProcessWinDrawFillReq(s3devent *ev);
+S3DHID int _spew3d_window_ProcessWinDrawFillReq(s3d_event *ev);
 
-S3DHID int _spew3d_window_ProcessWinUpdateCanvasReq(s3devent *ev);
+S3DHID int _spew3d_window_ProcessWinUpdateCanvasReq(s3d_event *ev);
 
-S3DHID int _spew3d_window_ProcessWinCloseReq(s3devent *ev);
+S3DHID int _spew3d_window_ProcessWinCloseReq(s3d_event *ev);
 
-S3DHID int _spew3d_window_ProcessWinDestroyReq(s3devent *ev);
+S3DHID int _spew3d_window_ProcessWinDestroyReq(s3d_event *ev);
 
-S3DEXP int spew3d_window_MainThreadProcessEvent(s3devent *e) {
+S3DEXP void spew3d_window_InternalMainThreadUpdate() {
+    thread_MarkAsMainThread();
+
+    _ensure_winid_mutex();
+    mutex_Lock(_win_id_mutex);
+    uint32_t i = 0;
+    while (i < _global_win_registry_fill) {
+        spew3d_window_Update_nolock(
+            _global_win_registry[i]
+        );
+        i++;
+    }
+    mutex_Release(_win_id_mutex);
+}
+
+S3DEXP int spew3d_window_InternalMainThreadProcessEvent(
+        s3d_event *e
+        ) {
     thread_MarkAsMainThread();
 
     _ensure_winid_mutex();
     assert(_win_id_mutex != NULL);
-    s3dequeue *eq = _s3devent_GetInternalQueue();
+    s3d_equeue *eq = _spew3d_event_GetInternalQueue();
 
     mutex_Lock(_win_id_mutex);
     if (e->kind == S3DEV_INTERNAL_CMD_WIN_OPEN) {
         if (!_spew3d_window_ProcessWinOpenReq(e)) {
             mutex_Release(_win_id_mutex);
-            _s3devent_q_InsertForce(eq, e);
+            _spew3d_event_q_InsertForce(eq, e);
         }
         mutex_Release(_win_id_mutex);
         return 1;
     } else if (e->kind == S3DEV_INTERNAL_CMD_WIN_UPDATECANVAS) {
         if (!_spew3d_window_ProcessWinUpdateCanvasReq(e)) {
             mutex_Release(_win_id_mutex);
-            s3devent_q_Insert(eq, e);
+            spew3d_event_q_Insert(eq, e);
         }
         mutex_Release(_win_id_mutex);
         return 1;
     } else if (e->kind == S3DEV_INTERNAL_CMD_WIN_CLOSE) {
         if (!_spew3d_window_ProcessWinCloseReq(e)) {
             mutex_Release(_win_id_mutex);
-            _s3devent_q_InsertForce(eq, e);
+            _spew3d_event_q_InsertForce(eq, e);
         }
         mutex_Release(_win_id_mutex);
         return 1;
     } else if (e->kind == S3DEV_INTERNAL_CMD_DRAWPRIMITIVE_WINFILL) {
         if (!_spew3d_window_ProcessWinDrawFillReq(e)) {
             mutex_Release(_win_id_mutex);
-            s3devent_q_Insert(eq, e);
+            spew3d_event_q_Insert(eq, e);
         }
         mutex_Release(_win_id_mutex);
         return 1;
@@ -630,12 +674,12 @@ S3DEXP int spew3d_window_MainThreadProcessEvent(s3devent *e) {
     return 0;
 }
 
-S3DHID int _spew3d_window_ProcessWinOpenReq(s3devent *ev) {
+S3DHID int _spew3d_window_ProcessWinOpenReq(s3d_event *ev) {
     _ensure_winid_mutex();
     assert(_win_id_mutex != NULL);
     if (!_internal_spew3d_InitSDLGraphics())
         return 0;
-    s3dequeue *eq = _s3devent_GetInternalQueue();
+    s3d_equeue *eq = _spew3d_event_GetInternalQueue();
     assert(eq != NULL);
 
     assert(mutex_IsLocked(_win_id_mutex));
@@ -726,18 +770,18 @@ S3DHID int _spew3d_window_ProcessWinOpenReq(s3devent *ev) {
 }
 
 S3DEXP void spew3d_window_PresentToScreen(s3d_window *win) {
-    s3dequeue *eq = _s3devent_GetInternalQueue();
+    s3d_equeue *eq = _spew3d_event_GetInternalQueue();
     if (!eq)
         return;
 
-    s3devent e = {0};
+    s3d_event e = {0};
     e.kind = S3DEV_INTERNAL_CMD_WIN_UPDATECANVAS;
     e.window.win_id = win->id;
-    if (!s3devent_q_Insert(eq, &e))
+    if (!spew3d_event_q_Insert(eq, &e))
         return;
 }
 
-S3DHID int _spew3d_window_ProcessWinUpdateCanvasReq(s3devent *ev) {
+S3DHID int _spew3d_window_ProcessWinUpdateCanvasReq(s3d_event *ev) {
     if (!_internal_spew3d_InitSDLGraphics())
         return 0;
 
@@ -756,20 +800,20 @@ S3DHID int _spew3d_window_ProcessWinUpdateCanvasReq(s3devent *ev) {
 }
 
 S3DEXP void spew3d_window_Destroy(s3d_window *win) {
-    s3dequeue *eq = _s3devent_GetInternalQueue();
+    s3d_equeue *eq = _spew3d_event_GetInternalQueue();
     if (!eq)
         return;
 
     if (win->wasclosed)
         return;
 
-    s3devent e = {0};
+    s3d_event e = {0};
     e.kind = S3DEV_INTERNAL_CMD_WIN_CLOSE;
     e.window.win_id = win->id;
-    _s3devent_q_InsertForce(eq, &e);
+    _spew3d_event_q_InsertForce(eq, &e);
     e.kind = S3DEV_INTERNAL_CMD_WIN_DESTROY;
     e.window.win_id = win->id;
-    _s3devent_q_InsertForce(eq, &e);
+    _spew3d_event_q_InsertForce(eq, &e);
 }
 
 S3DHID void _spew3d_window_ActuallyDestroy(s3d_window *win) {
@@ -788,7 +832,7 @@ S3DHID void _spew3d_window_ActuallyDestroy(s3d_window *win) {
     #endif
 }
 
-S3DHID int _spew3d_window_ProcessWinCloseReq(s3devent *ev) {
+S3DHID int _spew3d_window_ProcessWinCloseReq(s3d_event *ev) {
     if (!_internal_spew3d_InitSDLGraphics())
         return 0;
 
@@ -802,7 +846,7 @@ S3DHID int _spew3d_window_ProcessWinCloseReq(s3devent *ev) {
     return 1;
 }
 
-S3DHID int _spew3d_window_ProcessWinDrawFillReq(s3devent *ev) {
+S3DHID int _spew3d_window_ProcessWinDrawFillReq(s3d_event *ev) {
     if (!_internal_spew3d_InitSDLGraphics())
         return 0;
 
@@ -835,7 +879,7 @@ S3DEXP void spew3d_window_FillWithColor(
         s3d_window *win,
         s3dnum_t red, s3dnum_t green, s3dnum_t blue
         ) {
-    s3dequeue *eq = _s3devent_GetInternalQueue();
+    s3d_equeue *eq = _spew3d_event_GetInternalQueue();
     if (!eq)
         return;
 
@@ -846,13 +890,13 @@ S3DEXP void spew3d_window_FillWithColor(
         return;
     }
 
-    s3devent e = {0};
+    s3d_event e = {0};
     e.kind = S3DEV_INTERNAL_CMD_DRAWPRIMITIVE_WINFILL;
     e.drawprimitive.win_id = win->id;
     e.drawprimitive.red = red;
     e.drawprimitive.green = green;
     e.drawprimitive.blue = blue;
-    _s3devent_q_InsertForce(eq, &e);
+    _spew3d_event_q_InsertForce(eq, &e);
     mutex_Release(_win_id_mutex);
 }
 
@@ -993,7 +1037,7 @@ S3DHID void _spew3d_window_WaitForCanvasInfo(s3d_window *win) {
         while (1) {
             mutex_Release(_win_id_mutex);
             if (thread_InMainThread())
-                s3devent_UpdateMainThread();
+                spew3d_event_UpdateMainThread();
             if (!showedwarning &&
                     spew3d_time_Ticks() > waitstart + 2000) {
                 printf("spew3d_window.c: warning: "
@@ -1010,6 +1054,14 @@ S3DHID void _spew3d_window_WaitForCanvasInfo(s3d_window *win) {
             }
         }
     }
+}
+
+S3DEXP void spew3d_window_SetMouseLockMode(
+        s3d_window *win, int enable
+        ) {
+    mutex_Lock(_win_id_mutex);
+    win->mouse_lock = (enable == 1);
+    mutex_Release(_win_id_mutex);
 }
 
 S3DEXP int32_t spew3d_window_GetCanvasDrawWidth(s3d_window *win) {

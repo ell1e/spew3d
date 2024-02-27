@@ -34,6 +34,7 @@ int main(int argc, const char **argv) {
         fprintf(stderr, "Spew3D initialization failed.\n");
         return 1;
     }
+    spew3d_window_SetMouseLockMode(win, 1);
 
     // Create the scene itself:
     s3d_scene3d *scene = spew3d_scene3d_New(100, 3.0);
@@ -71,17 +72,31 @@ int main(int argc, const char **argv) {
     cube_pos.x = 3 * S3D_METER;
     spew3d_obj3d_SetPos(cube, cube_pos);
 
+    s3d_geometry *plane_geo = spew3d_geometry_Create();
+    if (!plane_geo) goto failed;
+    if (!spew3d_geometry_AddPlaneSimple(
+            plane_geo, 4.0 * S3D_METER, 4.0 * S3D_METER, 1,
+            spew3d_texture_FromFile("grass.png", 0), 0
+            )) {
+        goto failed;
+    }
+    s3d_obj3d *plane = spew3d_scene3d_AddMeshObj(scene, plane_geo, 1);
+    if (!plane) goto failed;
+    s3d_pos plane_pos = {0};
+    plane_pos.z = -1 * S3D_METER;
+    spew3d_obj3d_SetPos(plane, plane_pos);
+
     // Enter main loop:
     printf("Entering main loop.\n");
     uint64_t start_ticks = spew3d_time_Ticks();
     uint64_t move_ts = start_ticks;
     int notquit = 1;
     while (notquit) {
-        s3devent_UpdateMainThread();
+        spew3d_event_UpdateMainThread();
 
         // Process events:
-        s3devent e = {0};
-        while (s3devent_q_Pop(s3devent_GetMainQueue(), &e)) {
+        s3d_event e = {0};
+        while (spew3d_event_q_Pop(spew3d_event_GetMainQueue(), &e)) {
             if (e.kind == S3DEV_WINDOW_USER_CLOSE_REQUEST ||
                     e.kind == S3DEV_APP_QUIT_REQUEST) {
                 notquit = 0;

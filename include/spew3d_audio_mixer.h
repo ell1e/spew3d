@@ -128,5 +128,9 @@ S3DEXP void spew3d_audio_mixer_Destroy(
     s3d_audio_mixer *m
 );
 
+/// This is usually called by sdl_event.c for you, as part of
+/// spew3d_event_UpdateMainThread().
+S3DHID void spew3d_audio_mixer_InternalUpdateAllOnMainThread();
+
 #endif  // SPEW3D_AUDIO_MIXER_H_
 

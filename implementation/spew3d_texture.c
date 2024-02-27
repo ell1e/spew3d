@@ -318,7 +318,7 @@ uint64_t _last_lock_req_id = 0;
 S3DEXP char *spew3d_texture_UnlockPixelsToEdit(
         s3d_texture_t tid
         ) {
-    s3dequeue *eq = _s3devent_GetInternalQueue();
+    s3d_equeue *eq = _spew3d_event_GetInternalQueue();
     assert(eq != NULL);
 
     mutex_Lock(_texlist_mutex);
@@ -353,16 +353,16 @@ S3DEXP void spew3d_texture_LockPixelsToFinishEdit(
     mutex_Lock(_texlist_mutex);
     _last_lock_req_id++;
     uint64_t lock_req_id = _last_lock_req_id;
-    s3devent e = {0};
+    s3d_event e = {0};
     e.kind = S3DEV_INTERNAL_CMD_TEXTURELOCK_LOCKPIXELSTOFINISH;
     e.texturelock.tid = tid;
     e.texturelock.lock_request_id = lock_req_id;
     mutex_Release(_texlist_mutex);
 
-    _s3devent_q_InsertForce(_s3devent_GetInternalQueue(), &e);
+    _spew3d_event_q_InsertForce(_spew3d_event_GetInternalQueue(), &e);
 }
 
-S3DHID int _spew3d_window_ProcessTexLockPixelsReq(s3devent *ev) {
+S3DHID int _spew3d_window_ProcessTexLockPixelsReq(s3d_event *ev) {
     assert(mutex_IsLocked(_texlist_mutex));
     spew3d_texture_extrainfo *einfo = spew3d_extrainfo(
         ev->texturelock.tid);
@@ -661,7 +661,7 @@ S3DEXP int spew3d_texture_DrawAtCanvasPixels(
         int withalphachannel
         ) {
     mutex_Lock(_texlist_mutex);
-    s3devent e = {0};
+    s3d_event e = {0};
     e.kind = S3DEV_INTERNAL_CMD_SPRITEDRAW;
     e.spritedraw.win_id = spew3d_window_GetID(win);
     e.spritedraw.tid = tid;
@@ -676,7 +676,7 @@ S3DEXP int spew3d_texture_DrawAtCanvasPixels(
     e.spritedraw.transparency = transparency;
     e.spritedraw.withalphachannel = withalphachannel;
     mutex_Release(_texlist_mutex);
-    return s3devent_q_Insert(_s3devent_GetInternalQueue(), &e);
+    return spew3d_event_q_Insert(_spew3d_event_GetInternalQueue(), &e);
 }
 
 #ifndef SPEW3D_OPTION_DISABLE_SDL
@@ -709,7 +709,7 @@ S3DHID SDL_Texture *_internal_spew3d_MainThreadOnly_GetTex_nolock(
 }
 #endif
 
-S3DHID int _spew3d_texture_ProcessSpriteDrawReq(s3devent *e) {
+S3DHID int _spew3d_texture_ProcessSpriteDrawReq(s3d_event *e) {
     assert(mutex_IsLocked(_texlist_mutex));
 
     s3d_window *win = spew3d_window_GetByID(e->spritedraw.win_id);
@@ -852,14 +852,14 @@ S3DEXP s3d_texture_t spew3d_texture_NewWritable(
 
 S3DEXP void spew3d_texture_Destroy(s3d_texture_t tid) {
     mutex_Lock(_texlist_mutex);
-    s3devent e = {0};
+    s3d_event e = {0};
     e.kind = S3DEV_INTERNAL_CMD_TEXDELETE;
     e.texdelete.tid = tid;
     mutex_Release(_texlist_mutex);
-    _s3devent_q_InsertForce(_s3devent_GetInternalQueue(), &e);
+    _spew3d_event_q_InsertForce(_spew3d_event_GetInternalQueue(), &e);
 }
 
-S3DHID int _spew3d_texture_ProcessTexDestroyReq(s3devent *ev) {
+S3DHID int _spew3d_texture_ProcessTexDestroyReq(s3d_event *ev) {
     assert(mutex_IsLocked(_texlist_mutex));
     s3d_texture_t tid = ev->texdelete.tid;
     assert(tid >= 0 && tid <= _internal_spew3d_texlist_count);
@@ -910,31 +910,33 @@ S3DEXP s3d_texture_t spew3d_texture_NewWritableFromFile(
             name, original_path, original_vfsflags, 0));
 }
 
-S3DEXP int spew3d_texture_MainThreadProcessEvent(s3devent *e) {
+S3DEXP int spew3d_texture_InternalMainThreadProcessEvent(
+        s3d_event *e
+        ) {
     thread_MarkAsMainThread();
 
-    s3dequeue *eq = _s3devent_GetInternalQueue();
+    s3d_equeue *eq = _spew3d_event_GetInternalQueue();
     assert(eq != NULL);
 
     mutex_Lock(_texlist_mutex);
     if (e->kind == S3DEV_INTERNAL_CMD_TEXTURELOCK_LOCKPIXELSTOFINISH) {
         if (!_spew3d_window_ProcessTexLockPixelsReq(e)) {
             mutex_Release(_texlist_mutex);
-            _s3devent_q_InsertForce(eq, e);
+            _spew3d_event_q_InsertForce(eq, e);
         }
         mutex_Release(_texlist_mutex);
         return 1;
     } else if (e->kind == S3DEV_INTERNAL_CMD_SPRITEDRAW) {
         if (!_spew3d_texture_ProcessSpriteDrawReq(e)) {
             mutex_Release(_texlist_mutex);
-            _s3devent_q_InsertForce(eq, e);
+            _spew3d_event_q_InsertForce(eq, e);
         }
         mutex_Release(_texlist_mutex);
         return 1;
     } else if (e->kind == S3DEV_INTERNAL_CMD_TEXDELETE) {
         if (!_spew3d_texture_ProcessTexDestroyReq(e)) {
             mutex_Release(_texlist_mutex);
-            _s3devent_q_InsertForce(eq, e);
+            _spew3d_event_q_InsertForce(eq, e);
         }
         mutex_Release(_texlist_mutex);
         return 1;

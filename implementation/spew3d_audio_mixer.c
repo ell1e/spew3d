@@ -94,7 +94,7 @@ S3DHID __attribute__((constructor)) void _ensure_global_mixer_mutex() {
     }
 }
 
-S3DHID void spew3d_audio_mixer_UpdateAllOnMainThread() {
+S3DHID void spew3d_audio_mixer_InternalUpdateAllOnMainThread() {
     uint64_t now = spew3d_time_Ticks();
     mutex_Lock(_global_mixer_list_mutex);
     int i = 0;
@@ -106,7 +106,8 @@ S3DHID void spew3d_audio_mixer_UpdateAllOnMainThread() {
         while (m->last_anticlip_ts < now) {
             if (m->anticlipfactor < 0.99) {
                 double inversefac = 1.0 - m->anticlipfactor;
-                inversefac = inversefac * inversefac * 0.1 + 0.9 * inversefac;
+                inversefac = inversefac * inversefac * 0.1 +
+                    0.9 * inversefac;
                 m->anticlipfactor = 1.0 - inversefac;
             } else {
                 m->anticlipfactor = 1.0;

@@ -36,6 +36,7 @@ license, see accompanied LICENSE.md.
 
 typedef struct s3d_window s3d_window;
 typedef struct s3d_point s3d_point;
+typedef struct s3d_event s3d_event;
 
 #define SPEW3D_WINDOW_FLAG_FORCE_HIDDEN_VIRTUAL (0x1)
 #define SPEW3D_WINDOW_FLAG_FULLSCREEN (0x2)
@@ -125,10 +126,19 @@ S3DEXP s3d_point spew3d_window_GetWindowSize(
 /// free'd.
 S3DEXP void spew3d_window_Destroy(s3d_window *win);
 
-/// Call this in your main loop on your main thread. Will cause
-/// crashes and worse if you calling this on any other thread
-/// than the main thread.
-S3DEXP int spew3d_window_MainThreadProcessEvent(s3devent *e);
+/// This is usually called by sdl_event.c for you, as part of
+/// spew3d_event_UpdateMainThread().
+S3DEXP int spew3d_window_InternalMainThreadProcessEvent(
+    s3d_event *e
+);
+
+/// This is usually called by sdl_event.c for you, as part of
+/// spew3d_event_UpdateMainThread().
+S3DEXP void spew3d_window_InternalMainThreadUpdate();
+
+S3DEXP void spew3d_window_SetMouseLockMode(
+    s3d_window *win, int enable
+);
 
 S3DHID void spew3d_window_UpdateGeometryInfo(s3d_window *win);
 

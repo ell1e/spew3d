@@ -29,14 +29,14 @@ license, see accompanied LICENSE.md.
 
 #include <string.h>
 
-typedef struct s3dequeue {
+typedef struct s3d_equeue {
     int fill, alloc;
-    s3devent *array;
+    s3d_event *array;
     s3d_mutex *accesslock;
-} s3dequeue;
+} s3d_equeue;
 
-S3DEXP s3dequeue *s3devent_q_Create() {
-    s3dequeue *eq = malloc(sizeof(*eq));
+S3DEXP s3d_equeue *spew3d_event_q_Create() {
+    s3d_equeue *eq = malloc(sizeof(*eq));
     if (!eq)
         return NULL;
     memset(eq, 0, sizeof(*eq));
@@ -56,17 +56,17 @@ S3DEXP s3dequeue *s3devent_q_Create() {
     return eq;
 }
 
-s3dequeue *_main_event_queue = NULL;
-s3dequeue *_internal_event_queue = NULL;
+s3d_equeue *_main_event_queue = NULL;
+s3d_equeue *_internal_event_queue = NULL;
 
 S3DHID __attribute__((constructor)) static void _make_main_queue() {
     if (_main_event_queue != NULL &&
             _internal_event_queue != NULL)
         return;
     if (!_main_event_queue)
-        _main_event_queue = s3devent_q_Create();
+        _main_event_queue = spew3d_event_q_Create();
     if (!_internal_event_queue)
-        _internal_event_queue = s3devent_q_Create();
+        _internal_event_queue = spew3d_event_q_Create();
     if (!_main_event_queue || !_internal_event_queue) {
         fprintf(stderr, "spew3d_event.c: error: "
             "Failed to allocate event queues.\n");
@@ -74,30 +74,32 @@ S3DHID __attribute__((constructor)) static void _make_main_queue() {
     }
 }
 
-S3DEXP s3dequeue *s3devent_GetMainQueue() {
+S3DEXP s3d_equeue *spew3d_event_GetMainQueue() {
     _make_main_queue();
     return _main_event_queue;
 }
 
-S3DHID s3dequeue *_s3devent_GetInternalQueue() {
+S3DHID s3d_equeue *_spew3d_event_GetInternalQueue() {
     _make_main_queue();
     return _internal_event_queue;
 }
 
-S3DHID void _s3devent_q_InsertForce(s3dequeue *eq, const s3devent *ev) {
+S3DHID void _spew3d_event_q_InsertForce(
+        s3d_equeue *eq, const s3d_event *ev
+        ) {
     while (1) {
-        if (s3devent_q_Insert(eq, ev))
+        if (spew3d_event_q_Insert(eq, ev))
             return;
 
         spew3d_time_Sleep(20);
     }
 }
 
-S3DEXP int s3devent_q_Insert(s3dequeue *eq, const s3devent *ev) {
+S3DEXP int spew3d_event_q_Insert(s3d_equeue *eq, const s3d_event *ev) {
     mutex_Lock(eq->accesslock);
     if (eq->fill + 1 > eq->alloc) {
         int newalloc = eq->alloc * 2;
-        s3devent *new_array = realloc(
+        s3d_event *new_array = realloc(
             eq->array, sizeof(*eq->array) * newalloc
         );
         if (!new_array) {
@@ -122,7 +124,7 @@ S3DEXP int s3devent_q_Insert(s3dequeue *eq, const s3devent *ev) {
     return 1;
 }
 
-S3DEXP int s3devent_q_IsEmpty(s3dequeue *eq) {
+S3DEXP int spew3d_event_q_IsEmpty(s3d_equeue *eq) {
     int result = 0;
     mutex_Lock(eq->accesslock);
     result = (eq->fill == 0);
@@ -130,7 +132,7 @@ S3DEXP int s3devent_q_IsEmpty(s3dequeue *eq) {
     return result;
 }
 
-S3DEXP int s3devent_q_Pop(s3dequeue *eq, s3devent *writeto) {
+S3DEXP int spew3d_event_q_Pop(s3d_equeue *eq, s3d_event *writeto) {
     if (!eq)
         return 0;
     int result = 0;
@@ -149,7 +151,7 @@ S3DEXP int s3devent_q_Pop(s3dequeue *eq, s3devent *writeto) {
     return 1;
 }
 
-S3DEXP void s3devent_q_Free(s3dequeue *eq) {
+S3DEXP void spew3d_event_q_Free(s3d_equeue *eq) {
     if (eq != NULL) {
         if (eq->accesslock != NULL) {
             mutex_Destroy(eq->accesslock);
@@ -167,7 +169,7 @@ S3DHID int _spew3d_window_HandleSDLEvent(SDL_Event *e);
 
 S3DHID void spew3d_audio_mixer_UpdateAllOnMainThread();
 
-S3DEXP void s3devent_UpdateMainThread() {
+S3DEXP void spew3d_event_UpdateMainThread() {
     thread_MarkAsMainThread();
     #ifndef SPEW3D_OPTION_DISABLE_SDL
     SDL_Event e = {0};
@@ -175,21 +177,22 @@ S3DEXP void s3devent_UpdateMainThread() {
         _spew3d_window_HandleSDLEvent(&e);
     }
     #endif
-    s3dequeue *eq = _s3devent_GetInternalQueue();
+    s3d_equeue *eq = _spew3d_event_GetInternalQueue();
     assert(eq != NULL);
 
     while (1) {
-        spew3d_audio_mixer_UpdateAllOnMainThread();
-        spew3d_audio_sink_MainThreadUpdate();
+        spew3d_audio_mixer_InternalUpdateAllOnMainThread();
+        spew3d_audio_sink_InternalMainThreadUpdate();
+        spew3d_window_InternalMainThreadUpdate();
 
-        s3devent e = {0};
-        if (!s3devent_q_Pop(eq, &e))
+        s3d_event e = {0};
+        if (!spew3d_event_q_Pop(eq, &e))
             break;
 
         assert(e.kind != S3DEV_INVALID);
-        if (!spew3d_window_MainThreadProcessEvent(&e)) {
-            if (!spew3d_texture_MainThreadProcessEvent(&e))
-                spew3d_camera_MainThreadProcessEvent(&e);
+        if (!spew3d_window_InternalMainThreadProcessEvent(&e)) {
+            if (!spew3d_texture_InternalMainThreadProcessEvent(&e))
+                spew3d_camera_InternalMainThreadProcessEvent(&e);
         }
     }
 }
