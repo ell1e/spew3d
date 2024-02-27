@@ -73,8 +73,8 @@ typedef struct s3devent {
             } window;
             struct mouse {
                 uint32_t win_id;
-                s3dnum_t mouse_rel_x, mouse_rel_y;
-                s3dnum_t mouse_x, mouse_y;
+                s3dnum_t rel_x, rel_y;
+                s3dnum_t x, y;
             } mouse;
             struct key {
                 uint32_t win_id;

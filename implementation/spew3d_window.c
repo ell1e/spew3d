@@ -46,19 +46,25 @@ typedef struct s3d_window {
     uint32_t id;
     uint32_t flags;
     char *title;
-    int32_t canvaswidth, canvasheight;
-    s3dnum_t dpiscale;
     int wasclosed;
+    int32_t width, height;
+
     #ifndef SPEW3D_OPTION_DISABLE_SDL
     int owns_sdl_window;
     SDL_Window *_sdl_outputwindow;
     int owns_sdl_renderer;
     SDL_Renderer *_sdl_outputrenderer;
     #endif
+
+    int32_t canvaswidth, canvasheight;
+    s3dnum_t dpiscale;
     struct virtualwin {
         s3d_texture_t canvas;
     } virtualwin;
-    int32_t width, height;
+    int mouseseeninindow, fingerseeninindow;
+    uint64_t lastmouseseen_ts;
+    s3dnum_t lastmousex, lastmousey,
+        lastfingerx, lastfingery;
 } s3d_window;
 
 S3DHID s3d_key_t _spew3d_keyboard_SDL_Key_To_S3D_Key(
@@ -303,6 +309,25 @@ S3DHID void _spew3d_window_UpdateSDLFocus() {
 }
 #endif
 
+S3DHID static void _force_unkeyboardfocus_win(
+        s3d_window *win
+        ) {
+    mutex_Lock(_win_id_mutex);
+    uint32_t previously_focused = 0;
+    if (_last_focus_window_id == win->id) {
+        previously_focused = _last_focus_window_id;
+        _last_focus_window_id = 0;
+    }
+    mutex_Release(_win_id_mutex);
+    if (previously_focused != 0) {
+        _spew3d_keyboard_win_lose_keyboard(
+            previously_focused,
+            _spew3d_window_HandleUnpressedKeyOnUnfocus,
+            NULL
+        );
+    }
+}
+
 #ifndef SPEW3D_OPTION_DISABLE_SDL
 S3DHID int _spew3d_window_HandleSDLEvent(SDL_Event *e) {
     thread_MarkAsMainThread();
@@ -389,14 +414,127 @@ S3DHID int _spew3d_window_HandleSDLEvent(SDL_Event *e) {
         mutex_Release(_win_id_mutex);
         s3devent_q_Insert(equser, &e2);
         return 1;
+    } else if (e->type == SDL_MOUSEMOTION) {
+        s3d_window *win = spew3d_window_GetBySDLWindowID(
+            e->motion.windowID
+        );
+        mutex_Lock(_win_id_mutex);
+        if (win != NULL && e->motion.which != SDL_TOUCH_MOUSEID) {
+            uint64_t now = spew3d_time_Ticks();
+            int is_in_window = (
+                e->motion.x >= 0 && e->motion.x < win->width &&
+                e->motion.y >= 0 && e->motion.y < win->height
+            );
+            s3dnum_t x = e->motion.x;
+            s3dnum_t y = e->motion.y;
+            s3devent e2 = {0};
+            e2.kind = S3DEV_MOUSE_MOVE;
+            e2.mouse.win_id = _last_focus_window_id;
+            e2.mouse.x = x;
+            e2.mouse.y = y;
+            if (win->mouseseeninindow &&
+                    win->lastmouseseen_ts + 200 < now &&
+                    (fabs(win->lastmousex - x) > 10 ||
+                    fabs(win->lastmousey - y) > 10)) {
+                // XXX / Note: workaround for bugs like this one:
+                // https://github.com/libsdl-org/SDL/issues/9156
+                // (Basically, this doesn't look like a legit movement.)
+                win->mouseseeninindow = 0;
+            }
+            if (win->mouseseeninindow && is_in_window) {
+                e2.mouse.rel_x = (
+                    x - win->lastmousex
+                );
+                e2.mouse.rel_y = (
+                    y - win->lastmousey
+                );
+            }
+            win->mouseseeninindow = is_in_window;
+            if (is_in_window) {
+                win->lastmousex = x;
+                win->lastmousey = y;
+                win->lastmouseseen_ts = now;
+            }
+            mutex_Release(_win_id_mutex);
+            s3devent_q_Insert(equser, &e2);
+        } else {
+            mutex_Release(_win_id_mutex);
+        }
+        return 1;
+    } else if (e->type == SDL_FINGERMOTION ||
+            e->type == SDL_FINGERDOWN ||
+            e->type == SDL_FINGERUP) {
+        // Multi touch handling:
+        // FIXME: implement this here.
+
+        // Fake mouse cursor handling:
+        s3d_window *win = spew3d_window_GetBySDLWindowID(
+            e->tfinger.windowID
+        );
+        mutex_Lock(_win_id_mutex);
+        if (win != NULL) {
+            SDL_Finger *finger = SDL_GetTouchFinger(
+                e->tfinger.touchId, 0
+            );
+            if (finger->id != e->tfinger.fingerId) {
+                // This isn't the first finger. Ignore it.
+                mutex_Release(_win_id_mutex);
+                return 1;
+            }
+            s3dnum_t x = (s3dnum_t)win->width * e->tfinger.x;
+            s3dnum_t y = (s3dnum_t)win->height * e->tfinger.y;
+            s3devent e2 = {0};
+            e2.kind = S3DEV_MOUSE_MOVE;
+            e2.mouse.win_id = _last_focus_window_id;
+            e2.mouse.x = x;
+            e2.mouse.y = y;
+            if (win->fingerseeninindow) {
+                e2.mouse.rel_x = (
+                    x - win->lastfingerx
+                );
+                e2.mouse.rel_y = (
+                    y - win->lastfingery
+                );
+            }
+            if (e->type != SDL_FINGERUP) {
+                win->fingerseeninindow = 1;
+                win->lastfingerx = x;
+                win->lastfingery = y;
+            } else {
+                win->fingerseeninindow = 0;
+                win->lastfingerx = 0;
+                win->lastfingery = 0;
+            }
+            mutex_Release(_win_id_mutex);
+            s3devent_q_Insert(equser, &e2);
+        } else {
+            mutex_Release(_win_id_mutex);
+        }
+        return 1;
     } else if (e->type == SDL_WINDOWEVENT) {
-        s3d_window *win = spew3d_window_GetBySDLWindowID(e->window.windowID);
+        s3d_window *win = spew3d_window_GetBySDLWindowID(
+            e->window.windowID
+        );
         if (win != NULL) {
             if (e->window.event == SDL_WINDOWEVENT_CLOSE) {
                 s3devent e2 = {0};
                 e2.kind = S3DEV_WINDOW_USER_CLOSE_REQUEST;
                 e2.window.win_id = win->id;
                 _s3devent_q_InsertForce(equser, &e2);
+            } else if (e->window.event == SDL_WINDOWEVENT_FOCUS_LOST) {
+                _force_unkeyboardfocus_win(win);
+            } else if (e->window.event == SDL_WINDOWEVENT_LEAVE) {
+                win->lastmousex = 0;
+                win->lastmousey = 0;
+                win->mouseseeninindow = 0;
+            } else if (e->window.event == SDL_WINDOWEVENT_HIDDEN ||
+                    e->window.event == SDL_WINDOWEVENT_MINIMIZED) {
+                win->lastmousex = 0;
+                win->lastmousey = 0;
+                win->lastfingerx = 0;
+                win->lastfingery = 0;
+                win->fingerseeninindow = 0;
+                win->mouseseeninindow = 0;
             } else if (e->window.event == SDL_WINDOWEVENT_RESIZED) {
                 mutex_Lock(_win_id_mutex);
                 win->width = e->window.data1;
