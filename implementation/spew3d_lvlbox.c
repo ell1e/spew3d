@@ -1832,7 +1832,7 @@ S3DHID static inline int spew3d_lvlbox_TransformTilePolygon(
     uint32_t rfill = *render_fill;
 
     // First vertex:
-    #if defined(DEBUG_SPEW3D_TRANSFORM3D) || 1
+    #if defined(DEBUG_SPEW3D_TRANSFORM3D)
     printf("spew3d_lvlbox.c: debug: lvlbox %p "
         "tile %p segment %d: Transforming floor, "
         "vertex #1/3 input world x,y,z %f,%f,%f\n",
@@ -1847,7 +1847,7 @@ S3DHID static inline int spew3d_lvlbox_TransformTilePolygon(
         &rqueue[rfill].vertex_pos_pixels[0],
         &rqueue[rfill].vertex_pos[0]
     );
-    #if defined(DEBUG_SPEW3D_TRANSFORM3D) || 1
+    #if defined(DEBUG_SPEW3D_TRANSFORM3D)
     printf("spew3d_lvlbox.c: debug: lvlbox %p "
         "tile %p segment %d: Transforming floor, "
         "vertex #1/3 output world x,y,z %f,%f,%f\n",
@@ -1876,7 +1876,7 @@ S3DHID static inline int spew3d_lvlbox_TransformTilePolygon(
     );
 
     // Second vertex:
-    #if defined(DEBUG_SPEW3D_TRANSFORM3D) || 1
+    #if defined(DEBUG_SPEW3D_TRANSFORM3D)
     printf("spew3d_lvlbox.c: debug: lvlbox %p "
         "tile %p segment %d: Transforming floor, "
         "vertex #2/3 input world x,y,z %f,%f,%f\n",
@@ -1891,7 +1891,7 @@ S3DHID static inline int spew3d_lvlbox_TransformTilePolygon(
         &rqueue[rfill].vertex_pos_pixels[1],
         &rqueue[rfill].vertex_pos[1]
     );
-    #if defined(DEBUG_SPEW3D_TRANSFORM3D) || 1
+    #if defined(DEBUG_SPEW3D_TRANSFORM3D)
     printf("spew3d_lvlbox.c: debug: lvlbox %p "
         "tile %p segment %d: Transforming floor, "
         "vertex #2/3 output world x,y,z %f,%f,%f\n",
@@ -1920,7 +1920,7 @@ S3DHID static inline int spew3d_lvlbox_TransformTilePolygon(
     );
 
     // Third vertex:
-    #if defined(DEBUG_SPEW3D_TRANSFORM3D) || 1
+    #if defined(DEBUG_SPEW3D_TRANSFORM3D)
     printf("spew3d_lvlbox.c: debug: lvlbox %p "
         "tile %p segment %d: Transforming floor, "
         "vertex #3/3 input world x,y,z %f,%f,%f\n",
@@ -1935,7 +1935,7 @@ S3DHID static inline int spew3d_lvlbox_TransformTilePolygon(
         &rqueue[rfill].vertex_pos_pixels[2],
         &rqueue[rfill].vertex_pos[2]
     );
-    #if defined(DEBUG_SPEW3D_TRANSFORM3D) || 1
+    #if defined(DEBUG_SPEW3D_TRANSFORM3D)
     printf("spew3d_lvlbox.c: debug: lvlbox %p "
         "tile %p segment %d: Transforming floor, "
         "vertex #3/3 output world x,y,z %f,%f,%f\n",

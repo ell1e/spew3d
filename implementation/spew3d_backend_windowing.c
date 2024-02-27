@@ -1,4 +1,4 @@
-/* Copyright (c) 2020-2023, ellie/@ell1e & Spew3D Team (see AUTHORS.md).
+/* Copyright (c) 2024, ellie/@ell1e & Spew3D Team (see AUTHORS.md).
 
 Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions are met:
@@ -27,56 +27,17 @@ license, see accompanied LICENSE.md.
 
 #ifdef SPEW3D_IMPLEMENTATION
 
-#include <assert.h>
-#include <stdint.h>
-#include <string.h>
 #ifndef SPEW3D_OPTION_DISABLE_SDL
-#include <SDL2/SDL.h>
+S3DEXP s3d_backend_windowing *spew3d_backend_windowing_GetSDL();
 #endif
-#include <unistd.h>
 
-int _global_graphics_init_done = 0;
-int _global_audio_init_done = 0;
-
-S3DHID int _internal_spew3d_InitSDLGraphics() {
-    if (_global_graphics_init_done)
-        return 1;
+S3DEXP s3d_backend_windowing *
+        spew3d_backend_windowing_GetDefault() {
     #ifndef SPEW3D_OPTION_DISABLE_SDL
-    SDL_SetHintWithPriority(
-        SDL_HINT_FRAMEBUFFER_ACCELERATION, "0",
-        SDL_HINT_OVERRIDE);
-    SDL_SetHintWithPriority(
-        SDL_HINT_RENDER_SCALE_QUALITY, "0",
-        SDL_HINT_OVERRIDE);
-    SDL_SetHintWithPriority(
-        SDL_HINT_MOUSE_AUTO_CAPTURE, "0",
-        SDL_HINT_OVERRIDE
-    );
-    #ifdef SDL_HINT_WINDOWS_DPI_SCALING
-    SDL_SetHintWithPriority(
-        SDL_HINT_WINDOWS_DPI_SCALING, "1",
-        SDL_HINT_OVERRIDE);
+    return spew3d_backend_windowing_GetSDL();
+    #else
+    return NULL;
     #endif
-    if (SDL_Init(SDL_INIT_VIDEO|SDL_INIT_TIMER|
-            SDL_INIT_EVENTS) != 0) {
-        return 0;
-    }
-    #endif
-    _global_graphics_init_done = 1;
-    return 1;
-}
-
-S3DHID int _internal_spew3d_InitAudio() {
-    if (_global_audio_init_done)
-        return 1;
-    #ifndef SPEW3D_OPTION_DISABLE_SDL
-    if (SDL_Init(SDL_INIT_AUDIO|SDL_INIT_TIMER|
-            SDL_INIT_EVENTS) != 0) {
-        return 0;
-    }
-    #endif
-    _global_audio_init_done = 1;
-    return 1;
 }
 
 #endif  // SPEW3D_IMPLEMENTATION

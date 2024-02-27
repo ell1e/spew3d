@@ -34,7 +34,9 @@ int main(int argc, const char **argv) {
         fprintf(stderr, "Spew3D initialization failed.\n");
         return 1;
     }
-    spew3d_window_SetMouseLockMode(win, 1);
+    spew3d_window_SetMouseLockMode(
+        win, S3D_MOUSE_LOCK_INVISIBLE_RELATIVE_MODE
+    );
 
     // Create the scene itself:
     s3d_scene3d *scene = spew3d_scene3d_New(100, 3.0);

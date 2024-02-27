@@ -40,16 +40,19 @@ s3d_mutex *_win_id_mutex = NULL;
 s3d_window **_global_win_registry = NULL;
 uint32_t _last_keyboard_focus_window_id = 0;
 uint32_t _last_mouse_hover_window_id = 0;
-int _global_win_registry_fill =  0;
+int _global_win_registry_fill = 0;
 int _global_win_registry_alloc = 0;
 
 typedef struct s3d_window {
     uint32_t id;
+    s3d_backend_windowing *backend;
+    s3d_backend_windowing_wininfo *backend_winfo;
     uint32_t flags;
     char *title;
     int wasclosed;
     int32_t width, height;
-    int mouse_lock;
+    int mouse_lock_mode;
+    int focused;
 
     #ifndef SPEW3D_OPTION_DISABLE_SDL
     int owns_sdl_window;
@@ -66,7 +69,9 @@ typedef struct s3d_window {
     int mouseseeninwindow, fingerseeninwindow;
     uint64_t lastmouseseen_ts;
     s3dnum_t lastmousex, lastmousey,
-        lastfingerx, lastfingery;
+        lastfingerx, lastfingery, mouse_warp_target_x,
+        mouse_warp_target_y;
+    uint64_t ignore_mouse_motion_until_ts;
 } s3d_window;
 
 S3DHID s3d_key_t _spew3d_keyboard_SDL_Key_To_S3D_Key(
@@ -158,6 +163,20 @@ S3DHID static s3d_window *spew3d_window_NewExEx(
         return NULL;
     }
     memset(win, 0, sizeof(*win));
+    win->backend = spew3d_backend_windowing_GetDefault();
+    if (!win->backend) {
+        free(win);
+        mutex_Release(_win_id_mutex);
+        return NULL;
+    }
+    win->backend_winfo = win->backend->CreateWinInfo(
+        win->backend, win
+    );
+    if (!win->backend_winfo) {
+        free(win);
+        mutex_Release(_win_id_mutex);
+        return NULL;
+    }
 
     win->id = _spew3d_window_MakeNewID_nolock();
     if (width <= 0) width = 800;
@@ -167,6 +186,9 @@ S3DHID static s3d_window *spew3d_window_NewExEx(
     win->flags = flags;
     win->title = strdup(title);
     if (!win->title) {
+        win->backend->DestroyWinInfo(
+            win->backend, win, win->backend_winfo
+        );
         free(win);
         mutex_Release(_win_id_mutex);
         return NULL;
@@ -177,6 +199,9 @@ S3DHID static s3d_window *spew3d_window_NewExEx(
         e.kind = S3DEV_INTERNAL_CMD_WIN_OPEN;
         e.window.win_id = win->id;
         if (!spew3d_event_q_Insert(eq, &e)) {
+            win->backend->DestroyWinInfo(
+                win->backend, win, win->backend_winfo
+            );
             free(win->title);
             free(win);
             mutex_Release(_win_id_mutex);
@@ -264,23 +289,66 @@ S3DHID void _spew3d_window_HandleUnpressedKeyOnUnfocus(
     spew3d_event_q_Insert(equser, &e2);
 }
 
-#ifndef SPEW3D_OPTION_DISABLE_SDL
-static int _sdl_cursor_was_hidden = 0;
-#endif
+static int _graphics_backend_hidden_mouse_lock_mode = 0;
 void spew3d_window_Update_nolock(s3d_window *win) {
     #ifndef SPEW3D_OPTION_DISABLE_SDL
-    if (win->id == _last_mouse_hover_window_id &&
-            win->mouse_lock &&
-            win->mouseseeninwindow
-            ) {
-        if (!_sdl_cursor_was_hidden) {
-            _sdl_cursor_was_hidden = 1;
-            SDL_ShowCursor(SDL_DISABLE);
-        }
-    } else {
-        if (_sdl_cursor_was_hidden) {
-            _sdl_cursor_was_hidden = 0;
-            SDL_ShowCursor(SDL_ENABLE);
+    if (win->id == _last_mouse_hover_window_id) {
+        if (win->mouse_lock_mode != S3D_MOUSE_LOCK_DISABLED &&
+                win->_sdl_outputwindow != NULL &&
+                win->mouseseeninwindow &&
+                win->focused
+                ) {
+            if (_graphics_backend_hidden_mouse_lock_mode !=
+                    win->mouse_lock_mode) {
+                SDL_CaptureMouse(SDL_FALSE);
+                SDL_SetRelativeMouseMode(SDL_FALSE);
+                SDL_ShowCursor(SDL_ENABLE);
+                SDL_SetWindowGrab(win->_sdl_outputwindow, SDL_FALSE);
+
+                _graphics_backend_hidden_mouse_lock_mode = (
+                    win->mouse_lock_mode
+                );
+                if (win->mouse_lock_mode ==
+                        S3D_MOUSE_LOCK_INVISIBLE_RELATIVE_MODE) {
+                    SDL_ShowCursor(SDL_DISABLE);
+                } else {
+                    SDL_ShowCursor(SDL_ENABLE);
+                }
+
+                SDL_SetWindowGrab(win->_sdl_outputwindow, SDL_TRUE);
+                if (win->mouse_lock_mode ==
+                        S3D_MOUSE_LOCK_INVISIBLE_RELATIVE_MODE) {
+                    win->mouse_warp_target_x = (
+                        floor((s3dnum_t)win->width / (s3dnum_t)2.0)
+                    );
+                    win->mouse_warp_target_y = (
+                        floor((s3dnum_t)win->height / (s3dnum_t)2.0)
+                    );
+                    win->backend->WarpMouse(
+                        win->backend, win, win->backend_winfo,
+                        win->mouse_warp_target_x,
+                        win->mouse_warp_target_y
+                    );
+                    win->ignore_mouse_motion_until_ts = (
+                        spew3d_time_Ticks() + 200
+                    );
+                } else {
+                    SDL_CaptureMouse(SDL_TRUE);
+                }
+            }
+        } else if (win->mouse_lock_mode == S3D_MOUSE_LOCK_DISABLED ||
+                !win->focused || win->wasclosed ||
+                win->_sdl_outputwindow == NULL) {
+            if (_graphics_backend_hidden_mouse_lock_mode !=
+                    S3D_MOUSE_LOCK_DISABLED) {
+                _graphics_backend_hidden_mouse_lock_mode = (
+                    S3D_MOUSE_LOCK_DISABLED
+                );
+                SDL_CaptureMouse(SDL_FALSE);
+                SDL_SetRelativeMouseMode(SDL_FALSE);
+                SDL_ShowCursor(SDL_ENABLE);
+                SDL_SetWindowGrab(win->_sdl_outputwindow, SDL_FALSE);
+            }
         }
     }
     #endif
@@ -350,6 +418,132 @@ S3DHID static void _force_unkeyboardfocus_win(
             NULL
         );
     }
+}
+
+S3DHID void spew3d_window_MarkAsFocused(
+        s3d_window *win
+        ) {
+    s3d_window *unfocused_list[32];
+    uint32_t unfocused_list_fill = 0;
+    mutex_Lock(_win_id_mutex);
+    uint32_t i = 0;
+    while (i < _global_win_registry_fill) {
+        if (win != NULL && _global_win_registry[i]->id == win->id) {
+            win->focused = 1;
+        } else {
+            if (_global_win_registry[i]->focused ||
+                    _last_keyboard_focus_window_id ==
+                    _global_win_registry[i]->id) {
+                if (unfocused_list_fill < 32) {
+                    unfocused_list[unfocused_list_fill] =
+                        _global_win_registry[i];
+                    unfocused_list_fill++;
+                }
+            }
+            _global_win_registry[i]->focused = 0;
+        }
+        i++;
+    }
+    mutex_Release(_win_id_mutex);
+    i = 0;
+    while (i < unfocused_list_fill) {
+        _force_unkeyboardfocus_win(unfocused_list[i]);
+        unfocused_list[i]->focused = 0;
+        i++;
+    }
+}
+
+void spew3d_window_ProcessMouseMotion(
+        s3d_window *win, s3d_equeue *equser, int mx, int my
+        ) {
+    mutex_Lock(_win_id_mutex);
+    uint64_t now = spew3d_time_Ticks();
+
+    int is_in_window = (
+        mx >= 0 && mx < win->width &&
+        my >= 0 && my < win->height
+    );
+    if (is_in_window) {
+        _last_mouse_hover_window_id = win->id;
+    }
+    if (win->ignore_mouse_motion_until_ts > now) {
+        if (!is_in_window) {
+            win->mouseseeninwindow = 0;
+        } else {
+            win->mouseseeninwindow = 1;
+            win->lastmousex = (int)mx;
+            win->lastmousey = (int)my;
+            win->lastmouseseen_ts = now;
+        }
+        if (win->mouse_lock_mode ==
+                S3D_MOUSE_LOCK_INVISIBLE_RELATIVE_MODE) {
+            int wx = win->mouse_warp_target_x;
+            int wy = win->mouse_warp_target_y;
+            win->backend->WarpMouse(
+                win->backend, win, win->backend_winfo,
+                wx, wy
+            );
+            win->lastmousex = wx;
+            win->lastmousex = wy;
+        }
+        mutex_Release(_win_id_mutex);
+        return;
+    }
+
+    int ignore_relative = (
+        win->focused &&
+        (win->mouse_lock_mode !=
+            _graphics_backend_hidden_mouse_lock_mode)
+    );
+    int can_warp = (
+        win->mouse_lock_mode ==
+            _graphics_backend_hidden_mouse_lock_mode
+    );
+    s3dnum_t x = mx;
+    s3dnum_t y = my;
+    s3d_event e2 = {0};
+    e2.kind = S3DEV_MOUSE_MOVE;
+    e2.mouse.win_id = _last_keyboard_focus_window_id;
+    e2.mouse.x = x;
+    e2.mouse.y = y;
+    if (win->mouseseeninwindow &&
+            win->lastmouseseen_ts + 200 < now &&
+            (fabs(win->lastmousex - x) > 10 ||
+            fabs(win->lastmousey - y) > 10)) {
+        // XXX / Note: workaround for bugs like this one:
+        // https://github.com/libsdl-org/SDL/issues/9156
+        // (Basically, this doesn't look like a legit movement.)
+        win->mouseseeninwindow = 0;
+    }
+    if (win->mouseseeninwindow && is_in_window && !ignore_relative) {
+        e2.mouse.rel_x = (
+            x - win->lastmousex
+        );
+        e2.mouse.rel_y = (
+            y - win->lastmousey
+        );
+    }
+    win->mouseseeninwindow = is_in_window;
+    if (is_in_window) {
+        win->lastmousex = x;
+        win->lastmousey = y;
+        win->lastmouseseen_ts = now;
+        if (can_warp && win->mouse_lock_mode ==
+                S3D_MOUSE_LOCK_INVISIBLE_RELATIVE_MODE) {
+            int wx = win->mouse_warp_target_x;
+            int wy = win->mouse_warp_target_y;
+            win->backend->WarpMouse(
+                win->backend, win, win->backend_winfo,
+                wx, wy
+            );
+            e2.mouse.x = 0;
+            e2.mouse.y = 0;
+            win->lastmousex = wx;
+            win->lastmousey = wy;
+        }
+    }
+    mutex_Release(_win_id_mutex);
+    spew3d_event_q_Insert(equser, &e2);
 }
 
 #ifndef SPEW3D_OPTION_DISABLE_SDL
@@ -444,46 +638,10 @@ S3DHID int _spew3d_window_HandleSDLEvent(SDL_Event *e) {
         );
         mutex_Lock(_win_id_mutex);
         if (win != NULL && e->motion.which != SDL_TOUCH_MOUSEID) {
-            uint64_t now = spew3d_time_Ticks();
-            int is_in_window = (
-                e->motion.x >= 0 && e->motion.x < win->width &&
-                e->motion.y >= 0 && e->motion.y < win->height
-            );
-            if (is_in_window) {
-                _last_mouse_hover_window_id = win->id;
-            }
-            s3dnum_t x = e->motion.x;
-            s3dnum_t y = e->motion.y;
-            s3d_event e2 = {0};
-            e2.kind = S3DEV_MOUSE_MOVE;
-            e2.mouse.win_id = _last_keyboard_focus_window_id;
-            e2.mouse.x = x;
-            e2.mouse.y = y;
-            if (win->mouseseeninwindow &&
-                    win->lastmouseseen_ts + 200 < now &&
-                    (fabs(win->lastmousex - x) > 10 ||
-                    fabs(win->lastmousey - y) > 10)) {
-                // XXX / Note: workaround for bugs like this one:
-                // https://github.com/libsdl-org/SDL/issues/9156
-                // (Basically, this doesn't look like a legit movement.)
-                win->mouseseeninwindow = 0;
-            }
-            if (win->mouseseeninwindow && is_in_window) {
-                e2.mouse.rel_x = (
-                    x - win->lastmousex
-                );
-                e2.mouse.rel_y = (
-                    y - win->lastmousey
-                );
-            }
-            win->mouseseeninwindow = is_in_window;
-            if (is_in_window) {
-                win->lastmousex = x;
-                win->lastmousey = y;
-                win->lastmouseseen_ts = now;
-            }
             mutex_Release(_win_id_mutex);
-            spew3d_event_q_Insert(equser, &e2);
+            spew3d_window_ProcessMouseMotion(
+                win, equser, (int)e->motion.x, (int)e->motion.y
+            );
         } else {
             mutex_Release(_win_id_mutex);
         }
@@ -548,8 +706,10 @@ S3DHID int _spew3d_window_HandleSDLEvent(SDL_Event *e) {
                 e2.kind = S3DEV_WINDOW_USER_CLOSE_REQUEST;
                 e2.window.win_id = win->id;
                 _spew3d_event_q_InsertForce(equser, &e2);
+            } else if (e->window.event == SDL_WINDOWEVENT_FOCUS_GAINED) {
+                spew3d_window_MarkAsFocused(win);
             } else if (e->window.event == SDL_WINDOWEVENT_FOCUS_LOST) {
-                _force_unkeyboardfocus_win(win);
+                spew3d_window_MarkAsFocused(NULL);
             } else if (e->window.event == SDL_WINDOWEVENT_LEAVE) {
                 win->lastmousex = 0;
                 win->lastmousey = 0;
@@ -820,6 +980,12 @@ S3DHID void _spew3d_window_ActuallyDestroy(s3d_window *win) {
     if (!win)
         return;
 
+    if (win->backend_winfo != NULL) {
+        win->backend->DestroyWinInfo(
+            win->backend, win, win->backend_winfo
+        );
+    }
+
     #ifndef SPEW3D_OPTION_DISABLE_SDL
     if (win->_sdl_outputrenderer != NULL && win->owns_sdl_renderer) {
         SDL_DestroyRenderer(win->_sdl_outputrenderer);
@@ -1057,10 +1223,15 @@ S3DHID void _spew3d_window_WaitForCanvasInfo(s3d_window *win) {
 }
 
 S3DEXP void spew3d_window_SetMouseLockMode(
-        s3d_window *win, int enable
+        s3d_window *win, int mode
         ) {
+    if (mode != S3D_MOUSE_LOCK_DISABLED &&
+            mode != S3D_MOUSE_LOCK_CONFINED_ABSOLUTE_MODE &&
+            mode != S3D_MOUSE_LOCK_INVISIBLE_RELATIVE_MODE) {
+        return;
+    }
     mutex_Lock(_win_id_mutex);
-    win->mouse_lock = (enable == 1);
+    win->mouse_lock_mode = mode;
     mutex_Release(_win_id_mutex);
 }
 

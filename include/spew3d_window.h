@@ -136,8 +136,18 @@ S3DEXP int spew3d_window_InternalMainThreadProcessEvent(
 /// spew3d_event_UpdateMainThread().
 S3DEXP void spew3d_window_InternalMainThreadUpdate();
 
+S3DHID void spew3d_window_MarkAsFocused(
+    s3d_window *win
+);
+
+enum Spew3dMouseLockmode {
+    S3D_MOUSE_LOCK_DISABLED = 0,
+    S3D_MOUSE_LOCK_CONFINED_ABSOLUTE_MODE = 1,
+    S3D_MOUSE_LOCK_INVISIBLE_RELATIVE_MODE = 2
+};
+
 S3DEXP void spew3d_window_SetMouseLockMode(
-    s3d_window *win, int enable
+    s3d_window *win, int mode
 );
 
 S3DHID void spew3d_window_UpdateGeometryInfo(s3d_window *win);
