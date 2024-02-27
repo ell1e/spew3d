@@ -187,4 +187,34 @@ S3DEXP s3dnum_t spew3d_math3d_anglefromto(
     s3d_pos *p, s3d_pos *p2
 );
 
+S3DEXP void spew3d_math3d_advanceforward(
+        s3d_pos input_pos, double advance,
+        s3d_rotation advance_dir,
+        s3d_pos *out_pos
+        ) {
+    s3d_pos advance_vec = {0};
+    advance_vec.x = advance;
+    spew3d_math3d_rotate(
+        &advance_vec, &advance_dir
+    );
+    out_pos->x = input_pos.x + advance_vec.x;
+    out_pos->y = input_pos.y + advance_vec.y;
+    out_pos->z = input_pos.z + advance_vec.z;
+}
+
+S3DEXP void spew3d_math3d_advancesideward(
+        s3d_pos input_pos, double advance,
+        s3d_rotation advance_dir,
+        s3d_pos *out_pos
+        ) {
+    s3d_pos advance_vec = {0};
+    advance_vec.y = advance;
+    spew3d_math3d_rotate(
+        &advance_vec, &advance_dir
+    );
+    out_pos->x = input_pos.x + advance_vec.x;
+    out_pos->y = input_pos.y + advance_vec.y;
+    out_pos->z = input_pos.z + advance_vec.z;
+}
+
 #endif  // SPEW3D_MATH3D_H_

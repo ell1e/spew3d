@@ -64,6 +64,18 @@ typedef struct s3d_window {
 S3DHID s3d_key_t _spew3d_keyboard_SDL_Key_To_S3D_Key(
     SDL_Keycode sym, SDL_Scancode scancode
 );
+S3DHID void _spew3d_keyboard_win_lose_keyboard(
+    uint32_t window_id,
+    void (*was_pressed_cb)(uint32_t window_id, s3d_key_t key,
+        void *userdata),
+    void *userdata
+);
+S3DHID void _spew3d_keyboard_register_pressed_down(
+    uint32_t window_id, s3d_key_t key
+);
+S3DHID void _spew3d_keyboard_register_release(
+    uint32_t window_id, s3d_key_t key
+);
 
 S3DHID __attribute__((constructor)) void _ensure_winid_mutex() {
     if (_win_id_mutex != NULL)
@@ -71,7 +83,7 @@ S3DHID __attribute__((constructor)) void _ensure_winid_mutex() {
     _win_id_mutex = mutex_Create();
     if (!_win_id_mutex) {
         fprintf(stderr, "spew3d_window.c: error: "
-            "Failed to allocate event queues.\n");
+            "Failed to allocate global mutex.\n");
         _exit(1);
     }
 }
@@ -229,9 +241,25 @@ S3DHID s3d_window *spew3d_window_GetBySDLWindowID(uint32_t sdlid) {
 }
 #endif
 
+S3DHID void _spew3d_window_HandleUnpressedKeyOnUnfocus(
+        uint32_t window_id, s3d_key_t key,
+        void *unused
+        ) {
+    mutex_Lock(_win_id_mutex);
+    s3dequeue *equser = s3devent_GetMainQueue();
+    assert(equser != NULL);
+    s3devent e2 = {0};
+    e2.kind = S3DEV_KEY_UP;
+    e2.key.win_id = window_id;
+    e2.key.key = key;
+    mutex_Release(_win_id_mutex);
+    s3devent_q_Insert(equser, &e2);
+}
+
 #ifndef SPEW3D_OPTION_DISABLE_SDL
 static uint64_t _last_focus_update_ts = 0;
 S3DHID void _spew3d_window_UpdateSDLFocus() {
+    uint32_t previously_focused = 0;
     mutex_Lock(_win_id_mutex);
     uint64_t now = spew3d_time_Ticks();
     if (_last_focus_update_ts > 0 &&
@@ -251,6 +279,7 @@ S3DHID void _spew3d_window_UpdateSDLFocus() {
         );
         if ((flags & SDL_WINDOW_INPUT_FOCUS) != 0 ||
                 _last_focus_window_id == 0) {
+            previously_focused = _last_focus_window_id;
             _last_focus_window_id = (
                 _global_win_registry[i]->id
             );
@@ -259,7 +288,18 @@ S3DHID void _spew3d_window_UpdateSDLFocus() {
         }
         i++;
     }
-    mutex_Release(_win_id_mutex);
+    if (previously_focused != 0 &&
+            previously_focused != _last_focus_window_id
+            ) {
+        mutex_Release(_win_id_mutex);
+        _spew3d_keyboard_win_lose_keyboard(
+            previously_focused,
+            _spew3d_window_HandleUnpressedKeyOnUnfocus,
+            NULL
+        );
+    } else {
+        mutex_Release(_win_id_mutex);
+    }
 }
 #endif
 
@@ -307,8 +347,43 @@ S3DHID int _spew3d_window_HandleSDLEvent(SDL_Event *e) {
             mutex_Release(_win_id_mutex);
             return 1;
         }
+        if (!spew3d_keyboard_IsKeyPressed(
+                _last_focus_window_id, k
+                )) {
+            _spew3d_keyboard_register_pressed_down(
+                _last_focus_window_id, k
+            );
+            assert(spew3d_keyboard_IsKeyPressed(
+                _last_focus_window_id, k
+            ));
+            s3devent e2 = {0};
+            e2.kind = S3DEV_KEY_DOWN;
+            e2.key.win_id = _last_focus_window_id;
+            e2.key.key = k;
+            mutex_Release(_win_id_mutex);
+            s3devent_q_Insert(equser, &e2);
+        } else {
+            mutex_Release(_win_id_mutex);
+        }
+        return 1;
+    } else if (e->type == SDL_KEYUP) {
+        mutex_Lock(_win_id_mutex);
+        if (_last_focus_window_id <= 0) {
+            mutex_Release(_win_id_mutex);
+            return 1;
+        }
+        s3d_key_t k = _spew3d_keyboard_SDL_Key_To_S3D_Key(
+            e->key.keysym.sym, e->key.keysym.scancode
+        );
+        if (k == S3D_KEY_INVALID) {
+            mutex_Release(_win_id_mutex);
+            return 1;
+        }
+        _spew3d_keyboard_register_release(
+            _last_focus_window_id, k
+        );
         s3devent e2 = {0};
-        e2.kind = S3DEV_KEY_DOWN;
+        e2.kind = S3DEV_KEY_UP;
         e2.key.win_id = _last_focus_window_id;
         e2.key.key = k;
         mutex_Release(_win_id_mutex);

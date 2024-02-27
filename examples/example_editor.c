@@ -74,6 +74,7 @@ int main(int argc, const char **argv) {
     // Enter main loop:
     printf("Entering main loop.\n");
     uint64_t start_ticks = spew3d_time_Ticks();
+    uint64_t move_ts = start_ticks;
     int notquit = 1;
     while (notquit) {
         s3devent_UpdateMainThread();
@@ -86,6 +87,59 @@ int main(int argc, const char **argv) {
                 notquit = 0;
                 break;
             }
+        }
+        // Move camera:
+        while (move_ts < spew3d_time_Ticks()) {
+            if (spew3d_keyboard_IsKeyPressed(
+                    spew3d_window_GetID(win), S3D_KEY_W) ||
+                    spew3d_keyboard_IsKeyPressed(
+                    spew3d_window_GetID(win), S3D_KEY_UP)) {
+                s3d_pos pos = spew3d_obj3d_GetPos(camera);
+                spew3d_math3d_advanceforward(
+                    pos, 0.05, spew3d_obj3d_GetRotation(camera),
+                    &pos
+                );
+                spew3d_obj3d_SetPos(camera, pos);
+            } else if (spew3d_keyboard_IsKeyPressed(
+                    spew3d_window_GetID(win), S3D_KEY_S) ||
+                    spew3d_keyboard_IsKeyPressed(
+                    spew3d_window_GetID(win), S3D_KEY_DOWN)) {
+                s3d_pos pos = spew3d_obj3d_GetPos(camera);
+                spew3d_math3d_advanceforward(
+                    pos, -0.05, spew3d_obj3d_GetRotation(camera),
+                    &pos
+                );
+                spew3d_obj3d_SetPos(camera, pos);
+            }
+            if (spew3d_keyboard_IsKeyPressed(
+                    spew3d_window_GetID(win), S3D_KEY_D)) {
+                s3d_pos pos = spew3d_obj3d_GetPos(camera);
+                spew3d_math3d_advancesideward(
+                    pos, 0.05, spew3d_obj3d_GetRotation(camera),
+                    &pos
+                );
+                spew3d_obj3d_SetPos(camera, pos);
+            } else if (spew3d_keyboard_IsKeyPressed(
+                    spew3d_window_GetID(win), S3D_KEY_A)) {
+                s3d_pos pos = spew3d_obj3d_GetPos(camera);
+                spew3d_math3d_advancesideward(
+                    pos, -0.05, spew3d_obj3d_GetRotation(camera),
+                    &pos
+                );
+                spew3d_obj3d_SetPos(camera, pos);
+            }
+            if (spew3d_keyboard_IsKeyPressed(
+                    spew3d_window_GetID(win), S3D_KEY_LEFT)) {
+                s3d_rotation rot = spew3d_obj3d_GetRotation(camera);
+                rot.hori -= 1;
+                spew3d_obj3d_SetRotation(camera, rot);
+            } else if (spew3d_keyboard_IsKeyPressed(
+                    spew3d_window_GetID(win), S3D_KEY_RIGHT)) {
+                s3d_rotation rot = spew3d_obj3d_GetRotation(camera);
+                rot.hori += 1;
+                spew3d_obj3d_SetRotation(camera, rot);
+            }
+            move_ts += 10;
         }
 
         // Process level loading:

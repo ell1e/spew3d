@@ -92,6 +92,10 @@ S3DEXP void spew3d_obj3d_SetRotation(
     s3d_obj3d *obj, s3d_rotation rot
 );
 
+S3DEXP s3d_rotation spew3d_obj3d_GetRotation(
+    s3d_obj3d *obj
+);
+
 S3DEXP void spew3d_scene3d_Destroy(s3d_scene3d *sc);
 
 S3DEXP double spew3d_obj3d_GetOuterMaxExtentRadius(s3d_obj3d *obj);
