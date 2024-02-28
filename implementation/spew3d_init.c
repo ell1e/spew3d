@@ -44,12 +44,24 @@ S3DHID int _internal_spew3d_InitSDLGraphics() {
     #ifndef SPEW3D_OPTION_DISABLE_SDL
     SDL_SetHintWithPriority(
         SDL_HINT_FRAMEBUFFER_ACCELERATION, "0",
-        SDL_HINT_OVERRIDE);
+        SDL_HINT_DEFAULT);
     SDL_SetHintWithPriority(
         SDL_HINT_RENDER_SCALE_QUALITY, "0",
         SDL_HINT_OVERRIDE);
     SDL_SetHintWithPriority(
         SDL_HINT_MOUSE_AUTO_CAPTURE, "0",
+        SDL_HINT_OVERRIDE
+    );
+    SDL_SetHintWithPriority(
+        SDL_HINT_GRAB_KEYBOARD, "0",
+        SDL_HINT_OVERRIDE
+    );
+    SDL_SetHintWithPriority(
+        SDL_HINT_JOYSTICK_ALLOW_BACKGROUND_EVENTS, "0",
+        SDL_HINT_OVERRIDE
+    );
+    SDL_SetHintWithPriority(
+        SDL_HINT_MOUSE_FOCUS_CLICKTHROUGH, "1",
         SDL_HINT_OVERRIDE
     );
     #ifdef SDL_HINT_WINDOWS_DPI_SCALING
