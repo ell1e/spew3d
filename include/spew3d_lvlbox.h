@@ -39,6 +39,7 @@ typedef struct s3d_lvlbox_texinfo {
     char *name;
     int vfs_flags;
     s3d_texture_t id;
+    s3d_material_t material;
     s3dnum_t scale_x, scale_y;
     s3dnum_t scroll_speed_x, scroll_speed_y;
 } s3d_lvlbox_texinfo;

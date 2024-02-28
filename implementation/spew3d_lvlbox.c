@@ -696,6 +696,10 @@ S3DHID int _spew3d_lvlbox_TryUpdateTileCache_nolock_Ex(
             if (diagonalfrontrightbackleft >
                     diagonalfrontleftbackright) {
                 cache->floor_split_from_front_left = 1;
+                cache->cached_floor[0].texture =
+                    tile->segment[segment_no].floor_tex.id;
+                cache->cached_floor[0].material =
+                    tile->segment[segment_no].floor_tex.material;
                 cache->cached_floor[0].vertex[0] = front_left;
                 cache->cached_floor[0].vertex[1] = front_right;
                 cache->cached_floor[0].vertex[2] = back_right;
@@ -715,6 +719,11 @@ S3DHID int _spew3d_lvlbox_TryUpdateTileCache_nolock_Ex(
                     spew3d_math3d_flip(
                         &cache->cached_floor[0].polynormal
                     );
+
+                cache->cached_floor[1].texture =
+                    tile->segment[segment_no].floor_tex.id;
+                cache->cached_floor[1].material =
+                    tile->segment[segment_no].floor_tex.material;
                 cache->cached_floor[1].vertex[0] = back_right;
                 cache->cached_floor[1].vertex[1] = back_left;
                 cache->cached_floor[1].vertex[2] = front_left;
@@ -734,6 +743,7 @@ S3DHID int _spew3d_lvlbox_TryUpdateTileCache_nolock_Ex(
                     spew3d_math3d_flip(
                         &cache->cached_floor[1].polynormal
                     );
+
                 cache->floor_flat_corner_normals[0] =
                     cache->cached_floor[0].polynormal;
                 cache->floor_flat_corner_normals[2] =
@@ -1835,11 +1845,14 @@ S3DHID static inline int spew3d_lvlbox_TransformTilePolygon(
     #if defined(DEBUG_SPEW3D_TRANSFORM3D)
     printf("spew3d_lvlbox.c: debug: lvlbox %p "
         "tile %p segment %d: Transforming floor, "
-        "vertex #1/3 input world x,y,z %f,%f,%f\n",
+        "vertex #1/3 input world x,y,z %f,%f,%f "
+        "texid=%d\n",
         lvlbox, tile, (int)segment_no,
         (double)polygon->vertex[0].x,
         (double)polygon->vertex[0].y,
-        (double)polygon->vertex[0].z);
+        (double)polygon->vertex[0].z,
+        (int)polygon->texture
+    );
     #endif
     spew3d_math3d_transform3d(
         polygon->vertex[0],
