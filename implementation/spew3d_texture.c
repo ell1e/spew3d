@@ -469,18 +469,20 @@ S3DHID s3d_texture_t _internal_spew3d_texture_NewEx(
     int _innerexistsresult = 0;
     if (fromfile &&
             (vfsflags & VFSFLAG_NO_VIRTUALPAK_ACCESS) == 0 &&
-            ((vfsflags & VFSFLAG_NO_REALDISK_ACCESS) != 0 ||
-             (spew3d_vfs_Exists(path,
-                  VFSFLAG_NO_REALDISK_ACCESS, &_innerexistsresult,
-                  NULL) != 0 && _innerexistsresult))) {
+            ((vfsflags & VFSFLAG_NO_REALDISK_ACCESS) != 0)) {
         loadfromvfs = 1;
         id[0] = 'v';
         id[1] = ':';
         vfsflags |= VFSFLAG_NO_REALDISK_ACCESS;
-    } else {
+    } else if (fromfile &&
+            (vfsflags & VFSFLAG_NO_REALDISK_ACCESS) == 0 &&
+            ((vfsflags & VFSFLAG_NO_VIRTUALPAK_ACCESS) != 0)) {
         id[0] = 'd';
         id[1] = ':';
         vfsflags |= VFSFLAG_NO_VIRTUALPAK_ACCESS;
+    } else {
+        id[0] = 'a';
+        id[1] = ':';
     }
     #if defined(DEBUG_SPEW3D_TEXTURE)
     fprintf(stderr,
@@ -510,7 +512,7 @@ S3DHID s3d_texture_t _internal_spew3d_texture_NewEx(
     }
     assert(idlen >= 2);
     assert(id[idlen] == '\0');
-    memcpy(_internal_tex_get_buf, id + 2, (idlen - 2) + 1);
+    memcpy(_internal_tex_get_buf, id, idlen + 1);
     free(id);
     id = NULL;
     if (strlen(_internal_tex_get_buf) == 0) {
@@ -533,6 +535,14 @@ S3DHID s3d_texture_t _internal_spew3d_texture_NewEx(
                 (fromfile != 0) &&
                 strcmp(_internal_spew3d_texlist[idx].idstring,
                    _internal_tex_get_buf) == 0) {
+            #if defined(DEBUG_SPEW3D_TEXTURE)
+            fprintf(stderr,
+                "spew3d_texture.c: debug: "
+                "_internal_spew3d_texture_NewEx id:\"%s\" "
+                " -> return pre-existing sdl_texture_t=%d\n",
+                _internal_tex_get_buf,
+                idx + 1);
+            #endif
             mutex_Release(_texlist_mutex);
             return idx + 1;
         }
@@ -569,6 +579,14 @@ S3DHID s3d_texture_t _internal_spew3d_texture_NewEx(
         SPEW3D_TEXLIST_IDHASHMAP_SIZE]
     );
     newbucket->texlist_slot_idx = _internal_spew3d_texlist_count;
+    #if defined(DEBUG_SPEW3D_TEXTURE)
+    fprintf(stderr,
+        "spew3d_texture.c: debug: "
+        "_internal_spew3d_texture_NewEx id:\"%s\" "
+        " -> create new sdl_texture_t=%d\n",
+        _internal_tex_get_buf,
+        (int)(newbucket->texlist_slot_idx + 1));
+    #endif
 
     // Allocate new slot in global list:
     int64_t newcount = _internal_spew3d_texlist_count + 1;
@@ -590,12 +608,17 @@ S3DHID s3d_texture_t _internal_spew3d_texture_NewEx(
         mutex_Release(_texlist_mutex);
         return 0;
     }
-    char *pathdup = strdup(_internal_tex_get_buf);
-    if ((fromfile || path != NULL) && !pathdup) {
-        free(newbucket);
-        free(iddup);
-        mutex_Release(_texlist_mutex);
-        return 0;
+    char *pathdup = NULL;
+    if (fromfile) {
+        pathdup = strdup(_internal_tex_get_buf);
+        if (!pathdup) {
+            free(newbucket);
+            free(iddup);
+            mutex_Release(_texlist_mutex);
+            return 0;
+        }
+        memmove(pathdup, pathdup + 2,
+            strlen(pathdup) + 1 - 2);
     }
     spew3d_texture_extrainfo *extrainfo = malloc(
         sizeof(*extrainfo)

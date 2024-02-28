@@ -50,7 +50,7 @@ int main(int argc, const char **argv) {
     s3d_lvlbox *level_contents = NULL;
     s3d_obj3d *level = NULL;
     s3d_resourceload_job *job = spew3d_lvlbox_FromMapFileOrNew(
-        argv[1], 0, 1, "grass", 0
+        argv[1], 0, 1, "grass.png", 0
     );
     if (!job) goto failed;
 
