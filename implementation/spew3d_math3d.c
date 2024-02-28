@@ -118,6 +118,9 @@ S3DEXP void spew3d_math3d_polygon_normal(
 S3DEXP s3dnum_t spew3d_math3d_anglefromto(
         s3d_pos *p, s3d_pos *p2
         ) {
+    s3d_pos nullpos;
+    if (p == NULL)
+        p = &nullpos;
     s3dnum_t d = p->x*p2->x + p->y*p2->y + p->z*p2->z;
     s3dnum_t cx = (p->y*p2->z - p->z*p2->y);
     s3dnum_t cy = (p->z*p2->x - p->x*p2->z);
@@ -125,6 +128,44 @@ S3DEXP s3dnum_t spew3d_math3d_anglefromto(
     s3dnum_t de = sqrt(cx*cx + cy*cy + cz*cz);
     s3dnum_t angle = atan2(de, d);
     return (angle / M_PI) * 180.0;
+}
+
+S3DEXP s3d_rotation spew3d_math3d_rotationfromto(
+        s3d_pos *p, s3d_pos *p2
+        ) {
+    s3d_pos nullpos;
+    if (p == NULL)
+        p = &nullpos;
+
+    s3d_rotation rot = {0};
+
+    s3d_pos horidiff = {0};
+    horidiff.x = p2->x - p->x;
+    horidiff.y = p2->y - p->y;
+    if (spew3d_math3d_len(horidiff) > 0.001) {
+        s3d_pos horiforward = {0};
+        horiforward.x = spew3d_math3d_len(horidiff);
+        rot.hori = spew3d_math3d_anglefromto(
+            &horiforward, &horidiff
+        );
+        if (horidiff.y < 0)
+            rot.hori = -rot.hori;
+    }
+
+    s3d_pos vertidiff = {0};
+    vertidiff.z = p2->z - p->z;
+    vertidiff.x = spew3d_math3d_len(horidiff);
+    if (spew3d_math3d_len(vertidiff) > 0.001) {
+        s3d_pos vertiforward = {0};
+        vertiforward.x = vertidiff.x;
+        rot.verti = spew3d_math3d_anglefromto(
+            &vertiforward, &vertidiff
+        );
+        if (vertidiff.z < 0)
+            rot.verti = -rot.verti;
+    }
+
+    return rot;
 }
 
 S3DEXP void spew3d_math3d_transform3d(

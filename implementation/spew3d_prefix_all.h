@@ -1,4 +1,4 @@
-/* Copyright (c) 2020-2023, ellie/@ell1e & Spew3D Team (see AUTHORS.md).
+/* Copyright (c) 2020-2024, ellie/@ell1e & Spew3D Team (see AUTHORS.md).
 
 Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions are met:
@@ -89,7 +89,7 @@ license, see accompanied LICENSE.md.
 #define DEBUG_SPEW3D_FS
 #define DEBUG_SPEW3D_WARNING_BOGUS_EVENT
 #define DEBUG_SPEW3D_VFS
-#define DEBUG_SPEW3D_LEVELBOX
+#define DEBUG_SPEW3D_LVLBOX
 #define DEBUG_SPEW3D_TEXTURE
 #define DEBUG_SPEW3D_AUDIO_SINK
 //#define DEBUG_SPEW3D_AUDIO_SINK_DATA

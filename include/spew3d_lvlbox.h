@@ -135,12 +135,23 @@ S3DEXP int32_t spew3d_lvlbox_WorldPosToChunkIndex(
     s3d_lvlbox *lvlbox, s3d_pos pos, int ignore_lvlbox_offset
 );
 
+S3DEXP int spew3d_lvlbox_GetTileClosestCornerNearWorldPos(
+    s3d_lvlbox *lvlbox, uint32_t chunk_index,
+    uint32_t tile_index, int segment_no,
+    s3d_pos pos, int ignore_z,
+    s3d_pos *out_corner_pos
+);
+
 S3DEXP int spew3d_lvlbox_WorldPosToTilePos(
     s3d_lvlbox *lvlbox, s3d_pos pos, int ignore_lvlbox_offset,
-    int32_t *out_chunk_idx, int32_t *out_tile_idx,
+    uint32_t *out_chunk_index, uint32_t *out_tile_index,
     s3d_pos *out_tile_lower_bound,
     s3d_pos *out_tile_pos_offset,
     int32_t *out_segment_no
+);
+
+S3DEXP int spew3d_lvlbox_HoriAngleToCornerIndex(
+    s3dnum_t angle
 );
 
 S3DEXP double spew3d_lvlbox_TileFloorHeightAtInSegment(
@@ -193,6 +204,11 @@ S3DEXP int spew3d_lvlbox_Transform(
     s3d_geometryrenderlightinfo *render_light_info,
     s3d_renderpolygon **render_queue,
     uint32_t *render_fill, uint32_t *render_alloc
+);
+
+S3DEXP int spew3d_lvlbox_PaintLastUsedTexture(
+    s3d_lvlbox *lvlbox, s3d_pos paint_pos,
+    s3d_rotation paint_aim
 );
 
 #endif  // SPEW3D_LVLBOX_H_

@@ -117,6 +117,25 @@ static inline void spew3d_math3d_normalize(
     }
 }
 
+static inline s3dnum_t spew3d_math3d_normalizeangle(
+        s3dnum_t a
+        ) {
+    if (a > 180.0) {
+        a = fmod(180.0 + a, 360.0) - 180.0;
+    } else if (a < -180.0) {
+        a = -(fmod(180.0 + (-a), 360) - 180.0);
+    }
+    return a;
+}
+
+static inline void spew3d_math3d_normalizerot(
+        s3d_rotation *r
+        ) {
+    r->hori = spew3d_math3d_normalizeangle(r->hori);
+    r->verti = spew3d_math3d_normalizeangle(r->verti);
+    r->roll = spew3d_math3d_normalizeangle(r->roll);
+}
+
 static inline s3dnum_t spew3d_math3d_flip(s3d_pos *p) {
     p->x = -p->x;
     p->y = -p->y;
@@ -184,6 +203,10 @@ S3DEXP void spew3d_math3d_rotate(
 );
 
 S3DEXP s3dnum_t spew3d_math3d_anglefromto(
+    s3d_pos *p, s3d_pos *p2
+);
+
+S3DEXP s3d_rotation spew3d_math3d_rotationfromto(
     s3d_pos *p, s3d_pos *p2
 );
 

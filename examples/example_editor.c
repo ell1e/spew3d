@@ -109,6 +109,13 @@ int main(int argc, const char **argv) {
                 rot.hori += e.mouse.rel_x * 0.5;
                 rot.verti -= e.mouse.rel_y * 0.5;
                 spew3d_obj3d_SetRotation(camera, rot);
+            } else if (e.kind == S3DEV_KEY_DOWN &&
+                    e.key.key == S3D_KEY_T) {
+                s3d_pos pos = spew3d_obj3d_GetPos(camera);
+                s3d_rotation rot = spew3d_obj3d_GetRotation(camera);
+                spew3d_lvlbox_PaintLastUsedTexture(
+                    level_contents, pos, rot
+                );
             }
         }
         // Move camera:
@@ -177,7 +184,6 @@ int main(int argc, const char **argv) {
                 level = spew3d_scene3d_AddLvlboxObj(
                     scene, level_contents, 1
                 );
-                level_contents = NULL;  // Now owned by level object.
             }
         }
 
