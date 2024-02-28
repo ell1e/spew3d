@@ -211,5 +211,14 @@ S3DEXP int spew3d_lvlbox_PaintLastUsedTexture(
     s3d_rotation paint_aim
 );
 
+S3DEXP int spew3d_lvlbox_InteractPosDirToTileCorner(
+    s3d_lvlbox *lvlbox, s3d_pos interact_pos,
+    s3d_rotation interact_rot,
+    uint32_t *chunk_index, uint32_t *tile_index,
+    int32_t *chunk_x, int32_t *chunk_y,
+    int32_t *tile_x, int32_t *tile_y,
+    uint32_t *segment_no, int *corner
+);
+
 #endif  // SPEW3D_LVLBOX_H_
 

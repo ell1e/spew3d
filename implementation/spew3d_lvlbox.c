@@ -58,6 +58,8 @@ S3DHID int _spew3d_lvlbox_InteractPosDirToTileCorner_nolock(
     s3d_lvlbox *lvlbox, s3d_pos interact_pos,
     s3d_rotation interact_rot,
     uint32_t *chunk_index, uint32_t *tile_index,
+    int32_t *chunk_x, int32_t *chunk_y,
+    int32_t *tile_x, int32_t *tile_y,
     uint32_t *segment_no, int *corner
 );
 S3DHID int _spew3d_lvlbox_ExpandToPosition_nolock(
@@ -2237,12 +2239,15 @@ S3DEXP int spew3d_lvlbox_InteractPosDirToTileCorner(
         s3d_lvlbox *lvlbox, s3d_pos interact_pos,
         s3d_rotation interact_rot,
         uint32_t *chunk_index, uint32_t *tile_index,
+        int32_t *chunk_x, int32_t *chunk_y,
+        int32_t *tile_x, int32_t *tile_y,
         uint32_t *segment_no, int *corner
         ) {
     mutex_Lock(_lvlbox_Internal(lvlbox)->m);
     int result = _spew3d_lvlbox_InteractPosDirToTileCorner_nolock(
         lvlbox, interact_pos, interact_rot, chunk_index,
-        tile_index, segment_no, corner
+        tile_index, chunk_x, chunk_y, tile_x,
+        tile_y, segment_no, corner
     );
     mutex_Release(_lvlbox_Internal(lvlbox)->m);
     return result;
@@ -2252,6 +2257,8 @@ S3DHID int _spew3d_lvlbox_InteractPosDirToTileCorner_nolock(
         s3d_lvlbox *lvlbox, s3d_pos interact_pos,
         s3d_rotation interact_rot,
         uint32_t *chunk_index, uint32_t *tile_index,
+        int32_t *chunk_x, int32_t *chunk_y,
+        int32_t *tile_x, int32_t *tile_y,
         uint32_t *segment_no, int *corner
         ) {
     spew3d_math3d_normalizerot(&interact_rot);
@@ -2296,7 +2303,7 @@ S3DHID int _spew3d_lvlbox_InteractPosDirToTileCorner_nolock(
     s3d_pos query_pos_high_offset;
     int32_t query_pos_high_segment_no;
     int result2 = _spew3d_lvlbox_WorldPosToTilePos_nolock(
-        lvlbox, interact_pos, 0,
+        lvlbox, query_pos_high, 0,
         &query_pos_high_chunk_index,
         &query_pos_high_tile_index,
         NULL,
@@ -2323,15 +2330,15 @@ S3DHID int _spew3d_lvlbox_InteractPosDirToTileCorner_nolock(
     spew3d_math3d_add(&lookat_pos, &lookat_advance);
 
     int icorner = _spew3d_lvlbox_GetTileClosestCornerNearWorldPos_nolock(
-        lvlbox, query_pos_low_chunk_index,
-        query_pos_low_tile_index,
-        query_pos_low_segment_no,
+        lvlbox, query_pos_high_chunk_index,
+        query_pos_high_tile_index,
+        query_pos_high_segment_no,
         lookat_pos, 1, NULL
     );
     *corner = icorner;
-    *chunk_index = query_pos_low_chunk_index;
-    *tile_index = query_pos_low_tile_index;
-    *segment_no = query_pos_low_segment_no;
+    *chunk_index = query_pos_high_chunk_index;
+    *tile_index = query_pos_high_tile_index;
+    *segment_no = query_pos_high_segment_no;
     return 1;
 }
 
@@ -2340,10 +2347,12 @@ S3DEXP int spew3d_lvlbox_PaintLastUsedTexture(
         s3d_rotation paint_aim
         ) {
     uint32_t chunk_index, tile_index, segment_no;
+    int32_t chunk_x, chunk_y, tile_x, tile_y;
     int corner;
     int result = spew3d_lvlbox_InteractPosDirToTileCorner(
         lvlbox, paint_pos, paint_aim,
-        &chunk_index, &tile_index, &segment_no, &corner
+        &chunk_index, &tile_index, &chunk_x, &chunk_y,
+        &tile_x, &tile_y, &segment_no, &corner
     );
     if (!result) {
         printf("Ooops not aiming at anything\n");
