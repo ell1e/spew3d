@@ -60,7 +60,7 @@ typedef struct s3d_window {
         s3d_texture_t canvas;
     } virtualwin;
     int mouseseeninwindow, fingerseeninwindow;
-    uint64_t lastmouseseen_ts;
+    uint64_t lastlegitmouseseen_ts;
     s3dnum_t lastmousex, lastmousey,
         lastfingerx, lastfingery, mouse_warp_target_x,
         mouse_warp_target_y;
@@ -494,24 +494,21 @@ void spew3d_window_ProcessMouseMotion(
         _last_mouse_hover_window_id = win->id;
     }
     if (win->ignore_mouse_motion_until_ts > now) {
-        if (win->mouse_lock_mode !=
-                S3D_MOUSE_LOCK_INVISIBLE_RELATIVE_MODE ||
-                !win->focused) {
-            if (!is_in_window) {
-                win->mouseseeninwindow = 0;
-            } else {
+        if (!is_in_window) {
+            win->mouseseeninwindow = 0;
+        } else {
+            if (win->mouse_lock_mode !=
+                    S3D_MOUSE_LOCK_INVISIBLE_RELATIVE_MODE ||
+                    !win->focused) {
                 win->mouseseeninwindow = 1;
                 win->lastmousex = (int)mx;
                 win->lastmousey = (int)my;
-                win->lastmouseseen_ts = now;
-            }
-        } else {
-            assert(win->mouse_lock_mode ==
-                S3D_MOUSE_LOCK_INVISIBLE_RELATIVE_MODE);
-            if (is_in_window) {
+            } else {
+                assert(win->mouse_lock_mode ==
+                    S3D_MOUSE_LOCK_INVISIBLE_RELATIVE_MODE);
                 int wx = win->mouse_warp_target_x;
                 int wy = win->mouse_warp_target_y;
-                if (wx != mx && wy != my) {
+                if (wx != mx || wy != my) {
                     win->backend->WarpMouse(
                         win->backend, win, win->backend_winfo,
                         wx, wy
@@ -520,9 +517,6 @@ void spew3d_window_ProcessMouseMotion(
                 win->mouseseeninwindow = 1;
                 win->lastmousex = wx;
                 win->lastmousey = wy;
-                win->lastmouseseen_ts = now;
-            } else {
-                win->mouseseeninwindow = 0;
             }
         }
         mutex_Release(_win_id_mutex);
@@ -546,16 +540,27 @@ void spew3d_window_ProcessMouseMotion(
     e2.mouse.win_id = _last_keyboard_focus_window_id;
     e2.mouse.x = x;
     e2.mouse.y = y;
+    int bogus_event = 0;
     if (win->mouseseeninwindow &&
-            win->lastmouseseen_ts + 200 < now &&
+            win->lastlegitmouseseen_ts + 200 < now &&
             (fabs(win->lastmousex - x) > 10 ||
             fabs(win->lastmousey - y) > 10)) {
         // XXX / Note: workaround for bugs like this one:
         // https://github.com/libsdl-org/SDL/issues/9156
         // (Basically, this doesn't look like a legit movement.)
-        win->mouseseeninwindow = 0;
+        bogus_event = 1;
+        #if defined(DEBUG_SPEW3D_EVENT) || \
+                defined(DEBUG_SPEW3D_WARNING_BOGUS_EVENT)
+        printf("spew3d_event.c: warning: "
+            "Ignored likely faulty mouse event at "
+            "mx/my %d, %d, delivered from windowing backend "
+            "kind=%d.\n",
+            (int)mx, (int)my,
+            (int)win->backend->kind);
+        #endif
     }
-    if (win->mouseseeninwindow && is_in_window && !ignore_relative) {
+    if (win->mouseseeninwindow && is_in_window && !ignore_relative &&
+            !bogus_event) {
         e2.mouse.rel_x = (
             x - win->lastmousex
         );
@@ -565,21 +570,29 @@ void spew3d_window_ProcessMouseMotion(
     }
     win->mouseseeninwindow = is_in_window;
     if (is_in_window) {
-        win->lastmousex = x;
-        win->lastmousey = y;
-        win->lastmouseseen_ts = now;
         if (can_warp && win->mouse_lock_mode ==
                 S3D_MOUSE_LOCK_INVISIBLE_RELATIVE_MODE) {
             int wx = win->mouse_warp_target_x;
             int wy = win->mouse_warp_target_y;
-            win->backend->WarpMouse(
-                win->backend, win, win->backend_winfo,
-                wx, wy
-            );
+            if (mx != wx || my != wy) {
+                win->backend->WarpMouse(
+                    win->backend, win, win->backend_winfo,
+                    wx, wy
+                );
+            }
             e2.mouse.x = 0;
             e2.mouse.y = 0;
             win->lastmousex = wx;
             win->lastmousey = wy;
+            if (!bogus_event) {
+                win->lastlegitmouseseen_ts = now;
+            }
+        } else {
+            win->lastmousex = x;
+            win->lastmousey = y;
+            if (!bogus_event) {
+                win->lastlegitmouseseen_ts = now;
+            }
         }
     }
     mutex_Release(_win_id_mutex);
