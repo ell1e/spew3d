@@ -1751,6 +1751,26 @@ S3DEXP s3d_lvlbox *spew3d_lvlbox_New(
             _spew3d_lvlbox_ActuallyDestroy(lvlbox);
             return NULL;
         }
+        #if defined(DEBUG_SPEW3D_LVLBOX)
+        printf("spew3d_lvlbox.c: debug: lvlbox %p "
+            "created: "
+            "chunk_count=%d tile_count=%d default_tex=%s "
+            "center tile pos=%f/%f\n",
+            lvlbox, (int)lvlbox->chunk_count,
+            (int)lvlbox->chunk_count * LVLBOX_CHUNK_SIZE *
+            LVLBOX_CHUNK_SIZE, default_tex, (double)pos.x,
+            (double)pos.y);
+        #endif
+    } else {
+        #if defined(DEBUG_SPEW3D_LVLBOX)
+        printf("spew3d_lvlbox.c: debug: lvlbox %p "
+            "created: "
+            "chunk_count=%d tile_count=%d default_tex=NULL "
+            "center tile pos=NULL\n",
+            lvlbox, (int)lvlbox->chunk_count,
+            (int)lvlbox->chunk_count * LVLBOX_CHUNK_SIZE *
+            LVLBOX_CHUNK_SIZE);
+        #endif
     }
     return lvlbox;
 }
