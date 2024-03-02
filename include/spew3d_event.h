@@ -38,6 +38,8 @@ enum S3DEventKind {
     S3DEV_WINDOW_USER_CLOSE_REQUEST,
 
     S3DEV_MOUSE_MOVE,
+    S3DEV_MOUSE_BUTTON_DOWN,
+    S3DEV_MOUSE_BUTTON_UP,
     S3DEV_KEY_DOWN,
     S3DEV_KEY_UP,
 
@@ -54,6 +56,13 @@ enum S3DEventKind {
     S3DEV_INTERNAL_CMD_CAM3D_DRAWTOWINDOW,
 
     S3DEV_DUMMY = 99999
+};
+
+enum S3DMouseButton {
+    S3DEV_MOUSE_BUTTON_INVALID = 0,
+    S3DEV_MOUSE_BUTTON_PRIMARY = 1,
+    S3DEV_MOUSE_BUTTON_SECONDARY = 2,
+    S3DEV_MOUSE_BUTTON_MIDDLE = 3,
 };
 
 #define S3DEV_TYPE_IS_INTERNAL(x) \
@@ -75,6 +84,7 @@ typedef struct s3d_event {
                 uint32_t win_id;
                 s3dnum_t rel_x, rel_y;
                 s3dnum_t x, y;
+                int button;
             } mouse;
             struct key {
                 uint32_t win_id;

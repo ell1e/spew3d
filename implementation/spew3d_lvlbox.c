@@ -32,6 +32,9 @@ license, see accompanied LICENSE.md.
 typedef struct s3d_lvlbox_internal {
     int wasdeleted;
     s3d_mutex *m;
+
+    char *last_used_tex;
+    int last_used_tex_vfsflags;
 } s3d_lvlbox_internal;
 
 S3DHID int spew3d_lvlbox_TryUpdateTileCache_nolock(
@@ -57,10 +60,10 @@ S3DHID int _spew3d_lvlbox_GetNeighborNormalsAtCorner_nolock(
 S3DHID int _spew3d_lvlbox_InteractPosDirToTileCorner_nolock(
     s3d_lvlbox *lvlbox, s3d_pos interact_pos,
     s3d_rotation interact_rot,
-    uint32_t *chunk_index, uint32_t *tile_index,
+    int32_t *chunk_index, int32_t *tile_index,
     int32_t *chunk_x, int32_t *chunk_y,
     int32_t *tile_x, int32_t *tile_y,
-    uint32_t *segment_no, int *corner
+    int32_t *segment_no, int *corner
 );
 S3DHID int _spew3d_lvlbox_ExpandToPosition_nolock(
     s3d_lvlbox *box, s3d_pos pos
@@ -1398,8 +1401,6 @@ S3DEXP int spew3d_lvlbox_ExpandToPosition(
 S3DHID int _spew3d_lvlbox_ExpandToPosition_nolock(
         s3d_lvlbox *lvlbox, s3d_pos pos
         ) {
-    mutex_Lock(_lvlbox_Internal(lvlbox)->m);
-
     s3d_pos localpos = pos;
     localpos.x -= lvlbox->offset.x;
     localpos.y -= lvlbox->offset.y;
@@ -1447,7 +1448,6 @@ S3DHID int _spew3d_lvlbox_ExpandToPosition_nolock(
             expand_plus_chunky + expand_minus_chunky
         );
         if (!result) {
-            mutex_Release(_lvlbox_Internal(lvlbox)->m);
             return 0;
         }
     }
@@ -1457,12 +1457,10 @@ S3DHID int _spew3d_lvlbox_ExpandToPosition_nolock(
             expand_plus_chunkx + expand_minus_chunkx
         );
         if (!result) {
-            mutex_Release(_lvlbox_Internal(lvlbox)->m);
             return 0;
         }
     }
 
-    mutex_Release(_lvlbox_Internal(lvlbox)->m);
     return 1;
 }
 
@@ -1755,7 +1753,7 @@ S3DEXP s3d_lvlbox *spew3d_lvlbox_New(
         printf("spew3d_lvlbox.c: debug: lvlbox %p "
             "created: "
             "chunk_count=%d tile_count=%d default_tex=%s "
-            "center tile pos=%f/%f\n",
+            "center_tile_pos=%f/%f\n",
             lvlbox, (int)lvlbox->chunk_count,
             (int)lvlbox->chunk_count * LVLBOX_CHUNK_SIZE *
             LVLBOX_CHUNK_SIZE, default_tex, (double)pos.x,
@@ -1766,7 +1764,7 @@ S3DEXP s3d_lvlbox *spew3d_lvlbox_New(
         printf("spew3d_lvlbox.c: debug: lvlbox %p "
             "created: "
             "chunk_count=%d tile_count=%d default_tex=NULL "
-            "center tile pos=NULL\n",
+            "center_tile_pos=NULL\n",
             lvlbox, (int)lvlbox->chunk_count,
             (int)lvlbox->chunk_count * LVLBOX_CHUNK_SIZE *
             LVLBOX_CHUNK_SIZE);
@@ -1812,10 +1810,16 @@ S3DHID int _spew3d_lvlbox_SetFloorTextureAt_nolock(
     if (!set_tex_name) {
         return 0;
     }
+    char *last_used_name = strdup(texname);
+    if (!last_used_name) {
+        free(set_tex_name);
+        return 0;
+    }
     s3d_texture_t tid = spew3d_texture_FromFile(
         set_tex_name, vfsflags
     );
     if (tid == 0) {
+        free(last_used_name);
         free(set_tex_name);
         return 0;
     }
@@ -1824,6 +1828,7 @@ S3DHID int _spew3d_lvlbox_SetFloorTextureAt_nolock(
         assert(tile->segment == NULL);
         tile->segment = malloc(sizeof(*tile->segment));
         if (!tile->segment) {
+            free(last_used_name);
             free(set_tex_name);
             return 0;
         }
@@ -1850,6 +1855,12 @@ S3DHID int _spew3d_lvlbox_SetFloorTextureAt_nolock(
     tile->segment[segment_no].floor_tex.name = set_tex_name;
     tile->segment[segment_no].floor_tex.vfs_flags = vfsflags;
     tile->segment[segment_no].floor_tex.id = tid;
+    if (_lvlbox_Internal(lvlbox)->last_used_tex) {
+        free(_lvlbox_Internal(lvlbox)->last_used_tex);
+        _lvlbox_Internal(lvlbox)->last_used_tex = NULL;
+    }
+    _lvlbox_Internal(lvlbox)->last_used_tex_vfsflags = vfsflags;
+    _lvlbox_Internal(lvlbox)->last_used_tex = last_used_name;
     return 1;
 }
 
@@ -2258,10 +2269,10 @@ S3DEXP int spew3d_lvlbox_GetTileClosestCornerNearWorldPos(
 S3DEXP int spew3d_lvlbox_InteractPosDirToTileCorner(
         s3d_lvlbox *lvlbox, s3d_pos interact_pos,
         s3d_rotation interact_rot,
-        uint32_t *chunk_index, uint32_t *tile_index,
+        int32_t *chunk_index, int32_t *tile_index,
         int32_t *chunk_x, int32_t *chunk_y,
         int32_t *tile_x, int32_t *tile_y,
-        uint32_t *segment_no, int *corner
+        int32_t *segment_no, int *corner
         ) {
     mutex_Lock(_lvlbox_Internal(lvlbox)->m);
     int result = _spew3d_lvlbox_InteractPosDirToTileCorner_nolock(
@@ -2276,10 +2287,10 @@ S3DEXP int spew3d_lvlbox_InteractPosDirToTileCorner(
 S3DHID int _spew3d_lvlbox_InteractPosDirToTileCorner_nolock(
         s3d_lvlbox *lvlbox, s3d_pos interact_pos,
         s3d_rotation interact_rot,
-        uint32_t *chunk_index, uint32_t *tile_index,
+        int32_t *chunk_index, int32_t *tile_index,
         int32_t *chunk_x, int32_t *chunk_y,
         int32_t *tile_x, int32_t *tile_y,
-        uint32_t *segment_no, int *corner
+        int32_t *segment_no, int *corner
         ) {
     spew3d_math3d_normalizerot(&interact_rot);
 
@@ -2312,6 +2323,11 @@ S3DHID int _spew3d_lvlbox_InteractPosDirToTileCorner_nolock(
         *segment_no = query_pos_low_segment_no;
         *corner = icorner;
         return 1;
+    } else if (!result) {
+        // We're out of bounds.
+        // Don't try to guess ahead for a tile, so it's easier
+        // to target out of bounds for adding geometry.
+        return 0;
     }
 
     s3d_pos query_pos_high = interact_pos;
@@ -2362,14 +2378,24 @@ S3DHID int _spew3d_lvlbox_InteractPosDirToTileCorner_nolock(
     return 1;
 }
 
-S3DEXP int spew3d_lvlbox_PaintLastUsedTexture(
+S3DEXP int spew3d_lvlbox_edit_PaintLastUsedTexture(
         s3d_lvlbox *lvlbox, s3d_pos paint_pos,
         s3d_rotation paint_aim
         ) {
-    uint32_t chunk_index, tile_index, segment_no;
+    mutex_Lock(_lvlbox_Internal(lvlbox)->m);
+
+    const char *paint_name = "grass01.png";
+    int paint_vfsflags = 0;
+    if (_lvlbox_Internal(lvlbox)->last_used_tex) {
+        paint_name = _lvlbox_Internal(lvlbox)->last_used_tex;
+        paint_vfsflags = _lvlbox_Internal(lvlbox)->
+            last_used_tex_vfsflags;
+    }
+
+    int32_t chunk_index, tile_index, segment_no;
     int32_t chunk_x, chunk_y, tile_x, tile_y;
     int corner;
-    int result = spew3d_lvlbox_InteractPosDirToTileCorner(
+    int result = _spew3d_lvlbox_InteractPosDirToTileCorner_nolock(
         lvlbox, paint_pos, paint_aim,
         &chunk_index, &tile_index, &chunk_x, &chunk_y,
         &tile_x, &tile_y, &segment_no, &corner
@@ -2378,17 +2404,18 @@ S3DEXP int spew3d_lvlbox_PaintLastUsedTexture(
         printf("Ooops not aiming at anything\n");
         #if defined(DEBUG_SPEW3D_LVLBOX)
         printf("spew3d_lvlbox.c: debug: lvlbox %p "
-            "spew3d_lvlbox_PaintLastUsedTexture(): "
+            "spew3d_lvlbox_edit_PaintLastUsedTexture(): "
             "Not aiming at anything, with "
             "paint_pos x/y/z=%f/%f/%f aim.\n",
             lvlbox, (double)paint_pos.x, (double)paint_pos.y,
             (double)paint_pos.z);
         #endif
+        mutex_Release(_lvlbox_Internal(lvlbox)->m);
         return 1;
     }
     #if defined(DEBUG_SPEW3D_LVLBOX)
     printf("spew3d_lvlbox.c: debug: lvlbox %p "
-        "spew3d_lvlbox_PaintLastUsedTexture(): "
+        "spew3d_lvlbox_edit_PaintLastUsedTexture(): "
         "Aiming chunk_index=%d tile_index=%d "
         "segment_no=%d corner=%d, with "
         "paint_pos x/y/z=%f/%f/%f aim.\n",
@@ -2397,7 +2424,130 @@ S3DEXP int spew3d_lvlbox_PaintLastUsedTexture(
         (int)corner,( double)paint_pos.x, (double)paint_pos.y,
         (double)paint_pos.z);
     #endif
-    return 1;
+
+    result = _spew3d_lvlbox_SetFloorTextureAt_nolock(
+        lvlbox, paint_pos, paint_name, paint_vfsflags
+    );
+    mutex_Release(_lvlbox_Internal(lvlbox)->m);
+    return result;
+}
+
+S3DEXP int spew3d_lvlbox_edit_DragFocusedTileCorner(
+        s3d_lvlbox *lvlbox, s3d_pos drag_pos,
+        s3d_rotation drag_aim, double drag_z,
+        int dragconnected
+        ) {
+    mutex_Lock(_lvlbox_Internal(lvlbox)->m);
+
+    spew3d_math3d_normalizerot(&drag_aim);
+    int drag_at_ceiling = (drag_aim.verti > 0);
+
+    int32_t chunk_index, tile_index;
+    int32_t segment_no;
+    int32_t chunk_x, chunk_y, tile_x, tile_y;
+    int corner;
+    int result = _spew3d_lvlbox_InteractPosDirToTileCorner_nolock(
+        lvlbox, drag_pos, drag_aim,
+        &chunk_index, &tile_index, &chunk_x, &chunk_y,
+        &tile_x, &tile_y, &segment_no, &corner
+    );
+    if (!result) {
+        #if defined(DEBUG_SPEW3D_LVLBOX)
+        printf("spew3d_lvlbox.c: "
+            "debug: lvlbox %p "
+            "spew3d_lvlbox_edit_DragFocusedTileCorner(): "
+            "Not aiming at anything, with "
+            "drag_pos x/y/z=%f/%f/%f aim.\n",
+            lvlbox, (double)drag_pos.x, (double)drag_pos.y,
+            (double)drag_pos.z);
+        #endif
+        mutex_Release(_lvlbox_Internal(lvlbox)->m);
+        return 1;
+    }
+    #if defined(DEBUG_SPEW3D_LVLBOX)
+    printf("spew3d_lvlbox.c: "
+        "debug: lvlbox %p "
+        "spew3d_lvlbox_edit_DragFocusedTileCorner(): "
+        "Aiming chunk_index=%d tile_index=%d "
+        "segment_no=%d corner=%d, with "
+        "drag_pos x/y/z=%f/%f/%f aim.\n",
+        lvlbox,
+        (int)chunk_index, (int)tile_index, (int)segment_no,
+        (int)corner, (double)drag_pos.x, (double)drag_pos.y,
+        (double)drag_pos.z);
+    #endif
+
+    if (segment_no < 0) {
+        mutex_Release(_lvlbox_Internal(lvlbox)->m);
+        return 1;
+    }
+    s3d_lvlbox_tile *tile = (
+        &lvlbox->chunk[chunk_index].tile[tile_index]
+    );
+    int segment_above = segment_no + 1;
+    if (segment_above >= tile->segment_count)
+        segment_above = -1;
+    int segment_below = segment_no - 1;
+    if (segment_below < 0)
+        segment_below = -1;
+    double pre_drag_z = (
+        (drag_at_ceiling != 0 ?
+        tile->segment[segment_no].ceiling_z[corner] :
+        tile->segment[segment_no].floor_z[corner])
+    );
+    double limit_z_below = fmin(
+        pre_drag_z, pre_drag_z + drag_z
+    );
+    double limit_z_above = fmax(
+        pre_drag_z, pre_drag_z + drag_z
+    );
+    if (segment_below >= 0) {
+        int k = 0;
+        while (k < 4) {
+            limit_z_below = fmax(
+                limit_z_below,
+                tile->segment[segment_below].ceiling_z[k]
+            );
+            k++;
+        }
+    }
+    if (segment_above >= 0) {
+        int k = 0;
+        while (k < 4) {
+            limit_z_above = fmin(
+                limit_z_above,
+                tile->segment[segment_above].floor_z[k]
+            );
+            k++;
+        }
+    }
+    double result_drag_z = fmax(
+        limit_z_below, fmin(limit_z_above,
+            pre_drag_z + drag_z));
+    if (drag_at_ceiling) {
+        tile->segment[segment_no].ceiling_z[corner] = result_drag_z;
+    } else {
+        tile->segment[segment_no].floor_z[corner] = result_drag_z;
+    }
+    #if defined(DEBUG_SPEW3D_LVLBOX)
+    printf("spew3d_lvlbox.c: "
+        "debug: lvlbox %p "
+        "spew3d_lvlbox_edit_DragFocusedTileCorner(): "
+        "Set chunk_index=%d tile_index=%d "
+        "segment_no=%d corner=%d %s_z "
+        "from %f to %f as new height. Limiting "
+        "height between %f and %f from neighbors.\n",
+        lvlbox,
+        (int)chunk_index, (int)tile_index, (int)segment_no,
+        (int)corner, (drag_at_ceiling ? "ceiling" : "floor"),
+        pre_drag_z, result_drag_z,
+        limit_z_below,
+        limit_z_above);
+    #endif
+    tile->segment[segment_no].cache.is_up_to_date = 0;
+    tile->segment[segment_no].cache.flat_normals_set = 0;
+    mutex_Release(_lvlbox_Internal(lvlbox)->m);
+    return result;
 }
 
 #undef LVLBOX_TRANSFORM_QUEUEGROW

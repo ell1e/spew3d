@@ -685,6 +685,35 @@ S3DHID int _spew3d_window_HandleSDLEvent(SDL_Event *e) {
         mutex_Release(_win_id_mutex);
         spew3d_event_q_Insert(equser, &e2);
         return 1;
+    } else if ((e->type == SDL_MOUSEBUTTONDOWN ||
+            e->type == SDL_MOUSEBUTTONUP) &&
+            (e->button.button == SDL_BUTTON_LEFT ||
+            e->button.button == SDL_BUTTON_RIGHT ||
+            e->button.button == SDL_BUTTON_MIDDLE)) {
+        s3d_window *win = spew3d_window_GetBySDLWindowID(
+            e->button.windowID
+        );
+        mutex_Lock(_win_id_mutex);
+        if (win != NULL && e->motion.which != SDL_TOUCH_MOUSEID) {
+            s3dnum_t x = (s3dnum_t)win->width * e->button.x;
+            s3dnum_t y = (s3dnum_t)win->height * e->button.y;
+            s3d_event e2 = {0};
+            e2.kind = (e->type == SDL_MOUSEBUTTONDOWN ?
+                S3DEV_MOUSE_BUTTON_DOWN : S3DEV_MOUSE_BUTTON_UP);
+            e2.mouse.win_id = _last_keyboard_focus_window_id;
+            e2.mouse.x = x;
+            e2.mouse.y = y;
+            e2.mouse.button = S3DEV_MOUSE_BUTTON_PRIMARY;
+            if (e->button.button == SDL_BUTTON_RIGHT)
+                e2.mouse.button = S3DEV_MOUSE_BUTTON_SECONDARY;
+            else if (e->button.button == SDL_BUTTON_MIDDLE)
+                e2.mouse.button = S3DEV_MOUSE_BUTTON_MIDDLE;
+            mutex_Release(_win_id_mutex);
+            spew3d_event_q_Insert(equser, &e2);
+        } else {
+            mutex_Release(_win_id_mutex);
+        }
+        return 1;
     } else if (e->type == SDL_MOUSEMOTION) {
         s3d_window *win = spew3d_window_GetBySDLWindowID(
             e->motion.windowID
@@ -743,8 +772,25 @@ S3DHID int _spew3d_window_HandleSDLEvent(SDL_Event *e) {
                 win->lastfingerx = 0;
                 win->lastfingery = 0;
             }
-            mutex_Release(_win_id_mutex);
             spew3d_event_q_Insert(equser, &e2);
+            if (e->type == SDL_FINGERDOWN) {
+                s3d_event e2 = {0};
+                e2.kind = S3DEV_MOUSE_BUTTON_DOWN;
+                e2.mouse.win_id = _last_keyboard_focus_window_id;
+                e2.mouse.x = x;
+                e2.mouse.y = y;
+                e2.mouse.button = S3DEV_MOUSE_BUTTON_PRIMARY;
+                spew3d_event_q_Insert(equser, &e2);
+            } else if (e->type == SDL_FINGERUP) {
+                s3d_event e2 = {0};
+                e2.kind = S3DEV_MOUSE_BUTTON_UP;
+                e2.mouse.win_id = _last_keyboard_focus_window_id;
+                e2.mouse.x = x;
+                e2.mouse.y = y;
+                e2.mouse.button = S3DEV_MOUSE_BUTTON_PRIMARY;
+                spew3d_event_q_Insert(equser, &e2);
+            }
+            mutex_Release(_win_id_mutex);
         } else {
             mutex_Release(_win_id_mutex);
         }

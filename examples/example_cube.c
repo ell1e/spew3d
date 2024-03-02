@@ -33,7 +33,7 @@ int main(int argc, const char **argv) {
     if (!plane_geo) goto failed;
     if (!spew3d_geometry_AddPlaneSimple(
             plane_geo, 4.0 * S3D_METER, 4.0 * S3D_METER, 1,
-            spew3d_texture_FromFile("grass.png", 0), 0
+            spew3d_texture_FromFile("grass01.png", 0), 0
             )) {
         goto failed;
     }

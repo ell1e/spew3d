@@ -69,6 +69,10 @@ S3DHID __attribute__((constructor))
                 "Failed to allocate global name map.\n");
             _exit(1);
         }
+        memset(_s3d_key_to_name_map, 0,
+            sizeof(*_s3d_key_to_name_map) *
+            (uint64_t)_INTERNAL_S3D_KEY_UPPER_BOUND
+        );
         int result = (
             _spew3d_keyboard_globalnameregister(
                 S3D_KEY_RETURN, "Return"

@@ -206,18 +206,24 @@ S3DEXP int spew3d_lvlbox_Transform(
     uint32_t *render_fill, uint32_t *render_alloc
 );
 
-S3DEXP int spew3d_lvlbox_PaintLastUsedTexture(
+S3DEXP int spew3d_lvlbox_edit_PaintLastUsedTexture(
     s3d_lvlbox *lvlbox, s3d_pos paint_pos,
     s3d_rotation paint_aim
+);
+
+S3DEXP int spew3d_lvlbox_edit_DragFocusedTileCorner(
+    s3d_lvlbox *lvlbox, s3d_pos drag_pos,
+    s3d_rotation drag_aim, double drag_z,
+    int dragconnected
 );
 
 S3DEXP int spew3d_lvlbox_InteractPosDirToTileCorner(
     s3d_lvlbox *lvlbox, s3d_pos interact_pos,
     s3d_rotation interact_rot,
-    uint32_t *chunk_index, uint32_t *tile_index,
+    int32_t *chunk_index, int32_t *tile_index,
     int32_t *chunk_x, int32_t *chunk_y,
     int32_t *tile_x, int32_t *tile_y,
-    uint32_t *segment_no, int *corner
+    int32_t *segment_no, int *corner
 );
 
 #endif  // SPEW3D_LVLBOX_H_

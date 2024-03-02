@@ -20,7 +20,7 @@ int main(int argc, const char **argv) {
 
     // First, ensure we're in the right folder:
     int _exists = 0;
-    if (!spew3d_fs_TargetExists("grass.png", &_exists) || !_exists) {
+    if (!spew3d_fs_TargetExists("grass01.png", &_exists) || !_exists) {
         fprintf(stderr, "You didn't run this in 'examples' folder, "
             "or there was an I/O error.\n");
         return 1;
@@ -50,7 +50,7 @@ int main(int argc, const char **argv) {
     s3d_lvlbox *level_contents = NULL;
     s3d_obj3d *level = NULL;
     s3d_resourceload_job *job = spew3d_lvlbox_FromMapFileOrNew(
-        argv[1], 0, 1, "grass.png", 0
+        argv[1], 0, 1, "grass01.png", 0
     );
     if (!job) goto failed;
 
@@ -78,7 +78,7 @@ int main(int argc, const char **argv) {
     if (!plane_geo) goto failed;
     if (!spew3d_geometry_AddPlaneSimple(
             plane_geo, 4.0 * S3D_METER, 4.0 * S3D_METER, 1,
-            spew3d_texture_FromFile("grass.png", 0), 0
+            spew3d_texture_FromFile("grass01.png", 0), 0
             )) {
         goto failed;
     }
@@ -92,6 +92,7 @@ int main(int argc, const char **argv) {
     printf("Entering main loop.\n");
     uint64_t start_ticks = spew3d_time_Ticks();
     uint64_t move_ts = start_ticks;
+    int dragging = 0;
     int notquit = 1;
     while (notquit) {
         spew3d_event_UpdateMainThread();
@@ -105,17 +106,32 @@ int main(int argc, const char **argv) {
                 break;
             }
             if (e.kind == S3DEV_MOUSE_MOVE) {
-                s3d_rotation rot = spew3d_obj3d_GetRotation(camera);
-                rot.hori += e.mouse.rel_x * 0.5;
-                rot.verti -= e.mouse.rel_y * 0.5;
-                spew3d_obj3d_SetRotation(camera, rot);
+                if (!dragging) {
+                    s3d_rotation rot = spew3d_obj3d_GetRotation(camera);
+                    rot.hori += e.mouse.rel_x * 0.5;
+                    rot.verti -= e.mouse.rel_y * 0.5;
+                    spew3d_obj3d_SetRotation(camera, rot);
+                } else {
+                    double drag_vert = e.mouse.rel_y * 0.01;
+                    if (fabs(drag_vert) > 0.0001) {
+                        int r = spew3d_lvlbox_edit_DragFocusedTileCorner(
+                            level_contents, spew3d_obj3d_GetPos(camera),
+                            spew3d_obj3d_GetRotation(camera), drag_vert,
+                            1
+                        );
+                    }
+                }
             } else if (e.kind == S3DEV_KEY_DOWN &&
                     e.key.key == S3D_KEY_T) {
                 s3d_pos pos = spew3d_obj3d_GetPos(camera);
                 s3d_rotation rot = spew3d_obj3d_GetRotation(camera);
-                spew3d_lvlbox_PaintLastUsedTexture(
+                spew3d_lvlbox_edit_PaintLastUsedTexture(
                     level_contents, pos, rot
                 );
+            } else if (e.kind == S3DEV_MOUSE_BUTTON_DOWN) {
+                dragging = 1;
+            } else if (e.kind == S3DEV_MOUSE_BUTTON_UP) {
+                dragging = 0;
             }
         }
         // Move camera:
