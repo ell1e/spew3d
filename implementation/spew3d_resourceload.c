@@ -68,6 +68,8 @@ S3DHID static void _s3d_resourceload_FreeJob(
     if (job->rltype == RLTYPE_IMAGE) {
         free(job->result.resource_image.pixels);
     }
+    if (job->path)
+        free(job->path);
     free(job);
 }
 
