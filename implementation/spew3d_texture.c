@@ -278,11 +278,12 @@ S3DHID int _internal_spew3d_TextureToGPU(
         SDL_UnlockSurface(s);
     }
     SDL_SetHintWithPriority(SDL_HINT_RENDER_SCALE_QUALITY, "0",
-        SDL_HINT_OVERRIDE); 
+        SDL_HINT_OVERRIDE);
     if (alpha) {
         extrainfo->sdltexture_alpha = SDL_CreateTextureFromSurface(
             renderer, s
         );
+        SDL_FreeSurface(s);
         if (!extrainfo->sdltexture_alpha)
             return 0;
         *out_tex = extrainfo->sdltexture_alpha;
@@ -291,12 +292,12 @@ S3DHID int _internal_spew3d_TextureToGPU(
         extrainfo->sdltexture_noalpha = SDL_CreateTextureFromSurface(
             renderer, s
         );
+        SDL_FreeSurface(s);
         if (!extrainfo->sdltexture_noalpha)
             return 0;
         *out_tex = extrainfo->sdltexture_noalpha;
         return 1;
     }
-    SDL_FreeSurface(s);
 }
 #endif  // #ifndef SPEW3D_OPTION_DISABLE_SDL
 
