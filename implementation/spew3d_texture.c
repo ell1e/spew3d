@@ -296,6 +296,7 @@ S3DHID int _internal_spew3d_TextureToGPU(
         *out_tex = extrainfo->sdltexture_noalpha;
         return 1;
     }
+    SDL_FreeSurface(s);
 }
 #endif  // #ifndef SPEW3D_OPTION_DISABLE_SDL
 
