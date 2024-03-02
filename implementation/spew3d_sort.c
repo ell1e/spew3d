@@ -52,7 +52,7 @@ typedef struct s3d_sortstructcache {
             if (new_jobs_alloc < jobs_count + 16)\
                 new_jobs_alloc = jobs_count + 16;\
             _itemsort_quicksortjob *jobs_new = NULL;\
-            if (jobs_heap) {\
+            if (jobs_areonheap) {\
                 jobs_new = realloc(\
                     jobs,\
                     sizeof(*jobs) * new_jobs_alloc\
@@ -68,6 +68,7 @@ typedef struct s3d_sortstructcache {
             if (!jobs_new) {\
                 goto exitoom;\
             }\
+            jobs_areonheap = 1;\
             jobs = jobs_new;\
         }\
         memset(&jobs[jobs_count], 0, sizeof(*jobs));\
@@ -122,17 +123,25 @@ S3DEXP int s3d_itemsort_Do(
     int64_t jobs_alloc = (
         sizeof(_jobbuf) / sizeof(_jobbuf[0])
     );
-    int64_t jobs_heap = 0;
+    int64_t jobs_areonheap = 0;
     int64_t jobs_count = 0;
     if (cache->cachedjobs != NULL) {
         jobs = cache->cachedjobs;
-        jobs_heap = 1;
+        jobs_areonheap = 1;
         jobs_alloc = cache->cachedjobsalloc;
     }
 
     char switchbuf[512];
     if (itemsize > (int64_t)sizeof(switchbuf)) {
         if (out_erroroom) *out_erroroom = 1;
+        if (jobs_areonheap) {
+            if (cache != NULL) {
+                cache->cachedjobs = jobs;
+                cache->cachedjobsalloc = jobs_alloc;
+            } else {
+                free(jobs);
+            }
+        }
         return 0;
     }
 
@@ -163,7 +172,7 @@ S3DEXP int s3d_itemsort_Do(
                 if (cmp_1to2 == S3D_SORT_ERR_UNSORTABLE) {
                     exitunsortable: ;
                     if (out_errorunsortable) *out_errorunsortable = 1;
-                    if (jobs_heap) {
+                    if (jobs_areonheap) {
                         if (cache != NULL) {
                             cache->cachedjobs = jobs;
                             cache->cachedjobsalloc = jobs_alloc;
@@ -176,7 +185,7 @@ S3DEXP int s3d_itemsort_Do(
                 assert(cmp_1to2 == S3D_SORT_ERR_OOM);
                 exitoom: ;
                 if (out_erroroom) *out_erroroom = 1;
-                if (jobs_heap) {
+                if (jobs_areonheap) {
                     if (cache != NULL) {
                         cache->cachedjobs = jobs;
                         cache->cachedjobsalloc = jobs_alloc;
@@ -270,14 +279,13 @@ S3DEXP int s3d_itemsort_Do(
         k++;
     }
 
-    if (jobs_heap) {
+    if (jobs_areonheap) {
         if (cache != NULL) {
             cache->cachedjobs = jobs;
             cache->cachedjobsalloc = jobs_alloc;
         } else {
             free(jobs);
         }
-    
     }
     return 1;
 }

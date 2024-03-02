@@ -144,6 +144,7 @@ S3DHID static int s3d_resourceload_ProcessJob() {
             (unsigned char *)imgcompressed,
             imgcompressedlen, &w, &h, &n, 4
         );
+        free(imgcompressed);
         mutex_Lock(_spew3d_resourceload_mutex);
         if (job->markeddeleted) {
             if (data32) free(data32);
