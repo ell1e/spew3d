@@ -34,6 +34,7 @@ int main(int argc, const char **argv) {
         fprintf(stderr, "Spew3D initialization failed.\n");
         return 1;
     }
+    uint32_t win_id = spew3d_window_GetID(win);
     spew3d_window_SetMouseLockMode(
         win, S3D_MOUSE_LOCK_INVISIBLE_RELATIVE_MODE
     );
@@ -112,12 +113,14 @@ int main(int argc, const char **argv) {
                     rot.verti -= e.mouse.rel_y * 0.5;
                     spew3d_obj3d_SetRotation(camera, rot);
                 } else {
-                    double drag_vert = e.mouse.rel_y * 0.01;
+                    double drag_vert = -e.mouse.rel_y * 0.01;
                     if (fabs(drag_vert) > 0.0001) {
                         int r = spew3d_lvlbox_edit_DragFocusedTileCorner(
                             level_contents, spew3d_obj3d_GetPos(camera),
                             spew3d_obj3d_GetRotation(camera), drag_vert,
-                            1
+                            !spew3d_keyboard_IsKeyPressed(
+                                win_id, S3D_KEY_LEFTSHIFT
+                            )
                         );
                     }
                 }
@@ -126,7 +129,7 @@ int main(int argc, const char **argv) {
                 s3d_pos pos = spew3d_obj3d_GetPos(camera);
                 s3d_rotation rot = spew3d_obj3d_GetRotation(camera);
                 spew3d_lvlbox_edit_PaintLastUsedTexture(
-                    level_contents, pos, rot
+                    level_contents, pos, rot, 0
                 );
             } else if (e.kind == S3DEV_MOUSE_BUTTON_DOWN) {
                 dragging = 1;

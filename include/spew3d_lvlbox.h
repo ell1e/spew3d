@@ -35,11 +35,20 @@ license, see accompanied LICENSE.md.
 typedef struct s3d_resourceload_job s3d_resourceload_job;
 typedef uint64_t s3d_texture_t;
 
+enum Spew3dLvlboxTexwrapMode {
+    S3D_LVLBOX_TEXWRAP_MODE_DEFAULT = 0,
+    S3D_LVLBOX_TEXWRAP_MODE_NORMAL = 1,
+    S3D_LVLBOX_TEXWRAP_MODE_PINNEDBOTTOM = 2,
+    S3D_LVLBOX_TEXWRAP_MODE_PINNEDTOP = 3,
+    S3D_LVLBOX_TEXWRAP_MODE_STRETCHED = 4
+};
+
 typedef struct s3d_lvlbox_texinfo {
     char *name;
     int vfs_flags;
     s3d_texture_t id;
     s3d_material_t material;
+    int wrapmode;
     s3dnum_t scale_x, scale_y;
     s3dnum_t scroll_speed_x, scroll_speed_y;
 } s3d_lvlbox_texinfo;
@@ -51,15 +60,9 @@ typedef struct s3d_lvlbox_fenceinfo {
 } s3d_lvlbox_fenceinfo;
 
 typedef struct s3d_lvlbox_wallinfo {
-    s3d_lvlbox_texinfo main_tex;
-
-    int has_top_part;
-    s3d_lvlbox_texinfo top_part_tex;
+    s3d_lvlbox_texinfo tex;
 
     s3d_lvlbox_fenceinfo fence;
-
-    int has_bottom_part;
-    s3d_lvlbox_texinfo bottom_part_tex;
 } s3d_lvlbox_wallinfo;
 
 typedef struct s3d_lvlbox_tilepolygon {
@@ -94,7 +97,7 @@ typedef struct s3d_lvlbox_vertsegment {
     s3dnum_t floor_z[4];
 
     s3d_lvlbox_wallinfo wall[4];
-    s3d_lvlbox_wallinfo ceilingwall[4];
+    s3d_lvlbox_wallinfo topwall[4];
 
     s3d_lvlbox_texinfo ceiling_tex;
     s3dnum_t ceiling_z[4];
@@ -138,8 +141,13 @@ S3DEXP int32_t spew3d_lvlbox_WorldPosToChunkIndex(
 S3DEXP int spew3d_lvlbox_GetTileClosestCornerNearWorldPos(
     s3d_lvlbox *lvlbox, uint32_t chunk_index,
     uint32_t tile_index, int segment_no,
-    s3d_pos pos, int ignore_z,
+    s3d_pos pos, int ignore_z, int at_ceiling,
     s3d_pos *out_corner_pos
+);
+S3DEXP int spew3d_lvlbox_CornerPosToWorldPos(
+    s3d_lvlbox *lvlbox, uint32_t chunk_index,
+    uint32_t tile_index, int32_t segment_no,
+    int corner_no, int at_ceiling, s3d_pos *out_pos
 );
 
 S3DEXP int spew3d_lvlbox_WorldPosToTilePos(
@@ -165,6 +173,11 @@ S3DEXP int spew3d_lvlbox_ExpandToPosition(
 );
 
 S3DEXP int spew3d_lvlbox_SetFloorTextureAt(
+    s3d_lvlbox *lvlbox, s3d_pos pos,
+    const char *texname, int vfsflags
+);
+
+S3DEXP int spew3d_lvlbox_SetCeilingTextureAt(
     s3d_lvlbox *lvlbox, s3d_pos pos,
     const char *texname, int vfsflags
 );
@@ -208,6 +221,11 @@ S3DEXP int spew3d_lvlbox_Transform(
 
 S3DEXP int spew3d_lvlbox_edit_PaintLastUsedTexture(
     s3d_lvlbox *lvlbox, s3d_pos paint_pos,
+    s3d_rotation paint_aim, int topwallmodifier
+);
+
+S3DEXP int spew3d_lvlbox_edit_EraseTexture(
+    s3d_lvlbox *lvlbox, s3d_pos paint_pos,
     s3d_rotation paint_aim
 );
 
@@ -223,7 +241,17 @@ S3DEXP int spew3d_lvlbox_InteractPosDirToTileCorner(
     int32_t *chunk_index, int32_t *tile_index,
     int32_t *chunk_x, int32_t *chunk_y,
     int32_t *tile_x, int32_t *tile_y,
-    int32_t *segment_no, int *corner
+    int32_t *segment_no, int *corner_no
+);
+
+S3DEXP int spew3d_lvlbox_InteractPosDirToTileCornerOrWall(
+    s3d_lvlbox *lvlbox, s3d_pos interact_pos,
+    s3d_rotation interact_rot,
+    int32_t *out_chunk_index, int32_t *out_tile_index,
+    int32_t *out_chunk_x, int32_t *out_chunk_y,
+    int32_t *out_tile_x, int32_t *out_tile_y,
+    int32_t *out_segment_no, int *out_corner_no,
+    int *out_wall_no
 );
 
 #endif  // SPEW3D_LVLBOX_H_
