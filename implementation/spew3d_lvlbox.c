@@ -3399,7 +3399,7 @@ S3DHID int _spew3d_lvlbox_CornerPosToWorldPos_nolock(
     uint32_t _chunk_x, _chunk_y, _tile_x, _tile_y;
     _spew3d_lvlbox_TileAndChunkIndexToPos_nolock(
         lvlbox, _chunk_index, _tile_index,
-        &_chunk_x, &_chunk_x, &_tile_x, &_tile_x,
+        &_chunk_x, &_chunk_y, &_tile_x, &_tile_y,
         NULL
     );
 
@@ -3509,6 +3509,8 @@ S3DHID int _spew3d_lvlbox_InteractPosDirToTileCornerOrWall_nolock(
             target_wall = 1;
         }
     }
+    if (fabs(interact_rot.verti) > 60) target_wall = 0;
+    if (fabs(interact_rot.verti) < 30) target_wall = 1;
 
     if (out_chunk_index)
         *out_chunk_index = _chunk_index;
