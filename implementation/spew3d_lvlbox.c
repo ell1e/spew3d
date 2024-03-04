@@ -872,6 +872,8 @@ S3DHID int _spew3d_lvlbox_TryUpdateTileCache_nolock_Ex(
                     diagonalfrontleftbackright &&
                     tile->segment[segment_no].floor_tex.id != 0) {
                 cache->floor_split_from_front_left = 1;
+                memset(&cache->cached_floor[0], 0,
+                    sizeof(cache->cached_floor[0]));
                 cache->cached_floor[0].texture =
                     tile->segment[segment_no].floor_tex.id;
                 cache->cached_floor[0].material =
@@ -896,6 +898,8 @@ S3DHID int _spew3d_lvlbox_TryUpdateTileCache_nolock_Ex(
                         &cache->cached_floor[0].polynormal
                     );
 
+                memset(&cache->cached_floor[1], 0,
+                    sizeof(cache->cached_floor[1]));
                 cache->cached_floor[1].texture =
                     tile->segment[segment_no].floor_tex.id;
                 cache->cached_floor[1].material =
@@ -935,6 +939,8 @@ S3DHID int _spew3d_lvlbox_TryUpdateTileCache_nolock_Ex(
                 cache->cached_floor_polycount = 2;
             } else if (tile->segment[segment_no].floor_tex.id != 0) {
                 cache->floor_split_from_front_left = 0;
+                memset(&cache->cached_floor[0], 0,
+                    sizeof(cache->cached_floor[0]));
                 cache->cached_floor[0].texture =
                     tile->segment[segment_no].floor_tex.id;
                 cache->cached_floor[0].material =
@@ -959,6 +965,8 @@ S3DHID int _spew3d_lvlbox_TryUpdateTileCache_nolock_Ex(
                         &cache->cached_floor[0].polynormal
                     );
 
+                memset(&cache->cached_floor[1], 0,
+                    sizeof(cache->cached_floor[1]));
                 cache->cached_floor[1].texture =
                     tile->segment[segment_no].floor_tex.id;
                 cache->cached_floor[1].material =
@@ -1035,6 +1043,8 @@ S3DHID int _spew3d_lvlbox_TryUpdateTileCache_nolock_Ex(
                     diagonalfrontleftbackright &&
                     tile->segment[segment_no].ceiling_tex.id != 0) {
                 cache->ceiling_split_from_front_left = 1;
+                memset(&cache->cached_ceiling[0], 0,
+                    sizeof(cache->cached_ceiling[0]));
                 cache->cached_ceiling[0].texture =
                     tile->segment[segment_no].ceiling_tex.id;
                 cache->cached_ceiling[0].material =
@@ -1059,6 +1069,8 @@ S3DHID int _spew3d_lvlbox_TryUpdateTileCache_nolock_Ex(
                         &cache->cached_ceiling[0].polynormal
                     );
 
+                memset(&cache->cached_ceiling[1], 0,
+                    sizeof(cache->cached_ceiling[1]));
                 cache->cached_ceiling[1].texture =
                     tile->segment[segment_no].ceiling_tex.id;
                 cache->cached_ceiling[1].material =
@@ -1102,6 +1114,8 @@ S3DHID int _spew3d_lvlbox_TryUpdateTileCache_nolock_Ex(
                 cache->cached_ceiling_polycount = 2;
             } else if (tile->segment[segment_no].ceiling_tex.id != 0) {
                 cache->ceiling_split_from_front_left = 0;
+                memset(&cache->cached_ceiling[0], 0,
+                    sizeof(cache->cached_ceiling[0]));
                 cache->cached_ceiling[0].texture =
                     tile->segment[segment_no].ceiling_tex.id;
                 cache->cached_ceiling[0].material =
@@ -1126,6 +1140,8 @@ S3DHID int _spew3d_lvlbox_TryUpdateTileCache_nolock_Ex(
                         &cache->cached_ceiling[0].polynormal
                     );
 
+                memset(&cache->cached_ceiling[1], 0,
+                    sizeof(cache->cached_ceiling[1]));
                 cache->cached_ceiling[1].texture =
                     tile->segment[segment_no].ceiling_tex.id;
                 cache->cached_ceiling[1].material =
@@ -1355,6 +1371,8 @@ S3DHID int _spew3d_lvlbox_TryUpdateTileCache_nolock_Ex(
                             s3d_pos corner_upper_right = corner_lower_right;
                             corner_upper_right.z += height_right;
                             int n = wpolycount;
+                            memset(&cache->cached_wall[n], 0,
+                                sizeof(cache->cached_wall[n]));
                             cache->cached_wall[n].texture =
                                 tile->segment[segment_no].
                                     ceiling_tex.id;
@@ -1387,6 +1405,8 @@ S3DHID int _spew3d_lvlbox_TryUpdateTileCache_nolock_Ex(
                             s3d_pos corner_upper_left = corner_lower_left;
                             corner_upper_left.z += height_left;
                             int n = wpolycount;
+                            memset(&cache->cached_wall[n], 0,
+                                sizeof(cache->cached_wall[n]));
                             cache->cached_wall[n].texture =
                                 tile->segment[segment_no].
                                     ceiling_tex.id;
@@ -1422,6 +1442,8 @@ S3DHID int _spew3d_lvlbox_TryUpdateTileCache_nolock_Ex(
                         corner_upper_right.z += height_right;
 
                         int n = wpolycount;
+                        memset(&cache->cached_wall[n], 0,
+                            sizeof(cache->cached_wall[n]));
                         cache->cached_wall[n].texture =
                             tile->segment[segment_no].
                                 ceiling_tex.id;
@@ -1451,6 +1473,8 @@ S3DHID int _spew3d_lvlbox_TryUpdateTileCache_nolock_Ex(
                         wpolycount++;
                         n++;
 
+                        memset(&cache->cached_wall[n], 0,
+                            sizeof(cache->cached_wall[n]));
                         cache->cached_wall[n].texture =
                             tile->segment[segment_no].
                                 ceiling_tex.id;
