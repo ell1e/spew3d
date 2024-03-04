@@ -1191,6 +1191,9 @@ S3DHID int _spew3d_lvlbox_TryUpdateTileCache_nolock_Ex(
             int j = -1;
             while (j < 3) {
                 j++;
+                if (tile->segment[segment_no].
+                        wall[j].tex.id == 0)
+                    continue;
 
                 int32_t shift_x = 0;
                 int32_t shift_y = 0;
@@ -1289,30 +1292,47 @@ S3DHID int _spew3d_lvlbox_TryUpdateTileCache_nolock_Ex(
                     floor_z[ourcornerleft];
                 s3dnum_t base_right = tile->segment[segment_no].
                     floor_z[ourcornerright];
+                s3dnum_t top_left = tile->segment[segment_no].
+                    ceiling_z[ourcornerleft];
+                s3dnum_t top_right = tile->segment[segment_no].
+                    ceiling_z[ourcornerright];
                 int i2 = 0;
-                while (i2 < neighbor_tile->segment_count) {
-                    if (neighbor_tile->segment[i2].
+                while (i2 < neighbor_tile->segment_count ||
+                        base_left < top_left ||
+                        base_right > top_right
+                        ) {
+                    int neighbors_segment =
+                        i2 < neighbor_tile->segment_count;
+                    if (neighbors_segment && (
+                            neighbor_tile->segment[i2].
                             floor_z[oppositecornerleft] <
                             base_left &&
                             neighbor_tile->segment[i2].
                             floor_z[oppositecornerright] <
-                            base_right) {
+                            base_right)) {
                         i2++;
+                        continue;
                     }
 
                     corner_lower_right.z = base_right;
                     corner_lower_left.z = base_left;
-                    double height_left = (
-                        fmin(neighbor_tile->segment[i2].
-                        floor_z[oppositecornerleft],
-                        tile->segment[segment_no].
-                        ceiling_z[ourcornerleft]) - base_left);
-                    double height_right = (
-                        fmin(neighbor_tile->segment[i2].
-                        floor_z[oppositecornerright],
-                        tile->segment[segment_no].
-                        ceiling_z[ourcornerright]) - base_right);
+                    double height_left = top_left - base_left;
+                    if (neighbors_segment)
+                        height_left = (
+                            fmin(neighbor_tile->segment[i2].
+                            floor_z[oppositecornerleft],
+                            tile->segment[segment_no].
+                            ceiling_z[ourcornerleft]) - base_left);
+                    double height_right = top_right - base_right;
+                    if (neighbors_segment)
+                        height_right = (
+                            fmin(neighbor_tile->segment[i2].
+                            floor_z[oppositecornerright],
+                            tile->segment[segment_no].
+                            ceiling_z[ourcornerright]) - base_right);
                     if (height_left <= 0 && height_right <= 0) {
+                        if (!neighbors_segment)
+                            break;
                         base_left = neighbor_tile->segment[i2].
                             ceiling_z[oppositecornerleft];
                         base_right = neighbor_tile->segment[i2].
@@ -1330,20 +1350,25 @@ S3DHID int _spew3d_lvlbox_TryUpdateTileCache_nolock_Ex(
                     s3d_point texcoord_up_right = texcoord_down_right;
                     texcoord_up_right.y = 0;
                     if (height_left <= 0 || height_right <= 0) {
-                        double slope = (
-                            neighbor_tile->segment[i2].
-                            floor_z[oppositecornerright] -
-                            neighbor_tile->segment[i2].
-                            floor_z[oppositecornerleft]
-                        );
-                        double neighborbottomleft = (
-                            neighbor_tile->segment[i2].
-                            floor_z[oppositecornerleft]
-                        );
-                        double neighborbottomright = (
-                            neighbor_tile->segment[i2].
-                            floor_z[oppositecornerright]
-                        );
+                        double slope = top_right - top_left;
+                        double neighborbottomleft = top_left;
+                        double neighborbottomright = top_right;
+                        if (neighbors_segment) {
+                            slope = (
+                                neighbor_tile->segment[i2].
+                                floor_z[oppositecornerright] -
+                                neighbor_tile->segment[i2].
+                                floor_z[oppositecornerleft]
+                            );
+                            neighborbottomleft = (
+                                neighbor_tile->segment[i2].
+                                floor_z[oppositecornerleft]
+                            );
+                            neighborbottomright = (
+                                neighbor_tile->segment[i2].
+                                floor_z[oppositecornerright]
+                            );
+                        }
                         double slope2 = (
                             base_right - base_left
                         );
@@ -1375,10 +1400,10 @@ S3DHID int _spew3d_lvlbox_TryUpdateTileCache_nolock_Ex(
                                 sizeof(cache->cached_wall[n]));
                             cache->cached_wall[n].texture =
                                 tile->segment[segment_no].
-                                    ceiling_tex.id;
+                                    wall[j].tex.id;
                             cache->cached_wall[n].material =
                                 tile->segment[segment_no].
-                                    ceiling_tex.material;
+                                    wall[j].tex.material;
                             cache->cached_wall[n].vertex[0] =
                                 corner_lower_left;
                             cache->cached_wall[n].vertex[1] =
@@ -1409,10 +1434,10 @@ S3DHID int _spew3d_lvlbox_TryUpdateTileCache_nolock_Ex(
                                 sizeof(cache->cached_wall[n]));
                             cache->cached_wall[n].texture =
                                 tile->segment[segment_no].
-                                    ceiling_tex.id;
+                                    wall[j].tex.id;
                             cache->cached_wall[n].material =
                                 tile->segment[segment_no].
-                                    ceiling_tex.material;
+                                    wall[j].tex.material;
                             cache->cached_wall[n].vertex[0] =
                                 corner_lower_left;
                             cache->cached_wall[n].vertex[1] =
@@ -1446,10 +1471,10 @@ S3DHID int _spew3d_lvlbox_TryUpdateTileCache_nolock_Ex(
                             sizeof(cache->cached_wall[n]));
                         cache->cached_wall[n].texture =
                             tile->segment[segment_no].
-                                ceiling_tex.id;
+                                wall[j].tex.id;
                         cache->cached_wall[n].material =
                             tile->segment[segment_no].
-                                ceiling_tex.material;
+                                wall[j].tex.material;
                         cache->cached_wall[n].vertex[0] =
                             corner_lower_left;
                         cache->cached_wall[n].vertex[1] =
@@ -1477,10 +1502,10 @@ S3DHID int _spew3d_lvlbox_TryUpdateTileCache_nolock_Ex(
                             sizeof(cache->cached_wall[n]));
                         cache->cached_wall[n].texture =
                             tile->segment[segment_no].
-                                ceiling_tex.id;
+                                wall[j].tex.id;
                         cache->cached_wall[n].material =
                             tile->segment[segment_no].
-                                ceiling_tex.material;
+                                wall[j].tex.material;
                         cache->cached_wall[n].vertex[0] =
                             corner_upper_right;
                         cache->cached_wall[n].vertex[1] =
@@ -1505,10 +1530,14 @@ S3DHID int _spew3d_lvlbox_TryUpdateTileCache_nolock_Ex(
                         n++;
                     }
 
-                    base_left = neighbor_tile->segment[i2].
-                        ceiling_z[oppositecornerleft];
-                    base_right = neighbor_tile->segment[i2].
-                        ceiling_z[oppositecornerright];
+                    if (neighbors_segment) {
+                        base_left = neighbor_tile->segment[i2].
+                            ceiling_z[oppositecornerleft];
+                        base_right = neighbor_tile->segment[i2].
+                            ceiling_z[oppositecornerright];
+                    } else {
+                        break;
+                    }
                     i2++;
                 }
             }
@@ -3159,7 +3188,30 @@ S3DEXP int spew3d_lvlbox_Transform(
                     if (!result) {
                         #if defined(DEBUG_SPEW3D_LVLBOX)
                         printf("spew3d_lvlbox.c: debug: lvlbox %p "
-                            "chunk %d tile %d floor polygon %d: "
+                            "chunk %d tile %d ceiling polygon %d: "
+                            "Somehow failed to transform polygon.\n",
+                            lvlbox, (int)i, (int)k, (int)i3);
+                        #endif
+                    }
+                    rfill = *render_fill;
+                    i3++;
+                }
+                i3 = 0;
+                while (i3 < tile->segment[i2].cache.
+                        cached_wall_polycount) {
+                    *render_fill = rfill;
+                    *render_alloc = ralloc;
+                    int result = spew3d_lvlbox_TransformTilePolygon(
+                        lvlbox, tile, i2,
+                        &tile->segment[i2].cache.cached_wall[i3],
+                        effective_model_pos, effective_model_rot,
+                        cam_info, render_light_info, scene_ambient,
+                        render_queue, render_fill, render_alloc
+                    );
+                    if (!result) {
+                        #if defined(DEBUG_SPEW3D_LVLBOX)
+                        printf("spew3d_lvlbox.c: debug: lvlbox %p "
+                            "chunk %d tile %d wall polygon %d: "
                             "Somehow failed to transform polygon.\n",
                             lvlbox, (int)i, (int)k, (int)i3);
                         #endif
