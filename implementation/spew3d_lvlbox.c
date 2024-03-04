@@ -127,14 +127,17 @@ S3DHID static void _spew3d_lvlbox_FreeTileCacheContents(
         return;
     if (cache->cached_floor != NULL)
         free(cache->cached_floor);
+    cache->cached_floor_maxpolycount = 0;
     cache->cached_floor_polycount = 0;
     cache->cached_floor = NULL;
     if (cache->cached_ceiling != NULL)
         free(cache->cached_ceiling);
+    cache->cached_ceiling_maxpolycount = 0;
     cache->cached_ceiling_polycount = 0;
     cache->cached_ceiling = NULL;
     if (cache->cached_wall != NULL)
         free(cache->cached_wall);
+    cache->cached_wall_maxpolycount = 0;
     cache->cached_wall_polycount = 0;
     cache->cached_wall = NULL;
     cache->is_up_to_date = 0;
@@ -785,7 +788,7 @@ S3DHID int _spew3d_lvlbox_TryUpdateTileCache_nolock_Ex(
         const uint32_t segment_no =i;
 
         // Set up floor list for use:
-        if (cache->cached_floor_polycount != 2) {
+        if (cache->cached_floor_maxpolycount < 2) {
             cache->flat_normals_set = 0;
             s3d_lvlbox_tilepolygon *new_polys = (
                 malloc(sizeof(*new_polys) * 2)
@@ -796,9 +799,9 @@ S3DHID int _spew3d_lvlbox_TryUpdateTileCache_nolock_Ex(
             if (cache->cached_floor != NULL)
                 free(cache->cached_floor);
             cache->cached_floor = new_polys;
-            cache->cached_floor_polycount = 2;
+            cache->cached_floor_maxpolycount = 2;
         }
-        if (cache->cached_ceiling_polycount != 2) {
+        if (cache->cached_ceiling_maxpolycount < 2) {
             cache->flat_normals_set = 0;
             s3d_lvlbox_tilepolygon *new_polys = (
                 malloc(sizeof(*new_polys) * 2)
@@ -809,9 +812,9 @@ S3DHID int _spew3d_lvlbox_TryUpdateTileCache_nolock_Ex(
             if (cache->cached_ceiling != NULL)
                 free(cache->cached_ceiling);
             cache->cached_ceiling = new_polys;
-            cache->cached_ceiling_polycount = 2;
+            cache->cached_ceiling_maxpolycount = 2;
         }
-        if (cache->cached_wall_polycount != 4 * 2) {
+        if (cache->cached_wall_maxpolycount != 4 * 2) {
             cache->flat_normals_set = 0;
             s3d_lvlbox_tilepolygon *new_polys = (
                 malloc(sizeof(*new_polys) * 4 * 2)
@@ -822,7 +825,7 @@ S3DHID int _spew3d_lvlbox_TryUpdateTileCache_nolock_Ex(
             if (cache->cached_wall != NULL)
                 free(cache->cached_wall);
             cache->cached_wall = new_polys;
-            cache->cached_wall_polycount = 2;
+            cache->cached_wall_maxpolycount = 4 * 2;
         }
 
         // Set up flat, unsmoothed floor polygons if needed:
@@ -834,6 +837,7 @@ S3DHID int _spew3d_lvlbox_TryUpdateTileCache_nolock_Ex(
 
             // *** FLOOR: ***
 
+            cache->cached_floor_polycount = 0;
             double diagonalfrontleftbackright = fabs(
                 tile->segment[segment_no].floor_z[3] -
                 tile->segment[segment_no].floor_z[1]
@@ -928,6 +932,7 @@ S3DHID int _spew3d_lvlbox_TryUpdateTileCache_nolock_Ex(
                     &cache->cached_floor[0].polynormal,
                     &cache->cached_floor[1].polynormal
                 );
+                cache->cached_floor_polycount = 2;
             } else if (tile->segment[segment_no].floor_tex.id != 0) {
                 cache->floor_split_from_front_left = 0;
                 cache->cached_floor[0].texture =
@@ -990,10 +995,12 @@ S3DHID int _spew3d_lvlbox_TryUpdateTileCache_nolock_Ex(
                     &cache->cached_floor[0].polynormal,
                     &cache->cached_floor[1].polynormal
                 );
+                cache->cached_floor_polycount = 2;
             }
 
             // ** CEILING: **
 
+            cache->cached_ceiling_polycount = 0;
             diagonalfrontleftbackright = fabs(
                 tile->segment[segment_no].ceiling_z[3] -
                 tile->segment[segment_no].ceiling_z[1]
@@ -1027,7 +1034,7 @@ S3DHID int _spew3d_lvlbox_TryUpdateTileCache_nolock_Ex(
             if (diagonalfrontrightbackleft >
                     diagonalfrontleftbackright &&
                     tile->segment[segment_no].ceiling_tex.id != 0) {
-                cache->floor_split_from_front_left = 1;
+                cache->ceiling_split_from_front_left = 1;
                 cache->cached_ceiling[0].texture =
                     tile->segment[segment_no].ceiling_tex.id;
                 cache->cached_ceiling[0].material =
@@ -1092,8 +1099,9 @@ S3DHID int _spew3d_lvlbox_TryUpdateTileCache_nolock_Ex(
                         &cache->cached_ceiling[1].polynormal
                     )
                 );
+                cache->cached_ceiling_polycount = 2;
             } else if (tile->segment[segment_no].ceiling_tex.id != 0) {
-                cache->floor_split_from_front_left = 0;
+                cache->ceiling_split_from_front_left = 0;
                 cache->cached_ceiling[0].texture =
                     tile->segment[segment_no].ceiling_tex.id;
                 cache->cached_ceiling[0].material =
@@ -1158,9 +1166,11 @@ S3DHID int _spew3d_lvlbox_TryUpdateTileCache_nolock_Ex(
                         &cache->cached_ceiling[1].polynormal
                     )
                 );
+                cache->cached_ceiling_polycount = 2;
             }
 
             /* WALLS */
+            cache->cached_wall_polycount = 0;
             int wpolycount = 0;
             int j = -1;
             while (j < 3) {
@@ -1478,6 +1488,7 @@ S3DHID int _spew3d_lvlbox_TryUpdateTileCache_nolock_Ex(
                     i2++;
                 }
             }
+            cache->cached_wall_polycount = wpolycount;
         }
         i++;
     }
@@ -1496,10 +1507,12 @@ S3DHID int _spew3d_lvlbox_TryUpdateTileCache_nolock_Ex(
 
         // Set up smooth, complex floor polygons:
         assert(cache->flat_normals_set);
-        assert(cache->cached_floor_polycount >= 2);
         s3d_pos final_neighbor_normals[4] = {0};
         int corner = 0;
         while (corner < 4) {
+            if (cache->cached_floor_polycount < 2)
+                break;
+
             final_neighbor_normals[corner] =
                 tile->segment[i].cache.floor_flat_corner_normals[0];
             int corners_collected = 1;
@@ -1593,11 +1606,13 @@ S3DHID int _spew3d_lvlbox_TryUpdateTileCache_nolock_Ex(
 
         // Set up smooth, complex ceiling polygons:
         assert(cache->flat_normals_set);
-        assert(cache->cached_ceiling_polycount >= 2);
         memset(&final_neighbor_normals[0], 0,
             sizeof(s3d_pos) * 4);
         corner = 0;
         while (corner < 4) {
+            if (cache->cached_ceiling_polycount < 2)
+                break;
+
             final_neighbor_normals[corner] =
                 tile->segment[i].cache.ceiling_flat_corner_normals[0];
             int corners_collected = 1;
@@ -3078,7 +3093,9 @@ S3DEXP int spew3d_lvlbox_Transform(
             while (i2 < tile->segment_count) {
                 assert(tile->segment[i2].cache.is_up_to_date);
                 LVLBOX_TRANSFORM_QUEUEGROW(
-                    tile->segment[i2].cache.cached_floor_polycount
+                    tile->segment[i2].cache.cached_floor_polycount +
+                    tile->segment[i2].cache.cached_ceiling_polycount +
+                    tile->segment[i2].cache.cached_wall_polycount
                 );
                 uint32_t i3 = 0;
                 while (i3 < tile->segment[i2].cache.
