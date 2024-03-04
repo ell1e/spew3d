@@ -2626,6 +2626,10 @@ S3DHID int _spew3d_lvlbox_SetFloorOrCeilOrWallTextureAt_nolock(
     if (!_spew3d_lvlbox_ExpandToPosition_nolock(lvlbox, pos)) {
         return 0;
     }
+    printf("_spew3d_lvlbox_SetFloorOrCeilOrWallTextureAt_nolock "
+        "to_ceiling: %d to_wall_no: %d to_wall_top_part: %d\n",
+        (int)to_ceiling, (int)to_wall_no,
+        (int)to_wall_top_part);
     uint32_t chunk_index, tile_index;
     int32_t segment_no = -1;
     s3d_pos tile_lower_bound;
@@ -3638,9 +3642,14 @@ S3DHID int spew3d_lvlbox_edit_PaintLastUsedTextureEx(
         printf("spew3d_lvlbox.c: debug: lvlbox %p "
             "spew3d_lvlbox_edit_PaintLastUsedTexture(): "
             "Not aiming at anything, with "
-            "paint_pos x/y/z=%f/%f/%f aim.\n",
+            "paint_pos x/y/z=%f/%f/%f "
+            "paint_aim hori/verti/roll=%f/%f/%f "
+            "input.\n",
             lvlbox, (double)paint_pos.x, (double)paint_pos.y,
-            (double)paint_pos.z);
+            (double)paint_pos.z, (double)paint_aim.hori,
+            (double)paint_aim.verti,
+            (double)paint_aim.roll
+        );
         #endif
         mutex_Release(_lvlbox_Internal(lvlbox)->m);
         return 1;
@@ -3652,12 +3661,17 @@ S3DHID int spew3d_lvlbox_edit_PaintLastUsedTextureEx(
         "spew3d_lvlbox_edit_PaintLastUsedTexture(): "
         "Aiming chunk_index=%d tile_index=%d "
         "segment_no=%d corner=%d wall=%d, with "
-        "paint_pos x/y/z=%f/%f/%f aim.\n",
+        "paint_pos x/y/z=%f/%f/%f "
+        "paint_aim hori/verti/roll=%f/%f/%f "
+        "input.\n",
         lvlbox,
         (int)chunk_index, (int)tile_index, (int)segment_no,
         (int)corner_no, (int)wall_no,
         (double)paint_pos.x, (double)paint_pos.y,
-        (double)paint_pos.z);
+        (double)paint_pos.z, (double)paint_aim.hori,
+        (double)paint_aim.verti,
+        (double)paint_aim.roll
+    );
     #endif
 
     result = _spew3d_lvlbox_SetFloorOrCeilOrWallTextureAt_nolock(
