@@ -1586,10 +1586,109 @@ S3DHID int _spew3d_lvlbox_TryUpdateTileCache_nolock_Ex(
             corner++;
         }
         memcpy(
-            &tile->segment[i].cache.floor_flat_corner_normals,
+            &tile->segment[i].cache.floor_smooth_corner_normals,
             &final_neighbor_normals,
             sizeof(s3d_pos) * 4
         );
+
+        // Set up smooth, complex ceiling polygons:
+        assert(cache->flat_normals_set);
+        assert(cache->cached_ceiling_polycount >= 2);
+        memset(&final_neighbor_normals[0], 0,
+            sizeof(s3d_pos) * 4);
+        corner = 0;
+        while (corner < 4) {
+            final_neighbor_normals[corner] =
+                tile->segment[i].cache.ceiling_flat_corner_normals[0];
+            int corners_collected = 1;
+
+            int32_t x = -2;
+            while (x < 1) {  // First, ensure neighbors have normals:
+                x++;
+                int32_t y = -2;
+                while (y < 1) {
+                    y++;
+                    if (x == 0 && y == 0)
+                        continue;
+                    int32_t neighbor_tile_x = (int32_t)tile_x + x;
+                    int32_t neighbor_tile_y = (int32_t)tile_y + y;
+                    int32_t neighbor_chunk_x = chunk_x;
+                    int32_t neighbor_chunk_y = chunk_y;
+                    while (neighbor_tile_x < 0) {
+                        neighbor_tile_x += LVLBOX_CHUNK_SIZE;
+                        neighbor_chunk_x--;
+                    }
+                    while (neighbor_tile_x >= LVLBOX_CHUNK_SIZE) {
+                        neighbor_tile_x -= LVLBOX_CHUNK_SIZE;
+                        neighbor_chunk_x++;
+                    }
+                    while (neighbor_tile_y < 0) {
+                        neighbor_tile_y += LVLBOX_CHUNK_SIZE;
+                        neighbor_chunk_y--;
+                    }
+                    while (neighbor_tile_y >= LVLBOX_CHUNK_SIZE) {
+                        neighbor_tile_y -= LVLBOX_CHUNK_SIZE;
+                        neighbor_chunk_y++;
+                    }
+                    if (neighbor_chunk_x < 0 || neighbor_chunk_y < 0)
+                        continue;
+                    uint32_t neighbor_chunk_index = neighbor_chunk_y *
+                        lvlbox->chunk_extent_x + neighbor_chunk_x;
+                    uint32_t neighbor_tile_index = neighbor_tile_y *
+                        LVLBOX_CHUNK_SIZE + neighbor_tile_x;
+                    if (neighbor_chunk_index >= lvlbox->chunk_count ||
+                            neighbor_tile_index >=
+                            LVLBOX_CHUNK_SIZE * LVLBOX_CHUNK_SIZE)
+                        continue;
+                    double height = tile->segment[i].ceiling_z[corner];
+                    int have_neighbor = (
+                        _spew3d_lvlbox_TryUpdateTileCache_nolock_Ex(
+                            lvlbox, neighbor_chunk_index,
+                            neighbor_tile_index,
+                            1  // Important to avoid infinite recursion.
+                        )
+                    );
+                    if (!have_neighbor)
+                        return 0;
+
+                    s3d_pos corner_normal;
+                    int r = _spew3d_lvlbox_GetNeighborNormalsAtCorner_nolock(
+                        lvlbox, chunk_index, tile_index, corner, 1,
+                        neighbor_chunk_index, neighbor_tile_index,
+                        height, &corner_normal
+                    );
+                    if (!r)
+                        continue;
+                    final_neighbor_normals[corner].x += corner_normal.x;
+                    final_neighbor_normals[corner].y += corner_normal.y;
+                    final_neighbor_normals[corner].z += corner_normal.z;
+                    corners_collected++;
+                    y++;
+                }
+                x++;
+            }
+            if (corners_collected > 1) {
+                final_neighbor_normals[corner].x /= (
+                    (s3dnum_t)corners_collected
+                );
+                final_neighbor_normals[corner].y /= (
+                    (s3dnum_t)corners_collected
+                );
+                final_neighbor_normals[corner].z /= (
+                    (s3dnum_t)corners_collected
+                );
+            }
+            spew3d_math3d_normalize(
+                &final_neighbor_normals[corner]
+            );
+            corner++;
+        }
+        memcpy(
+            &tile->segment[i].cache.ceiling_smooth_corner_normals,
+            &final_neighbor_normals,
+            sizeof(s3d_pos) * 4
+        );
+
         tile->segment[i].cache.is_up_to_date = 1;
         i++;
     }
@@ -2989,6 +3088,29 @@ S3DEXP int spew3d_lvlbox_Transform(
                     int result = spew3d_lvlbox_TransformTilePolygon(
                         lvlbox, tile, i2,
                         &tile->segment[i2].cache.cached_floor[i3],
+                        effective_model_pos, effective_model_rot,
+                        cam_info, render_light_info, scene_ambient,
+                        render_queue, render_fill, render_alloc
+                    );
+                    if (!result) {
+                        #if defined(DEBUG_SPEW3D_LVLBOX)
+                        printf("spew3d_lvlbox.c: debug: lvlbox %p "
+                            "chunk %d tile %d floor polygon %d: "
+                            "Somehow failed to transform polygon.\n",
+                            lvlbox, (int)i, (int)k, (int)i3);
+                        #endif
+                    }
+                    rfill = *render_fill;
+                    i3++;
+                }
+                i3 = 0;
+                while (i3 < tile->segment[i2].cache.
+                        cached_ceiling_polycount) {
+                    *render_fill = rfill;
+                    *render_alloc = ralloc;
+                    int result = spew3d_lvlbox_TransformTilePolygon(
+                        lvlbox, tile, i2,
+                        &tile->segment[i2].cache.cached_ceiling[i3],
                         effective_model_pos, effective_model_rot,
                         cam_info, render_light_info, scene_ambient,
                         render_queue, render_fill, render_alloc

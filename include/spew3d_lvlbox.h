@@ -81,11 +81,13 @@ typedef struct s3d_lvlbox_tilecache {
     uint16_t cached_floor_polycount;
     s3d_lvlbox_tilepolygon *cached_floor;
     s3d_pos floor_flat_corner_normals[4];
+    s3d_pos floor_smooth_corner_normals[4];
     int floor_split_from_front_left;
 
     uint16_t cached_ceiling_polycount;
     s3d_lvlbox_tilepolygon *cached_ceiling;
     s3d_pos ceiling_flat_corner_normals[4];
+    s3d_pos ceiling_smooth_corner_normals[4];
     int ceiling_split_from_front_left;
 
     uint16_t cached_wall_polycount;
