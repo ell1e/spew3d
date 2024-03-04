@@ -1159,6 +1159,325 @@ S3DHID int _spew3d_lvlbox_TryUpdateTileCache_nolock_Ex(
                     )
                 );
             }
+
+            /* WALLS */
+            int wpolycount = 0;
+            int j = -1;
+            while (j < 3) {
+                j++;
+
+                int32_t shift_x = 0;
+                int32_t shift_y = 0;
+                int oppositewall;
+                int oppositecornerleft, oppositecornerright;
+                int ourcornerleft = (j + 3) % 4;
+                int ourcornerright = j;
+                s3d_pos corner_lower_left = {0};
+                s3d_pos corner_lower_right = {0};
+                s3d_pos wall_normal = {0};
+                if (j == 0) {
+                    corner_lower_left = tile_lower_end;
+                    corner_lower_left.x += (s3dnum_t)LVLBOX_TILE_SIZE;
+                    corner_lower_left.z = (
+                        lvlbox->offset.z +
+                        tile->segment[segment_no].
+                            floor_z[3]);
+                    corner_lower_right = tile_lower_end;
+                    corner_lower_right.x += (s3dnum_t)LVLBOX_TILE_SIZE;
+                    corner_lower_right.y += (s3dnum_t)LVLBOX_TILE_SIZE;
+                    corner_lower_right.z = (
+                        lvlbox->offset.z +
+                        tile->segment[segment_no].
+                            floor_z[0]);
+                    wall_normal.x = -1;
+                    shift_x = 1;
+                    oppositewall = 2;
+                } else if (j == 1) {
+                    corner_lower_left = tile_lower_end;
+                    corner_lower_left.x += (s3dnum_t)LVLBOX_TILE_SIZE;
+                    corner_lower_right.y += (s3dnum_t)LVLBOX_TILE_SIZE;
+                    corner_lower_left.z = (
+                        lvlbox->offset.z +
+                        tile->segment[segment_no].
+                            floor_z[0]);
+                    corner_lower_right = tile_lower_end;
+                    corner_lower_right.y += (s3dnum_t)LVLBOX_TILE_SIZE;
+                    corner_lower_right.z = (
+                        lvlbox->offset.z +
+                        tile->segment[segment_no].
+                            floor_z[1]);
+                    wall_normal.y = -1;
+                    shift_y = 1;
+                    oppositewall = 3;
+                } else if (j == 2) {
+                    corner_lower_left = tile_lower_end;
+                    corner_lower_left.x += (s3dnum_t)LVLBOX_TILE_SIZE;
+                    corner_lower_left.z = (
+                        lvlbox->offset.z +
+                        tile->segment[segment_no].
+                            floor_z[1]);
+                    corner_lower_right = tile_lower_end;
+                    corner_lower_right.z = (
+                        lvlbox->offset.z +
+                        tile->segment[segment_no].
+                            floor_z[2]);
+                    wall_normal.x = 1;
+                    shift_x = -1;
+                    oppositewall = 0;
+                } else {
+                    assert(j == 3);
+                    corner_lower_left = tile_lower_end;
+                    corner_lower_left.z = (
+                        lvlbox->offset.z +
+                        tile->segment[segment_no].
+                            floor_z[2]);
+                    corner_lower_right = tile_lower_end;
+                    corner_lower_right.x += (s3dnum_t)LVLBOX_TILE_SIZE;
+                    corner_lower_right.z = (
+                        lvlbox->offset.z +
+                        tile->segment[segment_no].
+                            floor_z[3]);
+                    wall_normal.y = 1;
+                    shift_y = -1;
+                    oppositewall = 1;
+                }
+                oppositecornerright = (oppositewall + 3) % 4;
+                oppositecornerleft = oppositewall;
+
+                uint32_t neighbor_chunk_index, neighbor_tile_index;
+                int result = _spew3d_lvlbox_GetNeighborTile_nolock(
+                    lvlbox, chunk_index, tile_index,
+                    shift_x, shift_y,
+                    &neighbor_chunk_index,
+                    &neighbor_tile_index
+                );
+                if (!result)
+                    continue;
+                s3d_lvlbox_tile *neighbor_tile = &(
+                    lvlbox->chunk[neighbor_chunk_index].tile[
+                        neighbor_tile_index]
+                );
+
+                int first_wall_seg = 1;
+                s3dnum_t base_left = tile->segment[segment_no].
+                    floor_z[ourcornerleft];
+                s3dnum_t base_right = tile->segment[segment_no].
+                    floor_z[ourcornerright];
+                int i2 = 0;
+                while (i2 < neighbor_tile->segment_count) {
+                    if (neighbor_tile->segment[i2].
+                            floor_z[oppositecornerleft] <
+                            base_left &&
+                            neighbor_tile->segment[i2].
+                            floor_z[oppositecornerright] <
+                            base_right) {
+                        i2++;
+                    }
+
+                    corner_lower_right.z = base_right;
+                    corner_lower_left.z = base_left;
+                    double height_left = (
+                        fmin(neighbor_tile->segment[i2].
+                        floor_z[oppositecornerleft],
+                        tile->segment[segment_no].
+                        ceiling_z[ourcornerleft]) - base_left);
+                    double height_right = (
+                        fmin(neighbor_tile->segment[i2].
+                        floor_z[oppositecornerright],
+                        tile->segment[segment_no].
+                        ceiling_z[ourcornerright]) - base_right);
+                    if (height_left <= 0 && height_right <= 0) {
+                        base_left = neighbor_tile->segment[i2].
+                            ceiling_z[oppositecornerleft];
+                        base_right = neighbor_tile->segment[i2].
+                            ceiling_z[oppositecornerright];
+                        i2++;
+                        continue;
+                    }
+                    s3d_point texcoord_down_left = {0};
+                    texcoord_down_left.y = 1;
+                    s3d_point texcoord_down_right = {0};
+                    texcoord_down_right.x = 1;
+                    texcoord_down_right.y = 1;
+                    s3d_point texcoord_up_left = texcoord_down_left;
+                    texcoord_up_left.y = 0;
+                    s3d_point texcoord_up_right = texcoord_down_right;
+                    texcoord_up_right.y = 0;
+                    if (height_left <= 0 || height_right <= 0) {
+                        double slope = (
+                            neighbor_tile->segment[i2].
+                            floor_z[oppositecornerright] -
+                            neighbor_tile->segment[i2].
+                            floor_z[oppositecornerleft]
+                        );
+                        double neighborbottomleft = (
+                            neighbor_tile->segment[i2].
+                            floor_z[oppositecornerleft]
+                        );
+                        double neighborbottomright = (
+                            neighbor_tile->segment[i2].
+                            floor_z[oppositecornerright]
+                        );
+                        double slope2 = (
+                            base_right - base_left
+                        );
+                        if (fabs(slope + slope2) <= 0.01) {
+                            i2++;
+                            continue;
+                        }
+                        double intersect_hori;
+                        if (height_right < 0) {
+                            assert(height_left >= 0);
+                            intersect_hori = (
+                                (-(base_right - neighborbottomright)) /
+                                (-slope + slope2)
+                            );
+                        } else {
+                            intersect_hori = (
+                                (-(base_left - neighborbottomleft)) /
+                                (slope - slope2)
+                            );
+                        }
+                        intersect_hori = fmax(0, fmin(1, intersect_hori));
+                        if (height_left <= 0) {
+                            assert(slope >= 0);
+
+                            s3d_pos corner_upper_right = corner_lower_right;
+                            corner_upper_right.z += height_right;
+                            int n = wpolycount;
+                            cache->cached_wall[n].texture =
+                                tile->segment[segment_no].
+                                    ceiling_tex.id;
+                            cache->cached_wall[n].material =
+                                tile->segment[segment_no].
+                                    ceiling_tex.material;
+                            cache->cached_wall[n].vertex[0] =
+                                corner_lower_left;
+                            cache->cached_wall[n].vertex[1] =
+                                corner_upper_right;
+                            cache->cached_wall[n].vertex[2] =
+                                corner_lower_right;
+                            cache->cached_wall[n].texcoord[0] =
+                                texcoord_up_left;
+                            cache->cached_wall[n].texcoord[1] =
+                                texcoord_up_right;
+                            cache->cached_wall[n].texcoord[2] =
+                                texcoord_down_right;
+                            memcpy(&cache->cached_wall[n].polynormal,
+                                &wall_normal, sizeof(wall_normal));
+                            memcpy(&cache->cached_wall[n].normal[0],
+                                &wall_normal, sizeof(wall_normal));
+                            memcpy(&cache->cached_wall[n].normal[1],
+                                &wall_normal, sizeof(wall_normal));
+                            memcpy(&cache->cached_wall[n].normal[2],
+                                &wall_normal, sizeof(wall_normal));
+                            wpolycount++;
+                        } else {
+                            assert(height_right <= 0);
+                            s3d_pos corner_upper_left = corner_lower_left;
+                            corner_upper_left.z += height_left;
+                            int n = wpolycount;
+                            cache->cached_wall[n].texture =
+                                tile->segment[segment_no].
+                                    ceiling_tex.id;
+                            cache->cached_wall[n].material =
+                                tile->segment[segment_no].
+                                    ceiling_tex.material;
+                            cache->cached_wall[n].vertex[0] =
+                                corner_lower_left;
+                            cache->cached_wall[n].vertex[1] =
+                                corner_upper_left;
+                            cache->cached_wall[n].vertex[2] =
+                                corner_lower_right;
+                            cache->cached_wall[n].texcoord[0] =
+                                texcoord_down_left;
+                            cache->cached_wall[n].texcoord[1] =
+                                texcoord_up_left;
+                            cache->cached_wall[n].texcoord[2] =
+                                texcoord_up_right;
+                            memcpy(&cache->cached_wall[n].polynormal,
+                                &wall_normal, sizeof(wall_normal));
+                            memcpy(&cache->cached_wall[n].normal[0],
+                                &wall_normal, sizeof(wall_normal));
+                            memcpy(&cache->cached_wall[n].normal[1],
+                                &wall_normal, sizeof(wall_normal));
+                            memcpy(&cache->cached_wall[n].normal[2],
+                                &wall_normal, sizeof(wall_normal));
+                            wpolycount++;
+                        }
+                    } else {
+                        s3d_pos corner_upper_left = corner_lower_left;
+                        corner_upper_left.z += height_left;
+                        s3d_pos corner_upper_right = corner_lower_right;
+                        corner_upper_right.z += height_right;
+
+                        int n = wpolycount;
+                        cache->cached_wall[n].texture =
+                            tile->segment[segment_no].
+                                ceiling_tex.id;
+                        cache->cached_wall[n].material =
+                            tile->segment[segment_no].
+                                ceiling_tex.material;
+                        cache->cached_wall[n].vertex[0] =
+                            corner_lower_left;
+                        cache->cached_wall[n].vertex[1] =
+                            corner_upper_left;
+                        cache->cached_wall[n].vertex[2] =
+                            corner_upper_right;
+                        cache->cached_wall[n].texcoord[0] =
+                            texcoord_down_left;
+                        cache->cached_wall[n].texcoord[1] =
+                            texcoord_up_left;
+                        cache->cached_wall[n].texcoord[2] =
+                            texcoord_up_right;
+                        memcpy(&cache->cached_wall[n].polynormal,
+                            &wall_normal, sizeof(wall_normal));
+                        memcpy(&cache->cached_wall[n].normal[0],
+                            &wall_normal, sizeof(wall_normal));
+                        memcpy(&cache->cached_wall[n].normal[1],
+                            &wall_normal, sizeof(wall_normal));
+                        memcpy(&cache->cached_wall[n].normal[2],
+                            &wall_normal, sizeof(wall_normal));
+                        wpolycount++;
+                        n++;
+
+                        cache->cached_wall[n].texture =
+                            tile->segment[segment_no].
+                                ceiling_tex.id;
+                        cache->cached_wall[n].material =
+                            tile->segment[segment_no].
+                                ceiling_tex.material;
+                        cache->cached_wall[n].vertex[0] =
+                            corner_upper_right;
+                        cache->cached_wall[n].vertex[1] =
+                            corner_lower_right;
+                        cache->cached_wall[n].vertex[2] =
+                            corner_lower_left;
+                        cache->cached_wall[n].texcoord[0] =
+                            texcoord_up_right;
+                        cache->cached_wall[n].texcoord[1] =
+                            texcoord_down_right;
+                        cache->cached_wall[n].texcoord[2] =
+                            texcoord_down_left;
+                        memcpy(&cache->cached_wall[n].polynormal,
+                            &wall_normal, sizeof(wall_normal));
+                        memcpy(&cache->cached_wall[n].normal[0],
+                            &wall_normal, sizeof(wall_normal));
+                        memcpy(&cache->cached_wall[n].normal[1],
+                            &wall_normal, sizeof(wall_normal));
+                        memcpy(&cache->cached_wall[n].normal[2],
+                            &wall_normal, sizeof(wall_normal));
+                        wpolycount++;
+                        n++;
+                    }
+
+                    base_left = neighbor_tile->segment[i2].
+                        ceiling_z[oppositecornerleft];
+                    base_right = neighbor_tile->segment[i2].
+                        ceiling_z[oppositecornerright];
+                    i2++;
+                }
+            }
         }
         i++;
     }
