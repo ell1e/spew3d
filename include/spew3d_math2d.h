@@ -50,7 +50,6 @@ S3DEXP void spew3d_math2d_rotate(
     s3d_point *p, s3dnum_t degree
 );
 
-
 static inline void spew3d_math2d_add(
         s3d_point *p, s3d_point *p2
         ) {

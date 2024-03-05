@@ -134,8 +134,10 @@ S3DEXP s3d_rotation spew3d_math3d_rotationfromto(
         s3d_pos *p, s3d_pos *p2
         ) {
     s3d_pos nullpos;
-    if (p == NULL)
+    if (p == NULL) {
+        memset(&nullpos, 0, sizeof(nullpos));
         p = &nullpos;
+    }
 
     s3d_rotation rot = {0};
 
@@ -157,7 +159,7 @@ S3DEXP s3d_rotation spew3d_math3d_rotationfromto(
     vertidiff.x = spew3d_math3d_len(horidiff);
     if (spew3d_math3d_len(vertidiff) > 0.001) {
         s3d_pos vertiforward = {0};
-        vertiforward.x = vertidiff.x;
+        vertiforward.x = spew3d_math3d_len(vertidiff);
         rot.verti = spew3d_math3d_anglefromto(
             &vertiforward, &vertidiff
         );
@@ -206,6 +208,17 @@ S3DEXP void spew3d_math3d_transform3d(
     s3d_rotation reverse3 = {0};
     reverse3.roll = -cam_info->cam_rotation.roll;
     spew3d_math3d_rotate(&input_pos, &reverse3);
+
+    spew3d_math3d_transform3dscreenspace(
+        input_pos, cam_info, out_pos, out_unscaled_pos
+    );
+}
+
+S3DEXP void spew3d_math3d_transform3dscreenspace(
+        s3d_pos input_pos,
+        s3d_transform3d_cam_info *cam_info,
+        s3d_pos *out_pos, s3d_pos *out_unscaled_pos
+        ) {
     /*printf("INPUT POS AFTER CAM SPACE TRANSFORM: %f,%f,%f\n",
         (double)input_pos.x, (double)input_pos.y,
         (double)input_pos.z);*/

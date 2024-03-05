@@ -136,7 +136,7 @@ static inline void spew3d_math3d_normalizerot(
     r->roll = spew3d_math3d_normalizeangle(r->roll);
 }
 
-static inline s3dnum_t spew3d_math3d_flip(s3d_pos *p) {
+static inline void spew3d_math3d_flip(s3d_pos *p) {
     p->x = -p->x;
     p->y = -p->y;
     p->z = -p->z;
@@ -198,9 +198,39 @@ S3DEXP void spew3d_math3d_transform3d(
     s3d_pos *out_unscaled_pos
 );
 
+S3DEXP void spew3d_math3d_transform3dscreenspace(
+    s3d_pos input_pos,
+    s3d_transform3d_cam_info *cam_info,
+    s3d_pos *out_pos, s3d_pos *out_unscaled_pos
+);
+
+S3DEXP void spew3d_math3d_sample_polygon_texcoord(
+    s3d_transform3d_cam_info *cam_info,
+    s3d_pos *v1, s3d_pos *v2, s3d_pos *v3,
+    s3d_point *v1tx, s3d_point *v2tx, s3d_point *v3tx,
+    s3d_pos sample_at,
+    s3d_pos *out_sample_at_with_depth,
+    s3d_pos *out_sample_pixel_pos,
+    s3d_point *out_sampletx
+);
+
 S3DEXP void spew3d_math3d_rotate(
     s3d_pos *p, s3d_rotation *r
 );
+
+S3DEXP static inline void spew3d_math3d_rotateat(
+        s3d_pos *p, s3d_rotation *r, s3d_pos *center
+        ) {
+    s3d_pos result = *p;
+    result.x -= center->x;
+    result.y -= center->y;
+    result.z -= center->z;
+    spew3d_math3d_rotate(&result, r);
+    result.x += center->x;
+    result.y += center->y;
+    result.z += center->z;
+    *p = result;
+}
 
 S3DEXP s3dnum_t spew3d_math3d_anglefromto(
     s3d_pos *p, s3d_pos *p2
