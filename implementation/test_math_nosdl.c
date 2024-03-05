@@ -74,9 +74,12 @@ START_TEST (test_poly_rotate)
     reverse1.hori = -nrot.hori;
     s3d_rotation reverse2 = {0};
     reverse2.verti = -nrot.verti;
-    spew3d_math3d_rotateat(&v1, &nrot, &rcenter);
-    spew3d_math3d_rotateat(&v2, &nrot, &rcenter);
-    spew3d_math3d_rotateat(&v3, &nrot, &rcenter);
+    spew3d_math3d_rotateat(&v1, &reverse1, &rcenter);
+    spew3d_math3d_rotateat(&v1, &reverse2, &rcenter);
+    spew3d_math3d_rotateat(&v2, &reverse1, &rcenter);
+    spew3d_math3d_rotateat(&v2, &reverse2, &rcenter);
+    spew3d_math3d_rotateat(&v3, &reverse1, &rcenter);
+    spew3d_math3d_rotateat(&v3, &reverse2, &rcenter);
 
     // It should now have a forward facing normal:
     s3d_pos n2;
@@ -84,9 +87,9 @@ START_TEST (test_poly_rotate)
         &v1, &v2, &v3, 0, &n2
     );
     spew3d_math3d_normalize(&n2);
-    /*assert(S3D_ABS(n2.x - (1)) <= (0.01));
+    assert(S3D_ABS(n2.x - (1)) <= (0.01));
     assert(S3D_ABS(n2.y - (0)) <= (0.01));
-    assert(S3D_ABS(n2.z - (0)) <= (0.01));*/
+    assert(S3D_ABS(n2.z - (0)) <= (0.01));
 }
 END_TEST
 
