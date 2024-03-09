@@ -226,10 +226,15 @@ S3DEXP int spew3d_lvlbox_Transform(
 
 S3DEXP int spew3d_lvlbox_edit_PaintLastUsedTexture(
     s3d_lvlbox *lvlbox, s3d_pos paint_pos,
-    s3d_rotation paint_aim, int topwallmodifier
+    s3d_rotation paint_aim
 );
 
 S3DEXP int spew3d_lvlbox_edit_EraseTexture(
+    s3d_lvlbox *lvlbox, s3d_pos paint_pos,
+    s3d_rotation paint_aim
+);
+
+S3DEXP int spew3d_lvlbox_edit_AddNewLevelOfGround(
     s3d_lvlbox *lvlbox, s3d_pos paint_pos,
     s3d_rotation paint_aim
 );

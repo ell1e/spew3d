@@ -1284,12 +1284,17 @@ S3DHID int _spew3d_lvlbox_TryUpdateTileCache_nolock_Ex(
                     &neighbor_chunk_index,
                     &neighbor_tile_index
                 );
-                if (!result)
-                    continue;
-                s3d_lvlbox_tile *neighbor_tile = &(
+                s3d_lvlbox_tile *neighbor_tile = NULL;
+                if (result) {
+                    neighbor_tile = &(
                     lvlbox->chunk[neighbor_chunk_index].tile[
                         neighbor_tile_index]
-                );
+                    );
+                }
+                if (!neighbor_tile->occupied ||
+                        neighbor_tile->segment_count <= 0) {
+                    neighbor_tile = NULL;
+                }
 
                 int first_wall_seg = 1;
                 s3dnum_t base_left = tile->segment[segment_no].
@@ -1301,19 +1306,26 @@ S3DHID int _spew3d_lvlbox_TryUpdateTileCache_nolock_Ex(
                 s3dnum_t top_right = tile->segment[segment_no].
                     ceiling_z[ourcornerright];
                 int i2 = 0;
-                while (i2 < neighbor_tile->segment_count ||
+                while ((neighbor_tile != NULL &&
+                        i2 < neighbor_tile->segment_count) ||
                         base_left < top_left ||
                         base_right > top_right
                         ) {
-                    int neighbors_segment =
-                        i2 < neighbor_tile->segment_count;
+                    int neighbors_segment = (
+                        neighbor_tile != NULL &&
+                        i2 < neighbor_tile->segment_count
+                    );
                     if (neighbors_segment && (
                             neighbor_tile->segment[i2].
-                            floor_z[oppositecornerleft] <
+                            floor_z[oppositecornerleft] <=
                             base_left &&
                             neighbor_tile->segment[i2].
-                            floor_z[oppositecornerright] <
+                            floor_z[oppositecornerright] <=
                             base_right)) {
+                        base_left = neighbor_tile->segment[i2].
+                            ceiling_z[oppositecornerleft];
+                        base_right = neighbor_tile->segment[i2].
+                            ceiling_z[oppositecornerright];
                         i2++;
                         continue;
                     }
@@ -1364,25 +1376,19 @@ S3DHID int _spew3d_lvlbox_TryUpdateTileCache_nolock_Ex(
                         neighborline_left.y = height_left;
                         s3d_point neighborline_right;
                         neighborline_right.x = 1;
-                        neighborline_right.y = height_left;
+                        neighborline_right.y = height_right;
                         s3d_point zero_line_left = {0};
                         s3d_point zero_line_right;
                         zero_line_right.x = 1;
                         zero_line_right.y = 0;
-                        s3d_point intersect;
+                        s3d_point intersect = {0};
                         if (!spew3d_math2d_lineintersect(
                                 &neighborline_left, &neighborline_right,
                                 &zero_line_left, &zero_line_right,
                                 &intersect
-                                ) || intersect.x >= 0.99) {
-                            if (!neighbors_segment)
-                                break;
-                            base_left = neighbor_tile->segment[i2].
-                                ceiling_z[oppositecornerleft];
-                            base_right = neighbor_tile->segment[i2].
-                                ceiling_z[oppositecornerright];
-                            i2++;
-                            continue;
+                                )) {
+                            if (height_left <= 0) intersect.x = 0;
+                            else intersect.x = 1;
                         }
                         intersect.x = fmax(0, fmin(1, intersect.x));
                         s3dnum_t neighborbottomleft = top_left;
@@ -1399,7 +1405,6 @@ S3DHID int _spew3d_lvlbox_TryUpdateTileCache_nolock_Ex(
                         }
                         if (height_left <= 0) {
                             assert(height_right > 0);
-                            intersect.x = 0;
 
                             s3d_pos corner_upper_right = corner_lower_right;
                             corner_upper_right.z += height_right;
@@ -1413,13 +1418,13 @@ S3DHID int _spew3d_lvlbox_TryUpdateTileCache_nolock_Ex(
                                 tile->segment[segment_no].
                                     wall[j].tex.material;
                             cache->cached_wall[n].vertex[0].x =
-                                intersect.x * corner_lower_right.x -
+                                intersect.x * corner_lower_right.x +
                                 (1 - intersect.x) * corner_lower_left.x;
                             cache->cached_wall[n].vertex[0].y =
-                                intersect.x * corner_lower_right.y -
+                                intersect.x * corner_lower_right.y +
                                 (1 - intersect.x) * corner_lower_left.y;
                             cache->cached_wall[n].vertex[0].z =
-                                intersect.x * corner_lower_right.z -
+                                intersect.x * corner_lower_right.z +
                                 (1 - intersect.x) * corner_lower_left.z;
                             cache->cached_wall[n].vertex[1] =
                                 corner_upper_right;
@@ -1441,7 +1446,6 @@ S3DHID int _spew3d_lvlbox_TryUpdateTileCache_nolock_Ex(
                                 &wall_normal, sizeof(wall_normal));
                             wpolycount++;
                         } else {
-                            intersect.x = 1;
                             assert(height_right <= 0);
                             s3d_pos corner_upper_left = corner_lower_left;
                             corner_upper_left.z += height_left;
@@ -1458,14 +1462,14 @@ S3DHID int _spew3d_lvlbox_TryUpdateTileCache_nolock_Ex(
                                 corner_lower_left;
                             cache->cached_wall[n].vertex[1] =
                                 corner_upper_left;
-                            cache->cached_wall[n].vertex[2].x =
-                                intersect.x * corner_lower_right.x -
-                                (1 - intersect.x) * corner_lower_left.x;
                             cache->cached_wall[n].vertex[2].y =
-                                intersect.x * corner_lower_right.y -
+                                intersect.x * corner_lower_right.y +
                                 (1 - intersect.x) * corner_lower_left.y;
+                            cache->cached_wall[n].vertex[2].x =
+                                intersect.x * corner_lower_right.x +
+                                (1 - intersect.x) * corner_lower_left.x;
                             cache->cached_wall[n].vertex[2].z =
-                                intersect.x * corner_lower_right.z -
+                                intersect.x * corner_lower_right.z +
                                 (1 - intersect.x) * corner_lower_left.z;
                             cache->cached_wall[n].texcoord[0] =
                                 texcoord_down_left;
@@ -3059,28 +3063,12 @@ S3DHID static inline int spew3d_lvlbox_TransformTilePolygon(
     );
 
     // Compute center:
-    s3d_pos center;
-    center.x = (rqueue[rfill].vertex_pos[0].x +
-        rqueue[rfill].vertex_pos[1].x +
-        rqueue[rfill].vertex_pos[2].x) / 3.0;
-    center.y = (rqueue[rfill].vertex_pos[0].y +
-        rqueue[rfill].vertex_pos[1].y +
-        rqueue[rfill].vertex_pos[2].y) / 3.0;
-    center.z = (rqueue[rfill].vertex_pos[0].z +
-        rqueue[rfill].vertex_pos[1].z +
-        rqueue[rfill].vertex_pos[2].z) / 3.0;
-    rqueue[rfill].center = center;
-    rqueue[rfill].min_depth = fmin(fmin(
-        rqueue[rfill].vertex_pos[0].x,
-        rqueue[rfill].vertex_pos[1].x),
-        rqueue[rfill].vertex_pos[2].x);
-    rqueue[rfill].max_depth = fmax(fmax(
-        rqueue[rfill].vertex_pos[0].x,
-        rqueue[rfill].vertex_pos[1].x),
-        rqueue[rfill].vertex_pos[2].x);
+    _internal_spew3d_camera3d_UpdateRenderPolyData(
+        rqueue, rfill
+    );
 
-    // If the polygon as a whole isn't in front of the camera, clip it:
-    if (rqueue[rfill].max_depth < 0 || center.x < 0) {
+    // If the polygon as a whole is behind the camera, clip early:
+    if (rqueue[rfill].max_depth < 0) {
         // No rfill++ here since we're abandoning this slot.
         return 1;
     }
@@ -3640,11 +3628,11 @@ S3DHID int _spew3d_lvlbox_InteractPosDirToTileCornerOrWall_nolock(
 
 S3DHID int spew3d_lvlbox_edit_PaintLastUsedTextureEx(
         s3d_lvlbox *lvlbox, s3d_pos paint_pos,
-        s3d_rotation paint_aim, int erase,
-        int topwallmodifier
+        s3d_rotation paint_aim, int erase
         ) {
     mutex_Lock(_lvlbox_Internal(lvlbox)->m);
 
+    int topwallmodifier = 0;  // FIXME, determine this from paint angle.
     const char *paint_name = "grass01.png";
     int paint_vfsflags = 0;
     if (_lvlbox_Internal(lvlbox)->last_used_tex) {
@@ -3710,10 +3698,10 @@ S3DHID int spew3d_lvlbox_edit_PaintLastUsedTextureEx(
 
 S3DEXP int spew3d_lvlbox_edit_PaintLastUsedTexture(
         s3d_lvlbox *lvlbox, s3d_pos paint_pos,
-        s3d_rotation paint_aim, int topwallmodifier
+        s3d_rotation paint_aim
         ) {
     return spew3d_lvlbox_edit_PaintLastUsedTextureEx(
-        lvlbox, paint_pos, paint_aim, 0, topwallmodifier
+        lvlbox, paint_pos, paint_aim, 0
     );
 }
 
@@ -3722,8 +3710,19 @@ S3DEXP int spew3d_lvlbox_edit_EraseTexture(
         s3d_rotation paint_aim
         ) {
     return spew3d_lvlbox_edit_PaintLastUsedTextureEx(
-        lvlbox, paint_pos, paint_aim, 1, 0
+        lvlbox, paint_pos, paint_aim, 1
     );
+}
+
+
+S3DEXP int spew3d_lvlbox_edit_AddNewLevelOfGround(
+        s3d_lvlbox *lvlbox, s3d_pos paint_pos,
+        s3d_rotation paint_aim
+        ) {
+    mutex_Lock(_lvlbox_Internal(lvlbox)->m);
+    int result = 0;
+    mutex_Release(_lvlbox_Internal(lvlbox)->m);
+    return result;
 }
 
 S3DHID void _spew3d_lvlbox_InvalidateTileWithNeighbors_nolock(

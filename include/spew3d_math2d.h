@@ -72,16 +72,30 @@ static inline void spew3d_math2d_scale(
 }
 
 static inline s3dnum_t spew3d_math2d_len(s3d_point *pos) {
-    s3dnum_t result = round(sqrt(
+    s3dnum_t result = (sqrt(
         (pos->x * pos->x + pos->y * pos->y)
     ));
     return result;
 }
 
+static inline void spew3d_math2d_scaletolen(
+        s3d_point *p, double scale
+        ) {
+    double len = spew3d_math2d_len(p);
+    if (len < 0.000001) {
+        p->x = 0;
+        p->y = 0;
+        assert(0);
+        return;
+    }
+    p->x = scale * (p->x / len);
+    p->y = scale * (p->y / len);
+}
+
 static inline s3dnum_t spew3d_math2d_dist(
         s3d_point *pos1, s3d_point *pos2
         ) {
-    s3dnum_t result = round(sqrt(
+    s3dnum_t result = (sqrt(
         ((pos1->x - pos2->x) * (pos1->x - pos2->x) +
         (pos1->y - pos2->y) * (pos1->y - pos2->y))
     ));

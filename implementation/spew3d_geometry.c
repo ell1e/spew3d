@@ -670,29 +670,13 @@ S3DEXP int spew3d_geometry_Transform(
         );
         ioffset++;
 
-        // Compute center:
-        s3d_pos center;
-        center.x = (rqueue[rfill].vertex_pos[0].x +
-            rqueue[rfill].vertex_pos[1].x +
-            rqueue[rfill].vertex_pos[2].x) / 3.0;
-        center.y = (rqueue[rfill].vertex_pos[0].y +
-            rqueue[rfill].vertex_pos[1].y +
-            rqueue[rfill].vertex_pos[2].y) / 3.0;
-        center.z = (rqueue[rfill].vertex_pos[0].z +
-            rqueue[rfill].vertex_pos[1].z +
-            rqueue[rfill].vertex_pos[2].z) / 3.0;
-        rqueue[rfill].center = center;
-        rqueue[rfill].min_depth = fmin(fmin(
-            rqueue[rfill].vertex_pos[0].x,
-            rqueue[rfill].vertex_pos[1].x),
-            rqueue[rfill].vertex_pos[2].x);
-        rqueue[rfill].max_depth = fmax(fmax(
-            rqueue[rfill].vertex_pos[0].x,
-            rqueue[rfill].vertex_pos[1].x),
-            rqueue[rfill].vertex_pos[2].x);
+        // Compute center, etc.:
+        _internal_spew3d_camera3d_UpdateRenderPolyData(
+            rqueue, rfill
+        );
 
-        // If the polygon as a whole isn't in front of the camera, clip it:
-        if (rqueue[rfill].max_depth < 0 || center.x < 0) {
+        // If the polygon as a whole is behind the camera, clip early:
+        if (rqueue[rfill].max_depth < 0) {
             i++;
             // No rfill++ here since we're abandoning this slot.
             continue;

@@ -61,10 +61,16 @@ typedef struct s3d_renderpolygon {
     s3d_color vertex_emit[3];
     s3d_material_t polygon_material;
     s3d_texture_t polygon_texture;
+    uint8_t clipped;
 } s3d_renderpolygon;
 
 S3DEXP int spew3d_camera_InternalMainThreadProcessEvent(
     s3d_event *e
+);
+
+S3DEXP void _internal_spew3d_camera3d_UpdateRenderPolyData(
+    s3d_renderpolygon *rqueue,
+    uint32_t index
 );
 
 #endif  // SPEW3D_CAMERA3D_H_

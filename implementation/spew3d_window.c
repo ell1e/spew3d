@@ -67,9 +67,11 @@ typedef struct s3d_window {
     uint64_t ignore_mouse_motion_until_ts;
 } s3d_window;
 
+#ifndef SPEW3D_OPTION_DISABLE_SDL
 S3DHID s3d_key_t _spew3d_keyboard_SDL_Key_To_S3D_Key(
     SDL_Keycode sym, SDL_Scancode scancode
 );
+#endif
 S3DHID void _spew3d_keyboard_win_lose_keyboard(
     uint32_t window_id,
     void (*was_pressed_cb)(uint32_t window_id, s3d_key_t key,
@@ -82,12 +84,14 @@ S3DHID void _spew3d_keyboard_register_pressed_down(
 S3DHID void _spew3d_keyboard_register_release(
     uint32_t window_id, s3d_key_t key
 );
+#ifndef SPEW3D_OPTION_DISABLE_SDL
 S3DHID void _s3d_sdl_GetWindowSDLRef(
     s3d_window *win,
     s3d_backend_windowing_wininfo *backend_winfo,
     SDL_Window **out_win,
     SDL_Renderer **out_renderer
 );
+#endif
 
 S3DHID __attribute__((constructor)) void _ensure_winid_mutex() {
     if (_win_id_mutex != NULL)

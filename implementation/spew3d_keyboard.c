@@ -372,6 +372,7 @@ S3DHID __attribute__((constructor))
     }
 }
 
+#ifndef SPEW3D_OPTION_DISABLE_SDL
 S3DHID s3d_key_t _spew3d_keyboard_SDL_Key_To_S3D_Key(
             SDL_Keycode sym, SDL_Scancode scancode
             ) {
@@ -482,6 +483,7 @@ S3DHID s3d_key_t _spew3d_keyboard_SDL_Key_To_S3D_Key(
     }
     return S3D_KEY_INVALID;
 }
+#endif
 
 S3DEXP const char *spew3d_keyboard_GetKeyDescription(
         s3d_key_t key

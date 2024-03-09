@@ -215,6 +215,286 @@ S3DHID static int _depthCompareRenderPolygons(
     return 0;
 }
 
+S3DEXP void _internal_spew3d_camera3d_UpdateRenderPolyData(
+        s3d_renderpolygon *rqueue,
+        uint32_t index
+        ) {
+    s3d_pos center;
+    center.x = (rqueue[index].vertex_pos[0].x +
+        rqueue[index].vertex_pos[1].x +
+        rqueue[index].vertex_pos[2].x) / 3.0;
+    center.y = (rqueue[index].vertex_pos[0].y +
+        rqueue[index].vertex_pos[1].y +
+        rqueue[index].vertex_pos[2].y) / 3.0;
+    center.z = (rqueue[index].vertex_pos[0].z +
+        rqueue[index].vertex_pos[1].z +
+        rqueue[index].vertex_pos[2].z) / 3.0;
+    rqueue[index].center = center;
+    rqueue[index].min_depth = fmin(fmin(
+        rqueue[index].vertex_pos[0].x,
+        rqueue[index].vertex_pos[1].x),
+        rqueue[index].vertex_pos[2].x);
+    rqueue[index].max_depth = fmax(fmax(
+        rqueue[index].vertex_pos[0].x,
+        rqueue[index].vertex_pos[1].x),
+        rqueue[index].vertex_pos[2].x);
+}
+
+S3DHID static int _spew3d_camera3d_CheckClipped(
+        s3d_renderpolygon *poly,
+        double pixel_wf, double pixel_hf
+        ) {
+    if (poly->clipped)
+        return 1;
+    if (poly->center.x < 0) {
+        poly->clipped = 1;
+        return 1;
+    }
+    if (poly->vertex_pos_pixels[0].y < 0 &&
+            poly->vertex_pos_pixels[1].y < 0 &&
+            poly->vertex_pos_pixels[2].y < 0) {
+        poly->clipped = 1;
+        return 1;
+    }
+    if (poly->vertex_pos_pixels[0].z < 0 &&
+            poly->vertex_pos_pixels[1].z < 0 &&
+            poly->vertex_pos_pixels[2].z < 0) {
+        poly->clipped = 1;
+        return 1;
+    }
+    if (poly->vertex_pos_pixels[0].y > pixel_wf &&
+            poly->vertex_pos_pixels[1].y > pixel_wf &&
+            poly->vertex_pos_pixels[2].y > pixel_wf) {
+        poly->clipped = 1;
+        return 1;
+    }
+    if (poly->vertex_pos_pixels[0].z > pixel_hf &&
+            poly->vertex_pos_pixels[1].z > pixel_hf &&
+            poly->vertex_pos_pixels[2].z > pixel_hf) {
+        poly->clipped = 1;
+        return 1;
+    }
+    return 0;
+}
+
+S3DHID static int _spew3d_camera3d_SplitPolygonsIfNeeded(
+        s3d_obj3d *cam, s3d_transform3d_cam_info *cam_info,
+        uint32_t *buf_fill,
+        uint32_t pixel_w, uint32_t pixel_h
+        ) {
+    spew3d_obj3d_LockAccess(cam);
+    s3d_camdata *cdata = (s3d_camdata *)(
+        _spew3d_scene3d_ObjExtraData_nolock(cam)
+    );
+    s3d_renderpolygon *polys = cdata->_render_polygon_buffer;
+    uint32_t alloc = cdata->_render_polygon_buffer_alloc;
+    uint32_t fill = *buf_fill;
+    spew3d_obj3d_ReleaseAccess(cam);
+    double pixel_wf = pixel_w;
+    double pixel_hf = pixel_h;
+    double threshold = (pixel_wf + pixel_hf) / 2.0 / 3.0;
+    double threshold_fine = (pixel_wf + pixel_hf) / 2.0 / 8.0;
+
+    uint32_t origfill = fill;
+    int maxiterations = 4;
+    int hadsplit = 1;
+    while (hadsplit && maxiterations > 0) {
+        maxiterations--;
+        hadsplit = 0;
+        origfill = fill;
+        uint32_t i = 0;
+        while (i < origfill) {
+            s3d_renderpolygon *p = &polys[i];
+            double applied_threshold = threshold;
+            if (p->min_depth <= 0)
+                applied_threshold = threshold_fine;
+            if (!_spew3d_camera3d_CheckClipped(p,
+                    pixel_wf, pixel_hf) &&
+                    fabs(p->vertex_pos_pixels[0].z -
+                        p->vertex_pos_pixels[1].z) >
+                        applied_threshold ||
+                    fabs(p->vertex_pos_pixels[0].y -
+                        p->vertex_pos_pixels[1].y) >
+                        applied_threshold ||
+                    fabs(p->vertex_pos_pixels[0].x -
+                        p->vertex_pos_pixels[1].x) >
+                        applied_threshold ||
+                    fabs(p->vertex_pos_pixels[0].z -
+                        p->vertex_pos_pixels[2].z) >
+                        applied_threshold ||
+                    fabs(p->vertex_pos_pixels[0].y -
+                        p->vertex_pos_pixels[2].y) >
+                        applied_threshold ||
+                    fabs(p->vertex_pos_pixels[0].x -
+                        p->vertex_pos_pixels[2].x) >
+                        applied_threshold ||
+                    fabs(p->vertex_pos_pixels[1].z -
+                        p->vertex_pos_pixels[2].z) >
+                        applied_threshold ||
+                    fabs(p->vertex_pos_pixels[1].y -
+                        p->vertex_pos_pixels[2].y) >
+                        applied_threshold ||
+                    fabs(p->vertex_pos_pixels[1].x -
+                        p->vertex_pos_pixels[2].x) >
+                        applied_threshold) {
+                // We want to split this one up.
+                hadsplit = 1;
+                if (fill + 3 > alloc) {
+                    uint32_t newalloc = (fill + 3 + 32) * 2;
+                    s3d_renderpolygon *newpolys = realloc(
+                        polys, sizeof(*newpolys) * newalloc
+                    );
+                    if (!newpolys) {
+                        spew3d_obj3d_LockAccess(cam);
+                        cdata->_render_polygon_buffer = polys;
+                        cdata->_render_polygon_buffer_alloc = alloc;
+                        *buf_fill = fill;
+                        spew3d_obj3d_ReleaseAccess(cam);
+                        return 0;
+                    }
+                    polys = newpolys;
+                    alloc = newalloc;
+                    p = &polys[i];
+                }
+
+                s3d_pos sample_v1tov2;
+                sample_v1tov2.x = (p->vertex_pos[0].x +
+                    p->vertex_pos[1].x) / 2;
+                sample_v1tov2.y = (p->vertex_pos[0].y +
+                    p->vertex_pos[1].y) / 2;
+                sample_v1tov2.z = (p->vertex_pos[0].z +
+                    p->vertex_pos[1].z) / 2;
+                s3d_point sample_v1tov2_tx;
+                s3d_pos sample_v1tov2_pixels;
+
+                s3d_pos sample_v2tov3;
+                sample_v2tov3.x = (p->vertex_pos[1].x +
+                    p->vertex_pos[2].x) / 2;
+                sample_v2tov3.y = (p->vertex_pos[1].y +
+                    p->vertex_pos[2].y) / 2;
+                sample_v2tov3.z = (p->vertex_pos[1].z +
+                    p->vertex_pos[2].z) / 2;
+                s3d_point sample_v2tov3_tx;
+                s3d_pos sample_v2tov3_pixels;
+
+                s3d_pos sample_v3tov1;
+                sample_v3tov1.x = (p->vertex_pos[2].x +
+                    p->vertex_pos[0].x) / 2;
+                sample_v3tov1.y = (p->vertex_pos[2].y +
+                    p->vertex_pos[0].y) / 2;
+                sample_v3tov1.z = (p->vertex_pos[2].z +
+                    p->vertex_pos[0].z) / 2;
+                s3d_point sample_v3tov1_tx;
+                s3d_pos sample_v3tov1_pixels;
+
+                spew3d_math3d_sample_polygon_texcoord(
+                    cam_info,
+                    &p->vertex_pos[0], &p->vertex_pos[1],
+                    &p->vertex_pos[2],
+                    &p->vertex_texcoord[0], &p->vertex_texcoord[1],
+                    &p->vertex_texcoord[2],
+                    sample_v1tov2,
+                    &sample_v1tov2, &sample_v1tov2_pixels,
+                    &sample_v1tov2_tx
+                );
+                spew3d_math3d_sample_polygon_texcoord(
+                    cam_info,
+                    &p->vertex_pos[0], &p->vertex_pos[1],
+                    &p->vertex_pos[2],
+                    &p->vertex_texcoord[0], &p->vertex_texcoord[1],
+                    &p->vertex_texcoord[2],
+                    sample_v2tov3,
+                    &sample_v2tov3, &sample_v2tov3_pixels,
+                    &sample_v2tov3_tx
+                );
+                spew3d_math3d_sample_polygon_texcoord(
+                    cam_info,
+                    &p->vertex_pos[0], &p->vertex_pos[1],
+                    &p->vertex_pos[2],
+                    &p->vertex_texcoord[0], &p->vertex_texcoord[1],
+                    &p->vertex_texcoord[2],
+                    sample_v3tov1,
+                    &sample_v3tov1, &sample_v3tov1_pixels,
+                    &sample_v3tov1_tx
+                );
+
+                s3d_renderpolygon *p2 = &polys[fill];
+                s3d_renderpolygon *p3 = &polys[fill + 1];
+                s3d_renderpolygon *p4 = &polys[fill + 2];
+                memcpy(p2, p, sizeof(*p2));
+                memcpy(p3, p, sizeof(*p3));
+                memcpy(p4, p, sizeof(*p4));
+
+                p2->vertex_pos[0] = sample_v1tov2;
+                p2->vertex_pos[1] = p->vertex_pos[1];
+                p2->vertex_pos[2] = sample_v2tov3;
+                p2->vertex_pos_pixels[0] = sample_v1tov2_pixels;
+                p2->vertex_pos_pixels[1] = (
+                    p->vertex_pos_pixels[1]
+                );
+                p2->vertex_pos_pixels[2] = sample_v2tov3_pixels;
+                p2->vertex_texcoord[0] = sample_v1tov2_tx;
+                p2->vertex_texcoord[1] = p->vertex_texcoord[1];
+                p2->vertex_texcoord[2] = sample_v2tov3_tx;
+                _internal_spew3d_camera3d_UpdateRenderPolyData(
+                    polys, fill
+                );
+                fill++;
+                assert(fill <= alloc);
+
+                p3->vertex_pos[0] = sample_v2tov3;
+                p3->vertex_pos[1] = p->vertex_pos[2];
+                p3->vertex_pos[2] = sample_v3tov1;
+                p3->vertex_pos_pixels[0] = sample_v2tov3_pixels;
+                p3->vertex_pos_pixels[1] = (
+                    p->vertex_pos_pixels[2]
+                );
+                p3->vertex_pos_pixels[2] = sample_v3tov1_pixels;
+                p3->vertex_texcoord[0] = sample_v2tov3_tx;
+                p3->vertex_texcoord[1] = p->vertex_texcoord[2];
+                p3->vertex_texcoord[2] = sample_v3tov1_tx;
+                _internal_spew3d_camera3d_UpdateRenderPolyData(
+                    polys, fill
+                );
+                fill++;
+                assert(fill <= alloc);
+
+                p4->vertex_pos[0] = sample_v2tov3;
+                p4->vertex_pos[1] = sample_v3tov1;
+                p4->vertex_pos[2] = sample_v1tov2;
+                p4->vertex_pos_pixels[0] = sample_v2tov3_pixels;
+                p4->vertex_pos_pixels[1] = sample_v3tov1_pixels;
+                p4->vertex_pos_pixels[2] = sample_v1tov2_pixels;
+                p4->vertex_texcoord[0] = sample_v2tov3_tx;
+                p4->vertex_texcoord[1] = sample_v3tov1_tx;
+                p4->vertex_texcoord[2] = sample_v1tov2_tx;
+                _internal_spew3d_camera3d_UpdateRenderPolyData(
+                    polys, fill
+                );
+                fill++;
+                assert(fill <= alloc);
+
+                p->vertex_pos[1] = sample_v1tov2;
+                p->vertex_pos[2] = sample_v3tov1;
+                p->vertex_pos_pixels[1] = sample_v1tov2_pixels;
+                p->vertex_pos_pixels[2] = sample_v3tov1_pixels;
+                p->vertex_texcoord[1] = sample_v1tov2_tx;
+                p->vertex_texcoord[2] = sample_v3tov1_tx;
+                _internal_spew3d_camera3d_UpdateRenderPolyData(
+                    polys, i
+                );
+            }
+            i++;
+        }
+    }
+    spew3d_obj3d_LockAccess(cam);
+    cdata->_render_polygon_buffer = polys;
+    cdata->_render_polygon_buffer_alloc = alloc;
+    *buf_fill = fill;
+    spew3d_obj3d_ReleaseAccess(cam);
+    return 1;
+}
+
 S3DHID int _spew3d_camera3d_ProcessDrawToWindowReq(
         s3d_event *ev
         ) {
@@ -234,6 +514,8 @@ S3DHID int _spew3d_camera3d_ProcessDrawToWindowReq(
     _spew3d_window_ExtractCanvasSize_nolock(
         win, &pixel_w, &pixel_h
     );
+    if (pixel_w < 1) pixel_w = 1;
+    if (pixel_h < 1) pixel_h = 1;
     s3d_camdata *cdata = (s3d_camdata *)(
         _spew3d_scene3d_ObjExtraData_nolock(cam)
     );
@@ -465,6 +747,19 @@ S3DHID int _spew3d_camera3d_ProcessDrawToWindowReq(
 
     #if defined(DEBUG_SPEW3D_RENDER3D)
     printf("spew3d_camera3d.c: debug: "
+        "Now splitting geometry, "
+        "polygon queue length: %d\n", polybuf_fill);
+    #endif
+    _spew3d_camera3d_SplitPolygonsIfNeeded(
+        cam, &cinfo, &polybuf_fill, pixel_w, pixel_h
+    );
+    spew3d_obj3d_LockAccess(cam);
+    polybuf = cdata->_render_polygon_buffer;
+    polybuf_alloc = cdata->_render_polygon_buffer_alloc;
+    spew3d_obj3d_ReleaseAccess(cam);
+
+    #if defined(DEBUG_SPEW3D_RENDER3D)
+    printf("spew3d_camera3d.c: debug: "
         "Now sorting geometry, "
         "polygon queue length: %d\n", polybuf_fill);
     #endif
@@ -497,6 +792,12 @@ S3DHID int _spew3d_camera3d_ProcessDrawToWindowReq(
     SDL_SetRenderDrawBlendMode(render, SDL_BLENDMODE_BLEND);
     i = 0;
     while (i < polybuf_fill) {
+        // If the polygon is too far behind the camera, clip it:
+        if (polybuf[i].center.x <= 0) {
+            i++;
+            continue;
+        }
+
         s3d_renderpolygon *p = &polybuf[i];
         SDL_Vertex vertex_1 = {
             {p->vertex_pos_pixels[0].y,
@@ -529,7 +830,7 @@ S3DHID int _spew3d_camera3d_ProcessDrawToWindowReq(
             );
             mutex_Release(_texlist_mutex);
             if (tex == NULL) {
-                // Do we want some placeholder graphics here?
+                // FIXME: Do we want some placeholder graphics here?
             }
         }
         SDL_RenderGeometry(render, tex, vertices, 3, NULL, 0);

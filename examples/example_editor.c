@@ -126,10 +126,19 @@ int main(int argc, const char **argv) {
                 }
             } else if (e.kind == S3DEV_KEY_DOWN &&
                     e.key.key == S3D_KEY_T) {
+                // Pressing T paints a texture.
                 s3d_pos pos = spew3d_obj3d_GetPos(camera);
                 s3d_rotation rot = spew3d_obj3d_GetRotation(camera);
                 spew3d_lvlbox_edit_PaintLastUsedTexture(
-                    level_contents, pos, rot, 0
+                    level_contents, pos, rot
+                );
+            } else if (e.kind == S3DEV_KEY_DOWN &&
+                    e.key.key == S3D_KEY_G) {
+                // Pressing G adds in a new level of ground.
+                s3d_pos pos = spew3d_obj3d_GetPos(camera);
+                s3d_rotation rot = spew3d_obj3d_GetRotation(camera);
+                spew3d_lvlbox_edit_AddNewLevelOfGround(
+                    level_contents, pos, rot
                 );
             } else if (e.kind == S3DEV_MOUSE_BUTTON_DOWN) {
                 dragging = 1;

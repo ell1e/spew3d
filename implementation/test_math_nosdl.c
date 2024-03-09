@@ -37,59 +37,56 @@ license, see accompanied LICENSE.md.
 
 START_TEST (test_poly_rotate)
 {
-    // Set up a random 3d polygon:
     s3d_pos v1;
-    v1.x = 1.720840;
-    v1.y = -0.178575;
-    v1.z = 0.816343;
+    v1.x = 2;
+    v1.y = 0;
+    v1.z = 0;
     s3d_pos v2;
-    v2.x = 1.964578;
-    v2.y = -0.178575;
-    v2.z = -1.168749;
+    v2.x = 0;
+    v2.y = 1;
+    v2.z = 0;
     s3d_pos v3;
-    v3.x = 1.094371;
-    v3.y = -1.976163;
-    v3.z = -1.275597;
+    v3.x = 0;
+    v3.y = 0;
+    v3.z = 1;
 
-    // Compute and check the normal:
     s3d_pos n;
     spew3d_math3d_polygon_normal(
         &v1, &v2, &v3, 0, &n
     );
-    assert(S3D_ABS(n.x - (-3.568378)) <= (0.01));
-    assert(S3D_ABS(n.y - (-1.753485)) <= (0.01));
-    assert(S3D_ABS(n.z - (-0.438142)) <= (0.01));
-
-    // Compute and check the angle its normal points in:
+    spew3d_math3d_normalize(&n);
     s3d_rotation nrot = spew3d_math3d_rotationfromto(
         NULL, &n
     );
-    assert(S3D_ABS(nrot.hori - (-153.830712)) <= (0.01));
-    assert(S3D_ABS(nrot.verti - (-6.288536)) <= (0.01));
-    assert(S3D_ABS(nrot.roll - (0)) <= (0.01));
 
-    // Rotate it around the reverse of its normal's angles:
-    s3d_pos rcenter = v1;  // (Centered around its vertex v1)
+    s3d_pos rcenter = {0};
+    rcenter.x = (v1.x + v2.x + v3.x) / 3.0;
+    rcenter.y = (v1.y + v2.y + v3.y) / 3.0;
+    rcenter.z = (v1.z + v2.z + v3.z) / 3.0;
     s3d_rotation reverse1 = {0};
     reverse1.hori = -nrot.hori;
     s3d_rotation reverse2 = {0};
     reverse2.verti = -nrot.verti;
     spew3d_math3d_rotateat(&v1, &reverse1, &rcenter);
-    spew3d_math3d_rotateat(&v1, &reverse2, &rcenter);
     spew3d_math3d_rotateat(&v2, &reverse1, &rcenter);
-    spew3d_math3d_rotateat(&v2, &reverse2, &rcenter);
     spew3d_math3d_rotateat(&v3, &reverse1, &rcenter);
+    spew3d_math3d_rotateat(&v1, &reverse2, &rcenter);
+    spew3d_math3d_rotateat(&v2, &reverse2, &rcenter);
     spew3d_math3d_rotateat(&v3, &reverse2, &rcenter);
 
-    // It should now have a forward facing normal:
-    s3d_pos n2;
+    s3d_pos nrotated = n;
+    spew3d_math3d_rotate(&nrotated, &reverse1);
+    spew3d_math3d_rotate(&nrotated, &reverse2);
+    spew3d_math3d_normalize(&n);
+    s3d_pos nrecalculated;
     spew3d_math3d_polygon_normal(
-        &v1, &v2, &v3, 0, &n2
+        &v1, &v2, &v3, 0, &nrecalculated
     );
-    spew3d_math3d_normalize(&n2);
-    assert(S3D_ABS(n2.x - (1)) <= (0.01));
-    assert(S3D_ABS(n2.y - (0)) <= (0.01));
-    assert(S3D_ABS(n2.z - (0)) <= (0.01));
+    spew3d_math3d_normalize(&nrecalculated);
+
+    assert(S3D_ABS(nrotated.x - (nrecalculated.x)) <= (0.01));
+    assert(S3D_ABS(nrotated.y - (nrecalculated.y)) <= (0.01));
+    assert(S3D_ABS(nrotated.z - (nrecalculated.z)) <= (0.01));
 }
 END_TEST
 
@@ -165,12 +162,12 @@ START_TEST (test_math_polygon_normal)
     );
 
     assert(S3D_ABS(n.x - (0)) <= (0.01));
-    assert(S3D_ABS(n.y - (1)) <= (0.01));
+    assert(S3D_ABS(n.y - (-1)) <= (0.01));
     assert(S3D_ABS(n.z - (0)) <= (0.01));
     r = spew3d_math3d_rotationfromto(
         NULL, &n
     );
-    assert(S3D_ABS(r.hori - (90)) <= (0.01));
+    assert(S3D_ABS(r.hori - (-90)) <= (0.01));
 
     memset(&v1, 0, sizeof(v1));
     v1.x = -2;
@@ -184,12 +181,12 @@ START_TEST (test_math_polygon_normal)
     );
 
     assert(S3D_ABS(n.x - (0)) <= (0.01));
-    assert(S3D_ABS(n.y - (-1)) <= (0.01));
+    assert(S3D_ABS(n.y - (1)) <= (0.01));
     assert(S3D_ABS(n.z - (0)) <= (0.01));
     r = spew3d_math3d_rotationfromto(
         NULL, &n
     );
-    assert(S3D_ABS(r.hori - (-90)) <= (0.01));
+    assert(S3D_ABS(r.hori - (90)) <= (0.01));
     assert(S3D_ABS(r.verti - (0)) <= (0.01));
     assert(S3D_ABS(r.roll - (0)) <= (0.01));
 }

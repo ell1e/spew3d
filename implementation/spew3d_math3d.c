@@ -77,11 +77,207 @@ S3DEXP void spew3d_math3d_cross_product(
         s3d_pos *v1, s3d_pos *v2, s3d_pos *out
         ) {
     s3dnum_t x = ((v1->y * v2->z) - (v1->z * v2->y));
-    s3dnum_t y = ((v1->x * v2->z) - (v1->z * v2->x));
+    s3dnum_t y = ((v1->z * v2->x) - (v1->x * v2->z));
     s3dnum_t z = ((v1->x * v2->y) - (v1->y * v2->x));
     out->x = x;
     out->y = y;
     out->z = z;
+}
+
+S3DEXP void spew3d_math3d_sample_polygon_texcoord(
+        s3d_transform3d_cam_info *cam_info,
+        s3d_pos *v1, s3d_pos *v2, s3d_pos *v3,
+        s3d_point *v1tx, s3d_point *v2tx, s3d_point *v3tx,
+        s3d_pos sample_at,
+        s3d_pos *out_sample_at_with_depth,
+        s3d_pos *out_sample_pixel_pos,
+        s3d_point *out_sampletx
+        ) {
+    // FIXME: This is a horribly slow way to go about it,
+    // and not how this should be done properly.
+    // However, for just the occasional sampling rather than
+    // per pixel, this will do the job for now.
+
+    s3d_pos v1frontal = *v1;
+    s3d_pos v2frontal = *v2;
+    s3d_pos v3frontal = *v3;
+    s3d_pos center = v1frontal;
+    s3d_pos samplefrontal = sample_at;
+    s3d_pos normal;
+    spew3d_math3d_polygon_normal(
+        v1, v2, v3, 0, &normal
+    );
+    if (normal.x < 0 && 0) {
+        spew3d_math3d_flip(&normal);
+    }
+    s3d_rotation normalrot = spew3d_math3d_rotationfromto(
+        NULL, &normal
+    );
+    s3d_rotation reverse1 = {0};
+    s3d_rotation reverse2 = {0};
+    reverse1.hori = -normalrot.hori;
+    reverse2.verti = -normalrot.verti;
+    spew3d_math3d_rotateat(&v1frontal, &reverse1, &center);
+    spew3d_math3d_rotateat(&v1frontal, &reverse2, &center);
+    spew3d_math3d_rotateat(&v2frontal, &reverse1, &center);
+    spew3d_math3d_rotateat(&v2frontal, &reverse2, &center);
+    spew3d_math3d_rotateat(&v3frontal, &reverse1, &center);
+    spew3d_math3d_rotateat(&v3frontal, &reverse2, &center);
+    spew3d_math3d_rotateat(&samplefrontal, &reverse1, &center);
+    spew3d_math3d_rotateat(&samplefrontal, &reverse2, &center);
+    samplefrontal.x = v1frontal.x;
+    v2frontal.x = v1frontal.x;
+    v3frontal.x = v1frontal.x;
+    s3dnum_t sampletov1 = spew3d_math3d_dist(
+        &samplefrontal, &v1frontal
+    );
+    s3dnum_t sampletov2 = spew3d_math3d_dist(
+        &samplefrontal, &v2frontal
+    );
+    s3dnum_t sampletov3 = spew3d_math3d_dist(
+        &samplefrontal, &v3frontal
+    );
+    s3dnum_t v1tov2 = spew3d_math3d_dist(
+        v1, v2
+    );
+    s3dnum_t v2tov3 = spew3d_math3d_dist(
+        v2, v3
+    );
+    s3dnum_t v3tov1 = spew3d_math3d_dist(
+        v3, v1
+    );
+    if (out_sample_at_with_depth != NULL ||
+            out_sample_pixel_pos != NULL
+            ) {
+        sample_at = samplefrontal;
+        spew3d_math3d_rotateat(&sample_at, &normalrot, &center);
+        if (out_sample_at_with_depth != NULL)
+            *out_sample_at_with_depth = sample_at;
+        if (out_sample_pixel_pos != NULL) {
+            spew3d_math3d_transform3dscreenspace(
+                sample_at, cam_info,
+                &sample_at, NULL
+            );
+            *out_sample_pixel_pos = sample_at;
+        }
+    }
+    if (out_sampletx != NULL) {
+        s3dnum_t sum = fmax(1, sampletov1 + sampletov2 + sampletov3);
+
+        if (sampletov3 < 0.01) {
+            out_sampletx->x = v3tx->x;
+            out_sampletx->y = v3tx->y;
+            return;
+        }
+        if (sampletov2 < 0.01) {
+            out_sampletx->x = v2tx->x;
+            out_sampletx->y = v2tx->y;
+            return;
+        }
+        if (sampletov1 < 0.01) {
+            out_sampletx->x = v1tx->x;
+            out_sampletx->y = v1tx->y;
+            return;
+        }
+        if ((sampletov1 + sampletov3) - v3tov1 < 0.01) {
+            double f_x = sampletov3 / v3tov1;
+            out_sampletx->x = (1 - f_x) * v3tx->x +
+                f_x * v1tx->x;
+            out_sampletx->y = (1 - f_x) * v3tx->y +
+                f_x * v1tx->y;
+            return;
+        }
+        if ((sampletov2 + sampletov3) - v2tov3 < 0.01) {
+            double f_x = sampletov3 / v2tov3;
+            out_sampletx->x = (1 - f_x) * v3tx->x +
+                f_x * v2tx->x;
+            out_sampletx->y = (1 - f_x) * v3tx->y +
+                f_x * v2tx->y;
+            return;
+        }
+        if ((sampletov1 + sampletov2) - v1tov2 < 0.01) {
+            double f_x = sampletov1 / v1tov2;
+            out_sampletx->x = (1 - f_x) * v1tx->x +
+                f_x * v2tx->x;
+            out_sampletx->y = (1 - f_x) * v1tx->y +
+                f_x * v2tx->y;
+            return;
+        }
+
+        s3dnum_t largest_dist = fmax(fmax(
+            sampletov1, sampletov2
+        ), sampletov3) * 3;
+        s3d_point v3_to_sample_vec = {0};
+        v3_to_sample_vec.x = (samplefrontal.y - v3frontal.y);
+        v3_to_sample_vec.y = (samplefrontal.z - v3frontal.z);
+        spew3d_math2d_scaletolen(&v3_to_sample_vec, largest_dist);
+        s3d_point projected_on_v1tov2;
+        s3d_point v1_2d;
+        v1_2d.x = v1frontal.y;
+        v1_2d.y = v1frontal.z;
+        s3d_point v2_2d;
+        v2_2d.x = v2frontal.y;
+        v2_2d.y = v2frontal.z;
+        s3d_point v3_2d;
+        v3_2d.x = v3frontal.y;
+        v3_2d.y = v3frontal.z;
+        s3d_point ray_target = v3_2d;
+        ray_target.x += v3_to_sample_vec.x;
+        ray_target.y += v3_to_sample_vec.y;
+        if (!spew3d_math2d_lineintersect(
+                &v1_2d, &v2_2d,
+                &v3_2d, &ray_target,
+                &projected_on_v1tov2
+                )) {
+            printf("INTERSECT NO??\n");
+            if (sampletov1 < sampletov2 &&
+                    sampletov1 < sampletov3) {
+                out_sampletx->x = v1tx->x;
+                out_sampletx->y = v1tx->y;
+            } else if (sampletov2 < sampletov1 &&
+                    sampletov2 < sampletov3) {
+                out_sampletx->x = v2tx->x;
+                out_sampletx->y = v2tx->y;
+            } else {
+                out_sampletx->x = v3tx->x;
+                out_sampletx->y = v3tx->y;
+            }
+        } else {
+            /*printf("v1.x %f v1.y %f v2.x %f v2.y %f "
+                "v3.x %f v3.y %f target.x %f target.y %f "
+                "sample.x %f sample.y %f\n",
+                (double)v1_2d.x, (double)v1_2d.y,
+                (double)v2_2d.x, (double)v2_2d.y,
+                (double)v3_2d.x, (doule)v3_2d.y,
+                (double)ray_target.x, (double)ray_target.y,
+                (double)samplefrontal.y, (double)samplefrontal.z);
+            printf("intersect yes intersect.x %f intersect.y %f\n",
+                (double)projected_on_v1tov2.x,
+                (double)projected_on_v1tov2.y);*/
+            s3dnum_t tx_f = fmax(0, fmin(1, spew3d_math2d_dist(
+                &v1_2d, &projected_on_v1tov2
+            ) / v1tov2));
+            s3dnum_t tx = (1 - tx_f) * v1tx->x +
+                tx_f * v2tx->x;
+            s3dnum_t ty = (1 - tx_f) * v1tx->y +
+                tx_f * v2tx->y;
+            s3d_point samplefrontal2d;
+            samplefrontal2d.x = samplefrontal.y;
+            samplefrontal2d.y = samplefrontal.z;
+            s3dnum_t full_dist_to_v3 = spew3d_math2d_dist(
+                &v3_2d, &projected_on_v1tov2
+            );
+            tx_f = fmax(0, fmin(1, spew3d_math2d_dist(
+                &v3_2d, &samplefrontal2d
+            ) / full_dist_to_v3));
+            tx = (1 - tx_f) * v3tx->x +
+                tx_f * tx;
+            ty = (1 - tx_f) * v3tx->y +
+                tx_f * ty;
+            out_sampletx->x = tx;
+            out_sampletx->y = ty;
+        }
+    }
 }
 
 S3DEXP void spew3d_math3d_polygon_normal(
