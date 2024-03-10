@@ -113,6 +113,9 @@ int main(int argc, const char **argv) {
                     rot.verti -= e.mouse.rel_y * 0.5;
                     spew3d_obj3d_SetRotation(camera, rot);
                 } else {
+                    // Mouse click dragging will adjust corner height.
+                    // (Shift key determines if neighboring tiles are
+                    // dragged along or not.)
                     double drag_vert = -e.mouse.rel_y * 0.01;
                     if (fabs(drag_vert) > 0.0001) {
                         int r = spew3d_lvlbox_edit_DragFocusedTileCorner(
@@ -123,6 +126,19 @@ int main(int argc, const char **argv) {
                             )
                         );
                     }
+                }
+            } else if (e.kind == S3DEV_MOUSEWHEEL_SCROLL) {
+                // Mouse wheel cycles through available textures.
+                if (!dragging && e.mousewheel.y > 0) {
+                    int r = spew3d_lvlbox_edit_CycleTexturePaint(
+                        level_contents, spew3d_obj3d_GetPos(camera),
+                        spew3d_obj3d_GetRotation(camera), 0
+                    );
+                } else if (!dragging && e.mousewheel.y < 0) {
+                    int r = spew3d_lvlbox_edit_CycleTexturePaint(
+                        level_contents, spew3d_obj3d_GetPos(camera),
+                        spew3d_obj3d_GetRotation(camera), 0
+                    );
                 }
             } else if (e.kind == S3DEV_KEY_DOWN &&
                     e.key.key == S3D_KEY_T) {

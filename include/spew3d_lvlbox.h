@@ -48,7 +48,7 @@ typedef struct s3d_lvlbox_texinfo {
     s3d_texture_t id;
     s3d_material_t material;
     int wrapmode;
-    s3dnum_t scale_x, scale_y;
+    int overfit_multiplier;
     s3dnum_t scroll_speed_x, scroll_speed_y;
 } s3d_lvlbox_texinfo;
 
@@ -59,7 +59,7 @@ typedef struct s3d_lvlbox_fenceinfo {
 } s3d_lvlbox_fenceinfo;
 
 typedef struct s3d_lvlbox_wallinfo {
-    s3d_lvlbox_texinfo tex;
+    s3d_lvlbox_texinfo tex, toptex;
 
     s3d_lvlbox_fenceinfo fence;
 } s3d_lvlbox_wallinfo;
@@ -101,7 +101,6 @@ typedef struct s3d_lvlbox_vertsegment {
     s3dnum_t floor_z[4];
 
     s3d_lvlbox_wallinfo wall[4];
-    s3d_lvlbox_wallinfo topwall[4];
 
     s3d_lvlbox_texinfo ceiling_tex;
     s3dnum_t ceiling_z[4];
@@ -153,6 +152,17 @@ S3DEXP int spew3d_lvlbox_CornerPosToWorldPos(
     s3d_lvlbox *lvlbox, uint32_t chunk_index,
     uint32_t tile_index, int32_t segment_no,
     int corner_no, int at_ceiling, s3d_pos *out_pos
+);
+
+
+S3DEXP int spew3d_lvlbox_edit_CycleTextureAtTileIdx(
+    s3d_lvlbox *lvlbox,
+    uint32_t chunk_index, uint32_t tile_index,
+    int segment_no, int target_wall_no,
+    uint8_t is_targeting_floor,
+    uint8_t is_targeting_ceiling,
+    uint8_t is_targeting_top_wall,
+    uint8_t reverse_cycle
 );
 
 S3DEXP int spew3d_lvlbox_WorldPosToTilePos(
@@ -261,7 +271,12 @@ S3DEXP int spew3d_lvlbox_InteractPosDirToTileCornerOrWall(
     int32_t *out_chunk_x, int32_t *out_chunk_y,
     int32_t *out_tile_x, int32_t *out_tile_y,
     int32_t *out_segment_no, int *out_corner_no,
-    int *out_wall_no
+    int *out_wall_no, uint8_t *out_targets_top_wall
+);
+
+S3DEXP int spew3d_lvlbox_edit_CycleTexturePaint(
+    s3d_lvlbox *lvlbox, s3d_pos paint_pos,
+    s3d_rotation paint_aim, uint8_t reverse_cycle
 );
 
 S3DEXP s3d_lvlbox *spew3d_lvlbox_GetByID(uint64_t id);

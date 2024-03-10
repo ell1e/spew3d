@@ -40,6 +40,7 @@ enum S3DEventKind {
     S3DEV_MOUSE_MOVE,
     S3DEV_MOUSE_BUTTON_DOWN,
     S3DEV_MOUSE_BUTTON_UP,
+    S3DEV_MOUSEWHEEL_SCROLL,
     S3DEV_KEY_DOWN,
     S3DEV_KEY_UP,
 
@@ -62,7 +63,7 @@ enum S3DMouseButton {
     S3DEV_MOUSE_BUTTON_INVALID = 0,
     S3DEV_MOUSE_BUTTON_PRIMARY = 1,
     S3DEV_MOUSE_BUTTON_SECONDARY = 2,
-    S3DEV_MOUSE_BUTTON_MIDDLE = 3,
+    S3DEV_MOUSE_BUTTON_MIDDLE = 3
 };
 
 #define S3DEV_TYPE_IS_INTERNAL(x) \
@@ -86,6 +87,10 @@ typedef struct s3d_event {
                 s3dnum_t x, y;
                 int button;
             } mouse;
+            struct mousewheel {
+                uint32_t win_id;
+                s3dnum_t x, y;
+            } mousewheel;
             struct key {
                 uint32_t win_id;
                 s3d_key_t key;

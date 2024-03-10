@@ -717,7 +717,7 @@ S3DHID int _spew3d_window_HandleSDLEvent(SDL_Event *e) {
             s3d_event e2 = {0};
             e2.kind = (e->type == SDL_MOUSEBUTTONDOWN ?
                 S3DEV_MOUSE_BUTTON_DOWN : S3DEV_MOUSE_BUTTON_UP);
-            e2.mouse.win_id = _last_keyboard_focus_window_id;
+            e2.mouse.win_id = win->id;
             e2.mouse.x = x;
             e2.mouse.y = y;
             e2.mouse.button = S3DEV_MOUSE_BUTTON_PRIMARY;
@@ -745,11 +745,41 @@ S3DHID int _spew3d_window_HandleSDLEvent(SDL_Event *e) {
             mutex_Release(_win_id_mutex);
         }
         return 1;
+    } else if (e->type == SDL_MOUSEWHEEL) {
+        s3d_window *win = spew3d_window_GetBySDLWindowID(
+            e->wheel.windowID
+        );
+        mutex_Lock(_win_id_mutex);
+        if (win != NULL) {
+            if (e->wheel.which == SDL_TOUCH_MOUSEID) {
+                // This is a fake touch device, ignore it.
+                mutex_Release(_win_id_mutex);
+                return 1;
+            }
+            s3dnum_t flipfactor = 1.0;
+            if (e->wheel.direction == SDL_MOUSEWHEEL_FLIPPED) {
+                flipfactor = -1.0;
+            }
+            s3dnum_t x = flipfactor * win->dpiscale *
+                (s3dnum_t)e->wheel.x;
+            s3dnum_t y = flipfactor * win->dpiscale *
+                (s3dnum_t)e->wheel.y;
+            s3d_event e2 = {0};
+            e2.kind = S3DEV_MOUSEWHEEL_SCROLL;
+            e2.mousewheel.win_id = win->id;
+            e2.mousewheel.x = x;
+            e2.mousewheel.y = y;
+            spew3d_event_q_Insert(equser, &e2);
+            mutex_Release(_win_id_mutex);
+        } else {
+            mutex_Release(_win_id_mutex);
+        }
+        return 1;
     } else if (e->type == SDL_FINGERMOTION ||
             e->type == SDL_FINGERDOWN ||
             e->type == SDL_FINGERUP) {
         // Multi touch handling:
-        // FIXME: implement this here.
+        // FIXME: Implement this here, later.
 
         // Fake mouse cursor handling:
         s3d_window *win = spew3d_window_GetBySDLWindowID(
@@ -769,7 +799,7 @@ S3DHID int _spew3d_window_HandleSDLEvent(SDL_Event *e) {
             s3dnum_t y = (s3dnum_t)win->height * e->tfinger.y;
             s3d_event e2 = {0};
             e2.kind = S3DEV_MOUSE_MOVE;
-            e2.mouse.win_id = _last_keyboard_focus_window_id;
+            e2.mouse.win_id = win->id;
             e2.mouse.x = x;
             e2.mouse.y = y;
             if (win->fingerseeninwindow) {
@@ -793,7 +823,7 @@ S3DHID int _spew3d_window_HandleSDLEvent(SDL_Event *e) {
             if (e->type == SDL_FINGERDOWN) {
                 s3d_event e2 = {0};
                 e2.kind = S3DEV_MOUSE_BUTTON_DOWN;
-                e2.mouse.win_id = _last_keyboard_focus_window_id;
+                e2.mouse.win_id = win->id;
                 e2.mouse.x = x;
                 e2.mouse.y = y;
                 e2.mouse.button = S3DEV_MOUSE_BUTTON_PRIMARY;
@@ -801,7 +831,7 @@ S3DHID int _spew3d_window_HandleSDLEvent(SDL_Event *e) {
             } else if (e->type == SDL_FINGERUP) {
                 s3d_event e2 = {0};
                 e2.kind = S3DEV_MOUSE_BUTTON_UP;
-                e2.mouse.win_id = _last_keyboard_focus_window_id;
+                e2.mouse.win_id = win->id;
                 e2.mouse.x = x;
                 e2.mouse.y = y;
                 e2.mouse.button = S3DEV_MOUSE_BUTTON_PRIMARY;
@@ -1203,10 +1233,11 @@ S3DHID void _spew3d_window_WaitForCanvasInfo(s3d_window *win) {
             if (!showedwarning &&
                     spew3d_time_Ticks() > waitstart + 2000) {
                 printf("spew3d_window.c: warning: "
-                    "Stuck waiting for canvas info for more than "
-                    "2 seconds, regarding window with id %d "
-                    "(main thread: %s)\n",
-                    (int)win->id, (thread_InMainThread() ? "yes" : "no"));
+                    "Stuck waiting for canvas info for more "
+                    "than 2 seconds, regarding window with "
+                    "id %d (main thread: %s)\n",
+                    (int)win->id,
+                    (thread_InMainThread() ? "yes" : "no"));
                 showedwarning = 1;
             }
             spew3d_time_Sleep(10);

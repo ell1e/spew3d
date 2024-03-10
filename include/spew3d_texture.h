@@ -47,7 +47,6 @@ typedef struct s3d_texture_info {
     void *_internal;
 } s3d_texture_info;
 
-
 S3DEXP s3d_texture_t spew3d_texture_FromFile(
     const char *path, int vfsflags
 );

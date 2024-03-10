@@ -34,7 +34,8 @@ enum ResourceLoadType {
     RLTYPE_INVALID = 0,
     RLTYPE_IMAGE = 1,
     RLTYPE_LVLBOX = 2,
-    RLTYPE_LVLBOX_STORE = 3
+    RLTYPE_LVLBOX_STORE = 3,
+    RLTYPE_LVLBOX_CYCLETEX = 4
 };
 
 typedef struct s3d_resourceload_result {

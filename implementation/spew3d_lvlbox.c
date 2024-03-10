@@ -29,9 +29,12 @@ license, see accompanied LICENSE.md.
 
 #include <stdint.h>
 
+typedef struct s3d_resourceload_job s3d_resourceload_job;
+
 typedef struct s3d_lvlbox_internal {
     int wasdeleted;
     s3d_mutex *m;
+    s3d_resourceload_job *cycle_tex_job;
 
     char *last_used_tex;
     int last_used_tex_vfsflags;
@@ -98,7 +101,7 @@ S3DHID int _spew3d_lvlbox_InteractPosDirToTileCornerOrWall_nolock(
     int32_t *out_chunk_x, int32_t *out_chunk_y,
     int32_t *out_tile_x, int32_t *out_tile_y,
     int32_t *out_segment_no, int *out_corner_no,
-    int *out_wall_no
+    int *out_wall_no, uint8_t *out_targets_top_wall
 );
 S3DHID int _spew3d_lvlbox_ExpandToPosition_nolock(
     s3d_lvlbox *box, s3d_pos pos
@@ -222,19 +225,397 @@ struct _s3d_lvlbox_edit_texturecyclereq {
     int segment_no;
     char *current_tex_path;
     int target_wall_no;
+    uint8_t reverse_cycle;
     uint8_t is_targeting_floor, is_targeting_ceiling,
         is_targeting_top_wall;
+    int cyclevfsflags;
 };
 
-S3DHID int _spew3d_lvlbox_edit_CycleTextureAtTile_nolock(
+S3DHID void *_spew3d_lvlbox_CycleTexCb(
+        const char *unused_path, int unused_vfsflags,
+        void *extradata) {
+    struct _s3d_lvlbox_edit_texturecyclereq *req = (
+        (struct _s3d_lvlbox_edit_texturecyclereq *)extradata
+    );
+    s3d_lvlbox *lvlbox = spew3d_lvlbox_GetByID(req->lvlbox_gid);
+    if (!lvlbox) {
+        free(req);
+        return (void*)0;
+    }
+
+    mutex_Lock(_lvlbox_Internal(lvlbox)->m);
+    if (req->chunk_index < 0 ||
+            req->chunk_index >= lvlbox->chunk_count ||
+            req->tile_index < 0 ||
+            req->tile_index >= LVLBOX_CHUNK_SIZE *
+            LVLBOX_CHUNK_SIZE) {
+        free(req);
+        mutex_Release(_lvlbox_Internal(lvlbox)->m);
+        return (void*)1;
+    }
+
+    s3d_lvlbox_tile *tile = &(
+        lvlbox->chunk[req->chunk_index].tile[req->tile_index]
+    );
+    if (!tile->occupied || req->segment_no < 0 ||
+            req->segment_no >= tile->segment_count
+            ) {
+        free(req);
+        mutex_Release(_lvlbox_Internal(lvlbox)->m);
+        return (void*)1;
+    }
+
+    char *dir = spew3d_fs_ParentdirOfItem(req->current_tex_path);
+    if (!dir) {
+        free(req);
+        mutex_Release(_lvlbox_Internal(lvlbox)->m);
+        return (void*)0;
+    }
+    int vfsflags = req->cyclevfsflags;
+    char **contents = NULL;
+    int fserr = 0;
+    int listworked = spew3d_vfs_ListFolder(
+        dir, &contents, vfsflags, &fserr
+    );
+    if (!listworked) {
+        free(dir);
+        dir = NULL;
+        free(req);
+        mutex_Release(_lvlbox_Internal(lvlbox)->m);
+        return (void*)0;
+    }
+    assert(contents != NULL);
+
+    // Filter the available dir entries we have for textures:
+    int32_t contents_count = 0;
+    while (contents[contents_count]) {
+        contents_count++;
+    }
+    int32_t i = 0;
+    while (i < contents_count) {
+        char *entry = contents[i];
+        if (strlen(entry) < 4 || (
+                s3dmemcasecmp(entry + strlen(entry) - 4,
+                    ".png", 4) != 0 &&
+                s3dmemcasecmp(entry + strlen(entry) - 4,
+                    ".jpg", 4) != 0 &&
+                s3dmemcasecmp(entry + strlen(entry) - 4,
+                    ".bmp", 4) != 0)) {
+            free(entry);
+            memmove(&contents[i],
+                &contents[i + 1],
+                sizeof(*contents) * (contents_count - i)
+            );
+            contents_count--;
+            continue;
+        }
+        i++;
+    }
+    if (contents_count <= 1) {
+        free(dir);
+        dir = NULL;
+        spew3d_fs_FreeFolderList(contents);
+        free(req);
+        mutex_Release(_lvlbox_Internal(lvlbox)->m);
+        return (void*)1;
+    }
+
+    // Actually pick the new texture:
+    char *new_tex = NULL;
+    i = 0;
+    while (contents[i] != NULL) {
+        char *full_item = spew3d_fs_Join(
+            dir, contents[i]
+        );
+        if (!full_item) {
+            oom_during_dirlist_cmp: ;
+            free(dir);
+            dir = NULL;
+            spew3d_fs_FreeFolderList(contents);
+            free(req);
+            mutex_Release(_lvlbox_Internal(lvlbox)->m);
+            return (void*)0;
+        }
+        int same_result = 0;
+        int cmpworked = spew3d_fs_PathsLookEquivalent(
+            full_item, req->current_tex_path, &same_result
+        );
+        free(full_item);
+        if (!cmpworked)
+            goto oom_during_dirlist_cmp;
+        if (same_result) {
+            int want_idx = i;
+            if (req->reverse_cycle)
+                want_idx--;
+            else
+                want_idx++;
+            if (want_idx >= contents_count) {
+                want_idx = 0;
+            } else if (want_idx < 0) {
+                want_idx = contents_count - 1;
+            }
+            if (want_idx != i) {
+                new_tex = spew3d_fs_Join(dir, contents[want_idx]);
+                if (!new_tex)
+                    goto oom_during_dirlist_cmp;
+                break;
+            } else {
+                spew3d_fs_FreeFolderList(contents);
+                mutex_Release(_lvlbox_Internal(lvlbox)->m);
+                return (void*)1;  // No other texture available.
+            }
+        }
+        i++;
+    }
+    free(dir);
+    dir = NULL;
+    spew3d_fs_FreeFolderList(contents);
+    contents = NULL;
+    if (!new_tex) {
+        free(req);
+        mutex_Release(_lvlbox_Internal(lvlbox)->m);
+        return (void*)0;
+    }
+    char *new_last_used_tex_name = strdup(new_tex);
+    if (!new_last_used_tex_name) {
+        free(req);
+        mutex_Release(_lvlbox_Internal(lvlbox)->m);
+        return (void*)0;
+    }
+    free(_lvlbox_Internal(lvlbox)->last_used_tex);
+    _lvlbox_Internal(lvlbox)->last_used_tex = new_last_used_tex_name;
+    _lvlbox_Internal(lvlbox)->last_used_tex_vfsflags = vfsflags;
+
+    s3d_texture_t new_tex_id = spew3d_texture_FromFile(
+        new_tex, vfsflags
+    );
+    if (new_tex_id == 0) {
+        free(new_tex);
+        free(req);
+        mutex_Release(_lvlbox_Internal(lvlbox)->m);
+        return (void*)0;
+    }
+    if (req->is_targeting_floor) {
+        if (tile->segment[req->segment_no].floor_tex.name) {
+            free(tile->segment[req->segment_no].floor_tex.name);
+        }
+        tile->segment[req->segment_no].floor_tex.name = new_tex;
+        tile->segment[req->segment_no].floor_tex.id = new_tex_id;
+        tile->segment[req->segment_no].cache.is_up_to_date = 0;
+        tile->segment[req->segment_no].cache.flat_normals_set = 0;
+        free(req);
+        mutex_Release(_lvlbox_Internal(lvlbox)->m);
+        return (void*)1;
+    } else if (req->is_targeting_ceiling) {
+        if (tile->segment[req->segment_no].ceiling_tex.name) {
+            free(tile->segment[req->segment_no].ceiling_tex.name);
+        }
+        tile->segment[req->segment_no].ceiling_tex.name = new_tex;
+        tile->segment[req->segment_no].ceiling_tex.id = new_tex_id;
+        tile->segment[req->segment_no].cache.is_up_to_date = 0;
+            tile->segment[req->segment_no].cache.flat_normals_set = 0;
+        free(req);
+        mutex_Release(_lvlbox_Internal(lvlbox)->m);
+        return (void*)1;
+    } else {
+        assert(req->target_wall_no >= 0);
+        if (!req->is_targeting_top_wall) {
+            if (tile->segment[req->segment_no].
+                    wall[req->target_wall_no].tex.name) {
+                free(tile->segment[req->segment_no].
+                    wall[req->target_wall_no].tex.name);
+            }
+            tile->segment[req->segment_no].
+                wall[req->target_wall_no].tex.name = new_tex;
+            tile->segment[req->segment_no].
+                wall[req->target_wall_no].tex.id = new_tex_id;
+            tile->segment[req->segment_no].cache.is_up_to_date = 0;
+            tile->segment[req->segment_no].cache.flat_normals_set = 0;
+            free(req);
+            mutex_Release(_lvlbox_Internal(lvlbox)->m);
+            return (void*)1;
+        } else {
+            if (tile->segment[req->segment_no].
+                    wall[req->target_wall_no].toptex.name) {
+                free(tile->segment[req->segment_no].
+                    wall[req->target_wall_no].toptex.name);
+            }
+            tile->segment[req->segment_no].
+                wall[req->target_wall_no].toptex.name = new_tex;
+            tile->segment[req->segment_no].
+                wall[req->target_wall_no].toptex.id = new_tex_id;
+            tile->segment[req->segment_no].cache.is_up_to_date = 0;
+            tile->segment[req->segment_no].cache.flat_normals_set = 0;
+            free(req);
+            mutex_Release(_lvlbox_Internal(lvlbox)->m);
+            return (void*)1;
+        }
+    }
+}
+
+S3DHID int _spew3d_lvlbox_edit_CycleTextureAtTileIdx_nolock(
         s3d_lvlbox *lvlbox,
         uint32_t chunk_index, uint32_t tile_index,
         int segment_no, int target_wall_no,
         uint8_t is_targeting_floor,
         uint8_t is_targeting_ceiling,
-        uint8_t is_targeting_top_wall
+        uint8_t is_targeting_top_wall,
+        uint8_t reverse_cycle
         ) {
-    return 0;
+    if (segment_no < 0)
+        return 1;
+    if (_lvlbox_Internal(lvlbox)->cycle_tex_job != NULL) {
+        if (s3d_resourceload_IsDone(
+                _lvlbox_Internal(lvlbox)->cycle_tex_job)) {
+            s3d_resourceload_DestroyJob(
+                _lvlbox_Internal(lvlbox)->cycle_tex_job
+            );
+            _lvlbox_Internal(lvlbox)->cycle_tex_job = NULL;
+        } else {
+            return 1;
+        }
+    }
+    struct _s3d_lvlbox_edit_texturecyclereq *req = malloc(
+        sizeof(*req)
+    );
+    if (!req)
+        return 0;
+    memset(req, 0, sizeof(*req));
+
+    assert((is_targeting_floor != 0) +
+        (is_targeting_ceiling != 0) +
+        (is_targeting_top_wall != 0) <= 1);
+    assert(target_wall_no < 0 ||
+        (!is_targeting_floor &&
+        !is_targeting_ceiling));
+    assert(!is_targeting_top_wall || target_wall_no >= 0);
+    if (chunk_index < 0 || chunk_index >= lvlbox->chunk_count ||
+            tile_index < 0 ||
+            tile_index >= LVLBOX_CHUNK_SIZE * LVLBOX_CHUNK_SIZE) {
+        free(req);
+        return 1;
+    }
+
+    s3d_lvlbox_tile *tile = &(
+        lvlbox->chunk[chunk_index].tile[tile_index]
+    );
+    if (!tile->occupied || segment_no < 0 ||
+            segment_no >= tile->segment_count
+            ) {
+        free(req);
+        return 1;
+    }
+    int cyclevfsflags = 0;
+    char *old_tex = NULL;
+    if (is_targeting_floor) {
+        if (tile->segment[segment_no].floor_tex.name) {
+            old_tex = strdup(
+                tile->segment[segment_no].floor_tex.name
+            );
+            cyclevfsflags = (
+                tile->segment[segment_no].floor_tex.vfs_flags
+            );
+            if (!old_tex) {
+                free(req);
+                return 0;
+            }
+        }
+    } else if (is_targeting_ceiling) {
+        if (tile->segment[segment_no].ceiling_tex.name) {
+            old_tex = strdup(
+                tile->segment[segment_no].ceiling_tex.name
+            );
+            cyclevfsflags = (
+                tile->segment[segment_no].ceiling_tex.vfs_flags
+            );
+            if (!old_tex) {
+                free(req);
+                return 0;
+            }
+        }
+    } else {
+        assert(target_wall_no >= 0);
+        if (is_targeting_top_wall) {
+            if (tile->segment[segment_no].
+                    wall[target_wall_no].tex.name) {
+                old_tex = strdup(
+                    tile->segment[segment_no].
+                        wall[target_wall_no].tex.name
+                );
+                cyclevfsflags = (
+                    tile->segment[segment_no].
+                        wall[target_wall_no].tex.vfs_flags
+                );
+                if (!old_tex) {
+                    free(req);
+                    return 0;
+                }
+            }
+        } else {
+            if (tile->segment[segment_no].
+                    wall[target_wall_no].toptex.name) {
+                old_tex = strdup(
+                    tile->segment[segment_no].
+                        wall[target_wall_no].toptex.name
+                );
+                cyclevfsflags = (
+                    tile->segment[segment_no].
+                        wall[target_wall_no].toptex.vfs_flags
+                );
+                if (!old_tex) {
+                    free(req);
+                    return 0;
+                }
+            }
+        }
+    }
+    if (!old_tex) {
+        free(req);
+        return 1;
+    }
+    req->current_tex_path = old_tex;
+    req->lvlbox_gid = lvlbox->gid;
+    req->chunk_index = chunk_index;
+    req->tile_index = tile_index;
+    req->segment_no = segment_no;
+    req->target_wall_no = target_wall_no;
+    req->is_targeting_ceiling = is_targeting_ceiling;
+    req->is_targeting_top_wall = is_targeting_top_wall;
+    req->cyclevfsflags = cyclevfsflags;
+    req->reverse_cycle = reverse_cycle;
+
+    s3d_resourceload_job *job = s3d_resourceload_NewJobWithCallback(
+        NULL, RLTYPE_LVLBOX_CYCLETEX, cyclevfsflags,
+        _spew3d_lvlbox_CycleTexCb, req
+    );
+    if (!job) {
+        free(req->current_tex_path);
+        free(req);
+        return 0;
+    }
+
+    _lvlbox_Internal(lvlbox)->cycle_tex_job = job;
+    return 1;
+}
+
+S3DEXP int spew3d_lvlbox_edit_CycleTextureAtTileIdx(
+        s3d_lvlbox *lvlbox,
+        uint32_t chunk_index, uint32_t tile_index,
+        int segment_no, int target_wall_no,
+        uint8_t is_targeting_floor,
+        uint8_t is_targeting_ceiling,
+        uint8_t is_targeting_top_wall,
+        uint8_t reverse_cycle
+        ) {
+    mutex_Lock(_lvlbox_Internal(lvlbox)->m);
+    int result = _spew3d_lvlbox_edit_CycleTextureAtTileIdx_nolock(
+        lvlbox, chunk_index, tile_index,
+        segment_no, target_wall_no, is_targeting_floor,
+        is_targeting_ceiling, is_targeting_top_wall,
+        reverse_cycle
+    );
+    mutex_Release(_lvlbox_Internal(lvlbox)->m);
+    return result;
 }
 
 S3DHID int _spew3d_lvlbox_GetNeighborTileVertSegment_nolock(
@@ -2966,12 +3347,12 @@ S3DHID int _spew3d_lvlbox_SetFloorOrCeilOrWallTextureAt_nolock(
             tile->segment[segment_no].wall[i].tex.wrapmode =
                 S3D_LVLBOX_TEXWRAP_MODE_DEFAULT;
         } else {
-            tile->segment[segment_no].topwall[i].tex.name =
+            tile->segment[segment_no].wall[i].toptex.name =
                 set_tex_name;
-            tile->segment[segment_no].topwall[i].tex.vfs_flags =
+            tile->segment[segment_no].wall[i].toptex.vfs_flags =
                 vfsflags;
-            tile->segment[segment_no].topwall[i].tex.id = tid;
-            tile->segment[segment_no].topwall[i].tex.wrapmode =
+            tile->segment[segment_no].wall[i].toptex.id = tid;
+            tile->segment[segment_no].wall[i].toptex.wrapmode =
                 S3D_LVLBOX_TEXWRAP_MODE_DEFAULT;
         }
     } else {
@@ -3616,14 +3997,15 @@ S3DEXP int spew3d_lvlbox_InteractPosDirToTileCornerOrWall(
         int32_t *out_chunk_x, int32_t *out_chunk_y,
         int32_t *out_tile_x, int32_t *out_tile_y,
         int32_t *out_segment_no, int *out_corner_no,
-        int *out_wall_no
+        int *out_wall_no, uint8_t *out_top_wall_targeted
         ) {
     mutex_Lock(_lvlbox_Internal(lvlbox)->m);
     int result = _spew3d_lvlbox_InteractPosDirToTileCornerOrWall_nolock(
         lvlbox, interact_pos, interact_rot,
         out_chunk_index, out_tile_index,
         out_chunk_x, out_chunk_y, out_tile_x, out_tile_y,
-        out_segment_no, out_corner_no, out_wall_no
+        out_segment_no, out_corner_no, out_wall_no,
+        out_top_wall_targeted
     );
     mutex_Release(_lvlbox_Internal(lvlbox)->m);
     return result;
@@ -3636,7 +4018,7 @@ S3DHID int _spew3d_lvlbox_InteractPosDirToTileCornerOrWall_nolock(
         int32_t *out_chunk_x, int32_t *out_chunk_y,
         int32_t *out_tile_x, int32_t *out_tile_y,
         int32_t *out_segment_no, int *out_corner_no,
-        int *out_wall_no
+        int *out_wall_no, uint8_t *out_top_wall_targeted
         ) {
     int32_t _chunk_index, _tile_index;
     int32_t _chunk_x, _chunk_y, _tile_x, _tile_y, _segment_no;
@@ -3676,6 +4058,7 @@ S3DHID int _spew3d_lvlbox_InteractPosDirToTileCornerOrWall_nolock(
     if (fabs(interact_rot.verti) > 60) target_wall = 0;
     if (fabs(interact_rot.verti) < 30) target_wall = 1;
 
+    uint8_t top_wall_targeted = 0;
     if (out_chunk_index)
         *out_chunk_index = _chunk_index;
     if (out_tile_index)
@@ -3709,6 +4092,8 @@ S3DHID int _spew3d_lvlbox_InteractPosDirToTileCornerOrWall_nolock(
         }
         if (out_wall_no)
             *out_wall_no = wall_no;
+        if (out_top_wall_targeted)
+            *out_top_wall_targeted = top_wall_targeted;
     } else {
         if (out_corner_no) {
             if (result)
@@ -3718,7 +4103,67 @@ S3DHID int _spew3d_lvlbox_InteractPosDirToTileCornerOrWall_nolock(
         }
         if (out_wall_no)
             *out_wall_no = -1;
+        if (out_top_wall_targeted)
+            *out_top_wall_targeted = 0;
     }
+    return 1;
+}
+
+S3DEXP int spew3d_lvlbox_edit_CycleTexturePaint(
+        s3d_lvlbox *lvlbox, s3d_pos paint_pos,
+        s3d_rotation paint_aim, uint8_t reverse_cycle
+        ) {
+    mutex_Lock(_lvlbox_Internal(lvlbox)->m);
+
+    uint8_t topwallmodifier = 0;
+    int32_t chunk_index, tile_index, segment_no;
+    int32_t chunk_x, chunk_y, tile_x, tile_y;
+    int corner_no, wall_no;
+    int result = (
+        _spew3d_lvlbox_InteractPosDirToTileCornerOrWall_nolock(
+            lvlbox, paint_pos, paint_aim,
+            &chunk_index, &tile_index, &chunk_x, &chunk_y,
+            &tile_x, &tile_y, &segment_no, &corner_no, &wall_no,
+            &topwallmodifier
+        )
+    );
+    if (!result) {
+        #if defined(DEBUG_SPEW3D_LVLBOX)
+        printf("spew3d_lvlbox.c: debug: lvlbox %p "
+            "S3DHID int spew3d_lvlbox_edit_PaintCycleTexture(): "
+            "Not aiming at anything, with "
+            "paint_pos x/y/z=%f/%f/%f "
+            "paint_aim hori/verti/roll=%f/%f/%f "
+            "input.\n",
+            lvlbox, (double)paint_pos.x, (double)paint_pos.y,
+            (double)paint_pos.z, (double)paint_aim.hori,
+            (double)paint_aim.verti,
+            (double)paint_aim.roll
+        );
+        #endif
+        mutex_Release(_lvlbox_Internal(lvlbox)->m);
+        return 1;
+    }
+    #if defined(DEBUG_SPEW3D_LVLBOX)
+    printf("spew3d_lvlbox.c: debug: lvlbox %p "
+        "S3DHID int spew3d_lvlbox_edit_PaintCycleTexture(): "
+        "Aiming at item and doing cycle, with "
+        "paint_pos x/y/z=%f/%f/%f "
+        "paint_aim hori/verti/roll=%f/%f/%f "
+        "input.\n",
+        lvlbox, (double)paint_pos.x, (double)paint_pos.y,
+        (double)paint_pos.z, (double)paint_aim.hori,
+        (double)paint_aim.verti,
+        (double)paint_aim.roll
+    );
+    #endif
+    result = _spew3d_lvlbox_edit_CycleTextureAtTileIdx_nolock(
+        lvlbox, chunk_index, tile_index, segment_no,
+        wall_no, (wall_no < 0 && paint_aim.verti < 0),
+        (wall_no < 0 && paint_aim.verti >= 0),
+        topwallmodifier, reverse_cycle
+    );
+    mutex_Release(_lvlbox_Internal(lvlbox)->m);
     return 1;
 }
 
@@ -3728,7 +4173,7 @@ S3DHID int spew3d_lvlbox_edit_PaintLastUsedTextureEx(
         ) {
     mutex_Lock(_lvlbox_Internal(lvlbox)->m);
 
-    int topwallmodifier = 0;  // FIXME, determine this from paint angle.
+    uint8_t topwallmodifier = 0;
     const char *paint_name = "grass01.png";
     int paint_vfsflags = 0;
     if (_lvlbox_Internal(lvlbox)->last_used_tex) {
@@ -3743,7 +4188,8 @@ S3DHID int spew3d_lvlbox_edit_PaintLastUsedTextureEx(
     int result = _spew3d_lvlbox_InteractPosDirToTileCornerOrWall_nolock(
         lvlbox, paint_pos, paint_aim,
         &chunk_index, &tile_index, &chunk_x, &chunk_y,
-        &tile_x, &tile_y, &segment_no, &corner_no, &wall_no
+        &tile_x, &tile_y, &segment_no, &corner_no, &wall_no,
+        &topwallmodifier
     );
     if (!result) {
         #if defined(DEBUG_SPEW3D_LVLBOX)
