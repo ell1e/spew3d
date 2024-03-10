@@ -37,6 +37,10 @@ typedef struct s3d_lvlbox_internal {
     int last_used_tex_vfsflags;
 } s3d_lvlbox_internal;
 
+static s3d_mutex *_global_lvlbox_list_mutex = NULL;
+static s3d_lvlbox **_global_lvlbox_list = NULL;
+static int _global_lvlbox_list_fill = 0;
+
 S3DHID int spew3d_lvlbox_TryUpdateTileCache_nolock(
     s3d_lvlbox *lvlbox,
     uint32_t chunk_index, uint32_t tile_index
@@ -124,6 +128,18 @@ S3DHID static s3d_lvlbox_internal *_lvlbox_Internal(
     return (s3d_lvlbox_internal *)lvlbox->_internal;
 }
 
+S3DHID __attribute__((constructor)) static void
+        _spew3d_lvlbox_mutex_init() {
+    if (_global_lvlbox_list_mutex != NULL)
+        return;
+    _global_lvlbox_list_mutex = mutex_Create();
+    if (!_global_lvlbox_list_mutex) {
+        fprintf(stderr, "spew3d_lvlbox.c: error: FATAL ERROR, "
+            "FAILED TO CREATE LVLBOX GLOBAL LIST MUTEX.\n");
+        _exit(1);
+    }
+}
+
 S3DHID static void _spew3d_lvlbox_FreeTileCacheContents(
         s3d_lvlbox_tilecache *cache
         ) {
@@ -197,6 +213,28 @@ S3DHID void _spew3d_lvlbox_TileAndChunkIndexToPos_nolock(
         }
         *out_tile_lower_end_corner = pos;
     }
+}
+
+struct _s3d_lvlbox_edit_texturecyclereq {
+    uint64_t lvlbox_gid;
+    uint32_t chunk_index;
+    uint32_t tile_index;
+    int segment_no;
+    char *current_tex_path;
+    int target_wall_no;
+    uint8_t is_targeting_floor, is_targeting_ceiling,
+        is_targeting_top_wall;
+};
+
+S3DHID int _spew3d_lvlbox_edit_CycleTextureAtTile_nolock(
+        s3d_lvlbox *lvlbox,
+        uint32_t chunk_index, uint32_t tile_index,
+        int segment_no, int target_wall_no,
+        uint8_t is_targeting_floor,
+        uint8_t is_targeting_ceiling,
+        uint8_t is_targeting_top_wall
+        ) {
+    return 0;
 }
 
 S3DHID int _spew3d_lvlbox_GetNeighborTileVertSegment_nolock(
@@ -518,6 +556,16 @@ S3DHID static void _spew3d_lvlbox_ActuallyDestroy(
         return;
 
     uint32_t i = 0;
+    mutex_Lock(_global_lvlbox_list_mutex);
+    while (i < _global_lvlbox_list_fill) {
+        if (_global_lvlbox_list[i] == lvlbox) {
+            _global_lvlbox_list[i] = NULL;
+            if (i + 1 >= _global_lvlbox_list_fill)
+                _global_lvlbox_list_fill--;
+        }
+        i++;
+    }
+    mutex_Release(_global_lvlbox_list_mutex);
     while (i < lvlbox->chunk_count) {
         _spew3d_lvlbox_FreeChunkContents(&lvlbox->chunk[i]);
         i++;
@@ -2617,7 +2665,55 @@ S3DEXP s3d_lvlbox *spew3d_lvlbox_New(
             LVLBOX_CHUNK_SIZE);
         #endif
     }
+    assert(_global_lvlbox_list_mutex != NULL);
+    mutex_Lock(_global_lvlbox_list_mutex);
+    s3d_lvlbox **new_list = realloc(_global_lvlbox_list,
+        sizeof(*new_list) * (_global_lvlbox_list_fill + 1));
+    if (!new_list) {
+        _spew3d_lvlbox_ActuallyDestroy(lvlbox);
+        mutex_Release(_global_lvlbox_list_mutex);
+        return NULL;
+    }
+    _global_lvlbox_list = new_list;
+    uint64_t gid = 1;
+    int k = 0;
+    while (k < _global_lvlbox_list_fill) {
+        if (_global_lvlbox_list[k] != NULL) {
+            if (_global_lvlbox_list[k]->gid >= gid) {
+                gid = _global_lvlbox_list[k]->gid + 1;
+            }
+        }
+        k++;
+    }
+    lvlbox->gid = gid;
+    _global_lvlbox_list[_global_lvlbox_list_fill] = lvlbox;
+    _global_lvlbox_list_fill++;
+    mutex_Release(_global_lvlbox_list_mutex);
     return lvlbox;
+}
+
+S3DEXP s3d_lvlbox *spew3d_lvlbox_GetByID(uint64_t id) {
+    mutex_Lock(_global_lvlbox_list_mutex);
+    s3d_lvlbox *result = NULL;
+    int k = 0;
+    while (k < _global_lvlbox_list_fill) {
+        if (_global_lvlbox_list[k] != NULL &&
+                _global_lvlbox_list[k]->gid == id) {
+            result = _global_lvlbox_list[k];
+            break;
+        }
+        k++;
+    }
+    mutex_Release(_global_lvlbox_list_mutex);
+    return result;
+}
+
+S3DEXP uint64_t spew3d_lvlbox_GetID(s3d_lvlbox *lvlbox) {
+    // XXX Note: We probably don't need to lock it here,
+    // since changing the ID during the lifetime of a lvlbox
+    // shouldn't be allowed.
+    uint64_t id = lvlbox->gid;
+    return id;
 }
 
 S3DEXP int spew3d_lvlbox_SetFloorTextureAt(

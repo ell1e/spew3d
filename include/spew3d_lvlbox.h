@@ -37,9 +37,8 @@ typedef uint64_t s3d_texture_t;
 
 enum Spew3dLvlboxTexwrapMode {
     S3D_LVLBOX_TEXWRAP_MODE_DEFAULT = 0,
-    S3D_LVLBOX_TEXWRAP_MODE_NORMAL = 1,
-    S3D_LVLBOX_TEXWRAP_MODE_PINNEDBOTTOM = 2,
-    S3D_LVLBOX_TEXWRAP_MODE_PINNEDTOP = 3,
+    S3D_LVLBOX_TEXWRAP_MODE_AUTO = 1,
+    S3D_LVLBOX_TEXWRAP_MODE_CUBIC = 3,
     S3D_LVLBOX_TEXWRAP_MODE_STRETCHED = 4
 };
 
@@ -123,6 +122,7 @@ typedef struct s3d_lvlbox_chunk {
 } s3d_lvlbox_chunk;
 
 typedef struct s3d_lvlbox {
+    uint64_t gid;
     s3d_pos offset;
 
     s3d_lvlbox_chunk *chunk;
@@ -263,6 +263,10 @@ S3DEXP int spew3d_lvlbox_InteractPosDirToTileCornerOrWall(
     int32_t *out_segment_no, int *out_corner_no,
     int *out_wall_no
 );
+
+S3DEXP s3d_lvlbox *spew3d_lvlbox_GetByID(uint64_t id);
+
+S3DEXP uint64_t spew3d_lvlbox_GetID(s3d_lvlbox *lvlbox);
 
 #endif  // SPEW3D_LVLBOX_H_
 

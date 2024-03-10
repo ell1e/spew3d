@@ -63,6 +63,12 @@ typedef struct s3d_point s3d_point;
 /// Get ID from window;
 S3DEXP uint32_t spew3d_window_GetID(s3d_window *w);
 
+/// Get the window backend:
+S3DEXP s3d_backend_windowing *spew3d_window_GetBackend(
+    s3d_window *w,
+    s3d_backend_windowing_wininfo **out_backend_winfo
+);
+
 /// Get back a window by ID.
 S3DEXP s3d_window *spew3d_window_GetByID(uint32_t id);
 

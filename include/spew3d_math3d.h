@@ -47,7 +47,7 @@ typedef struct s3d_rotation {
 } s3d_rotation;
 
 typedef struct s3d_color {
-    s3dnum_t red, green, blue;
+    s3dnum_t red, green, blue, alpha;
 } s3d_color;
 
 static inline void spew3d_math3d_add(

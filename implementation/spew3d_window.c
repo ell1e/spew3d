@@ -247,6 +247,15 @@ S3DHID static s3d_window *spew3d_window_NewExEx(
     return win;
 }
 
+S3DEXP s3d_backend_windowing *spew3d_window_GetBackend(
+        s3d_window *w,
+        s3d_backend_windowing_wininfo **out_backend_winfo
+        ) {
+    if (out_backend_winfo != NULL)
+        *out_backend_winfo = w->backend_winfo;
+    return w->backend;
+}
+
 S3DEXP uint32_t spew3d_window_GetID(s3d_window *w) {
     return w->id;
 }

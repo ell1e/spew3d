@@ -88,6 +88,184 @@ S3DHID void _s3d_sdl_SetMouseGrabInvisibleRelative(
     SDL_ShowCursor(SDL_DISABLE);
 }
 
+S3DHID int _s3d_sdl_DrawSpriteAtPixels(
+        s3d_backend_windowing *backend, s3d_window *win,
+        s3d_backend_windowing_wininfo *_backend_winfo,
+        s3d_backend_windowing_gputex *gputex,
+        int32_t x, int32_t y, s3dnum_t scale, s3dnum_t angle,
+        s3dnum_t tint_red, s3dnum_t tint_green, s3dnum_t tint_blue,
+        s3dnum_t transparency, int centered,
+        int withalphachannel
+        ) {
+    s3d_backend_windowing_wininfo_sdl2 *backend_winfo = (
+        (s3d_backend_windowing_wininfo_sdl2 *)_backend_winfo
+    );
+    SDL_Renderer *renderer = backend_winfo->sdl_renderer;
+    SDL_Window *sdlwin = backend_winfo->sdl_win;
+    SDL_Texture *tex = (SDL_Texture *)gputex;
+
+    assert(backend_winfo != NULL);
+    assert(renderer != NULL);
+
+    if (!tex) {
+        return 1;
+    }
+    uint32_t texwidth, texheight;
+    if (SDL_QueryTexture(tex, NULL, NULL, &texwidth, &texheight) != 0) {
+        assert(0);
+        return 0;
+    }
+
+    double transparency_dbl = transparency;
+    if (transparency_dbl < (1.0 / 256.0) * 0.5) {
+        return 1;
+    }
+
+    uint8_t old_r, old_g, old_b, old_a;
+    if (SDL_GetRenderDrawColor(renderer,
+            &old_r, &old_g, &old_b, &old_a) != 0) {
+        return 1;
+    }
+    uint8_t draw_r = fmax(0, fmin(255, (double)tint_red * 256.0));
+    uint8_t draw_g = fmax(0, fmin(255, (double)tint_green * 255.0));
+    uint8_t draw_b = fmax(0, fmin(255, (double)tint_blue * 255.0));
+    uint8_t draw_a = fmax(0, fmin(255, transparency_dbl * 255.0));
+    if (draw_a <= 0)
+        return 1;
+    if (SDL_SetRenderDrawColor(renderer,
+            draw_r, draw_g, draw_b, draw_a) != 0 ||
+            SDL_SetRenderDrawBlendMode(renderer,
+            SDL_BLENDMODE_BLEND) != 0) {
+        return 1;
+    }
+    SDL_Rect r = {0};
+    r.x = x - (centered ?
+        ((int32_t)((double)texwidth * scale) / 2) : 0);
+    r.y = y - (centered ?
+        ((int32_t)((double)texheight * scale) / 2) : 0);
+    r.w = round((double)texwidth * scale);
+    r.h = round((double)texheight * scale);
+    SDL_SetRenderDrawBlendMode(renderer,
+        SDL_BLENDMODE_BLEND);
+    if (SDL_RenderCopyEx(renderer, tex, NULL, &r,
+            -angle, NULL, SDL_FLIP_NONE) != 0)
+        return 1;
+    if (SDL_SetRenderDrawColor(renderer,
+            old_r, old_g, old_b, old_a) != 0)
+        return 1;
+    return 1;
+}
+
+S3DHID void _s3d_sdl_DestroyGPUTexture(
+        s3d_backend_windowing *backend, s3d_window *win,
+        s3d_backend_windowing_wininfo *backend_winfo,
+        s3d_backend_windowing_gputex *tex
+        ) {
+    SDL_Texture *sdltex = (SDL_Texture *)tex;
+    SDL_DestroyTexture(sdltex);
+}
+
+S3DHID s3d_backend_windowing_gputex *_s3d_sdl_CreateGPUTexture(
+        s3d_backend_windowing *backend, s3d_window *win,
+        s3d_backend_windowing_wininfo *_backend_winfo,
+        void *pixel_rgba_data, uint32_t w, uint32_t h,
+        int set_alpha_solid
+        ) {
+    s3d_backend_windowing_wininfo_sdl2 *backend_winfo =
+        (s3d_backend_windowing_wininfo_sdl2 *)_backend_winfo;
+    SDL_Renderer *renderer = backend_winfo->sdl_renderer;
+    SDL_Window *sdlwin = backend_winfo->sdl_win;
+
+    SDL_Surface *s = SDL_CreateRGBSurfaceFrom(
+        pixel_rgba_data, w, h,
+        32, w * 4, 0x000000ff,
+        0x0000ff00, 0x00ff0000,
+        0xff000000
+    );
+    if (!s)
+        return 0;
+    if (set_alpha_solid) {
+        SDL_LockSurface(s);
+        uint32_t pitch = s->pitch;
+        uint8_t *p = (uint8_t *)s->pixels;
+        const uint32_t p2end_offset = s->w *4;
+        uint32_t y = 0;
+        while (y < s->h) {
+            uint8_t *p2 = p;
+            uint8_t *p2end = p2 + p2end_offset;
+            while (p2 != p2end) {
+                p2[3] = 255;
+                p2 += 4;
+            }
+            p += pitch;
+            y++;
+        }
+        SDL_UnlockSurface(s);
+    }
+    SDL_SetHintWithPriority(SDL_HINT_RENDER_SCALE_QUALITY, "0",
+        SDL_HINT_OVERRIDE);
+    SDL_Texture *tex = SDL_CreateTextureFromSurface(
+        renderer, s
+    );
+    SDL_FreeSurface(s);
+    #if defined(DEBUG_SPEW3D_TEXTURE)
+    fprintf(stderr,
+        "spew3d_backend_windowing_sdl.c: debug: "
+        "_s3d_sdl_CreateGPUTexture(): "
+        "Created GPU texture SDL_Texture*==%p\n",
+        tex);
+    #endif
+    return (s3d_backend_windowing_gputex *)tex;
+}
+
+S3DHID int _s3d_sdl_DrawPolygonAtPixels(
+        s3d_backend_windowing *backend, s3d_window *win,
+        s3d_backend_windowing_wininfo *_backend_winfo,
+        s3d_backend_windowing_gputex *tex,
+        s3d_pos *vertices, s3d_point *tex_points,
+        s3d_color *colors
+        ) {
+    s3d_backend_windowing_wininfo_sdl2 *backend_winfo =
+        (s3d_backend_windowing_wininfo_sdl2 *)_backend_winfo;
+    SDL_Renderer *renderer = backend_winfo->sdl_renderer;
+    SDL_Window *sdlwin = backend_winfo->sdl_win;
+    assert(backend_winfo != NULL);
+    assert(renderer != NULL);
+
+    SDL_Vertex vertex_1 = {
+        {vertices[0].y, vertices[0].z},
+        {255.0 * colors[0].red, 255.0 * colors[0].red,
+         255.0 * colors[0].blue, 255.0 * colors[0].alpha},
+        {tex_points[0].x, tex_points[0].y}
+    };
+    SDL_Vertex vertex_2 = {
+        {vertices[1].y, vertices[1].z},
+        {255.0 * colors[1].red, 255.0 * colors[1].red,
+         255.0 * colors[1].blue, 255.0 * colors[1].alpha},
+        {tex_points[1].x, tex_points[1].y}
+    };
+    SDL_Vertex vertex_3 = {
+        {vertices[2].y, vertices[2].z},
+        {255.0 * colors[2].red, 255.0 * colors[2].red,
+         255.0 * colors[2].blue, 255.0 * colors[2].alpha},
+        {tex_points[2].x, tex_points[2].y}
+    };
+    SDL_Vertex sdlvertices[] = {
+        vertex_1,
+        vertex_2,
+        vertex_3
+    };
+    if (SDL_SetRenderDrawColor(renderer,
+            255, 255, 255, 255) != 0 ||
+            SDL_SetRenderDrawBlendMode(renderer,
+            SDL_BLENDMODE_BLEND) != 0) {
+        return 0;
+    }
+    SDL_RenderGeometry(renderer,
+        (SDL_Texture *)tex, sdlvertices, 3, NULL, 0);
+    return 1;
+}
+
 S3DHID int _s3d_sdl_CreateWinObj(
         s3d_backend_windowing *backend, s3d_window *win,
         s3d_backend_windowing_wininfo *_backend_winfo,
@@ -204,6 +382,7 @@ S3DHID __attribute__((constructor)) static void _init_sdl2_backend() {
     if (b) {
         memset(b, 0, sizeof(*b));
         b->kind = S3D_BACKEND_WINDOWING_SDL;
+
         b->CreateWinInfo = _s3d_sdl_CreateWinInfo;
         b->WarpMouse = _s3d_sdl_WarpMouse;
         b->DestroyWinInfo = _s3d_sdl_DestroyWinInfo;
@@ -215,6 +394,13 @@ S3DHID __attribute__((constructor)) static void _init_sdl2_backend() {
             _s3d_sdl_SetMouseGrabConstrained;
         b->SetMouseGrabInvisibleRelative =
             _s3d_sdl_SetMouseGrabInvisibleRelative;
+
+        b->supports_gpu_textures = 1;
+        b->CreateGPUTexture = _s3d_sdl_CreateGPUTexture;
+        b->DestroyGPUTexture = _s3d_sdl_DestroyGPUTexture;
+        b->DrawSpriteAtPixels = _s3d_sdl_DrawSpriteAtPixels;
+        b->DrawPolygonAtPixels = _s3d_sdl_DrawPolygonAtPixels;
+
         _singleton_sdl_backend = b;
     }
     if (_singleton_sdl_backend == NULL) {

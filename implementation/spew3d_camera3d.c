@@ -78,11 +78,10 @@ typedef struct s3d_camdata {
     s3d_sortstructcache *_render_sort_cache;
 } s3d_camdata;
 
-#ifndef SPEW3D_OPTION_DISABLE_SDL
-S3DHID SDL_Texture *_internal_spew3d_MainThreadOnly_GetTex_nolock(
-    s3d_window *win, s3d_texture_t tex, int withalphachannel
-);
-#endif
+S3DHID s3d_backend_windowing_gputex *
+    _internal_spew3d_MainThreadOnly_GetGPUTex_nolock(
+        s3d_window *win, s3d_texture_t tex, int withalphachannel
+    );;
 S3DHID s3d_scenecolorinfo spew3d_scene3d_GetColorInfo_nolock(
     s3d_scene3d *sc
 );
@@ -788,8 +787,10 @@ S3DHID int _spew3d_camera3d_ProcessDrawToWindowReq(
         "SDL2 render of geometry, "
         "polygon queue length: %d\n", polybuf_fill);
     #endif
-    SDL_SetRenderDrawColor(render, 255, 255, 255, 255);
-    SDL_SetRenderDrawBlendMode(render, SDL_BLENDMODE_BLEND);
+    s3d_backend_windowing_wininfo *backend_winfo;
+    s3d_backend_windowing *backend = spew3d_window_GetBackend(
+        win, &backend_winfo
+    );
     i = 0;
     while (i < polybuf_fill) {
         // If the polygon is too far behind the camera, clip it:
@@ -799,33 +800,24 @@ S3DHID int _spew3d_camera3d_ProcessDrawToWindowReq(
         }
 
         s3d_renderpolygon *p = &polybuf[i];
-        SDL_Vertex vertex_1 = {
-            {p->vertex_pos_pixels[0].y,
-             p->vertex_pos_pixels[0].z},
-            {255, 255, 255, 255},
-            {p->vertex_texcoord[0].x, p->vertex_texcoord[0].y}
-        };
-        SDL_Vertex vertex_2 = {
-            {p->vertex_pos_pixels[1].y,
-             p->vertex_pos_pixels[1].z},
-            {255, 255, 255, 255},
-            {p->vertex_texcoord[1].x, p->vertex_texcoord[1].y}
-        };
-        SDL_Vertex vertex_3 = {
-            {p->vertex_pos_pixels[2].y,
-             p->vertex_pos_pixels[2].z},
-            {255, 255, 255, 255},
-            {p->vertex_texcoord[2].x, p->vertex_texcoord[2].y}
-        };
-        SDL_Vertex vertices[] = {
-            vertex_1,
-            vertex_2,
-            vertex_3
-        };
-        SDL_Texture *tex = NULL;
+        s3d_color colors[3] = {0};
+        colors[0].red = 1.0;
+        colors[0].green = 1.0;
+        colors[0].blue = 1.0;
+        colors[0].alpha = 1.0;
+        colors[1].red = 1.0;
+        colors[1].green = 1.0;
+        colors[1].blue = 1.0;
+        colors[1].alpha = 1.0;
+        colors[2].red = 1.0;
+        colors[2].green = 1.0;
+        colors[2].blue = 1.0;
+        colors[2].alpha = 1.0;
+
+        s3d_backend_windowing_gputex *tex = NULL;
         if (p->polygon_texture != 0) {
             mutex_Lock(_texlist_mutex);
-            tex = _internal_spew3d_MainThreadOnly_GetTex_nolock(
+            tex = _internal_spew3d_MainThreadOnly_GetGPUTex_nolock(
                 win, p->polygon_texture, 1
             );
             mutex_Release(_texlist_mutex);
@@ -833,7 +825,12 @@ S3DHID int _spew3d_camera3d_ProcessDrawToWindowReq(
                 // FIXME: Do we want some placeholder graphics here?
             }
         }
-        SDL_RenderGeometry(render, tex, vertices, 3, NULL, 0);
+        backend->DrawPolygonAtPixels(
+            backend, win, backend_winfo,
+            tex, &p->vertex_pos_pixels[0],
+            &p->vertex_texcoord[0],
+            (s3d_color *)colors
+        );
         i++;
     }
     #else

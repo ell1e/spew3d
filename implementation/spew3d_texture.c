@@ -62,12 +62,14 @@ typedef struct spew3d_texture_extrainfo {
 
     char *pixels;
     uint32_t width, height;
-    int forcenosdl;
+    int forcenogpu;
     uint64_t last_use_ts;
 
-    #ifndef SPEW3D_OPTION_DISABLE_SDL
-    SDL_Texture *sdltexture_alpha, *sdltexture_noalpha;
-    #endif
+    s3d_backend_windowing_gputex *gputexture_alpha,
+        *gputexture_noalpha;
+    s3d_backend_windowing *gpubackend;
+    s3d_window *gpubackend_window;
+    s3d_backend_windowing_wininfo *gpubackend_backend_winfo;
 } spew3d_texture_extrainfo;
 
 static char *_internal_tex_get_buf = NULL;
@@ -214,11 +216,10 @@ static int _internal_spew3d_ForceLoadTexture(s3d_texture_t tid) {
     return 0;
 }
 
-#ifndef SPEW3D_OPTION_DISABLE_SDL
 S3DHID int _internal_spew3d_TextureToGPU(
         s3d_window *win,
         s3d_texture_t tid, int alpha,
-        SDL_Texture **out_tex
+        s3d_backend_windowing_gputex **out_tex
         ) {
     assert(mutex_IsLocked(_texlist_mutex));
     if (!_internal_spew3d_ForceLoadTexture(tid))
@@ -235,71 +236,46 @@ S3DHID int _internal_spew3d_TextureToGPU(
     if (extrainfo->loadingjob != NULL)
         return 0;
 
-    if (extrainfo->forcenosdl)
+    s3d_backend_windowing *backend;
+    s3d_backend_windowing_wininfo *backend_winfo;
+    backend = spew3d_window_GetBackend(win, &backend_winfo);
+
+    if (extrainfo->forcenogpu ||
+            !backend->supports_gpu_textures
+            )
         return 1;
 
-    SDL_Renderer *renderer = NULL;
-    spew3d_window_GetSDLWindowAndRenderer(
-        win, NULL, &renderer
-    );
-    if (alpha && extrainfo->sdltexture_alpha) {
-        *out_tex = extrainfo->sdltexture_alpha;
+    if (alpha && extrainfo->gputexture_alpha) {
+        *out_tex = extrainfo->gputexture_alpha;
         return 1;
-    } else if (!alpha && extrainfo->sdltexture_noalpha) {
-        *out_tex = extrainfo->sdltexture_noalpha;
+    } else if (!alpha && extrainfo->gputexture_noalpha) {
+        *out_tex = extrainfo->gputexture_noalpha;
         return 1;
     }
 
-    SDL_Surface *s = SDL_CreateRGBSurfaceFrom(
-        extrainfo->pixels, extrainfo->width,
-        extrainfo->height,
-        32, extrainfo->width * 4, 0x000000ff,
-        0x0000ff00, 0x00ff0000,
-        0xff000000
+    s3d_backend_windowing_gputex *tex = (
+        backend->CreateGPUTexture(
+            backend, win, backend_winfo,
+            extrainfo->pixels, extrainfo->width,
+            extrainfo->height, !alpha
+        )
     );
-    if (!s)
+    if (!tex)
         return 0;
-    if (!alpha) {
-        SDL_LockSurface(s);
-        uint32_t pitch = s->pitch;
-        uint8_t *p = (uint8_t *)s->pixels;
-        const uint32_t p2end_offset = s->w *4;
-        uint32_t y = 0;
-        while (y < s->h) {
-            uint8_t *p2 = p;
-            uint8_t *p2end = p2 + p2end_offset;
-            while (p2 != p2end) {
-                p2[3] = 255;
-                p2 += 4;
-            }
-            p += pitch;
-            y++;
-        }
-        SDL_UnlockSurface(s);
-    }
-    SDL_SetHintWithPriority(SDL_HINT_RENDER_SCALE_QUALITY, "0",
-        SDL_HINT_OVERRIDE);
+    extrainfo->gpubackend = backend;
+    extrainfo->gpubackend_window = win;
+    extrainfo->gpubackend_backend_winfo = backend_winfo;
     if (alpha) {
-        extrainfo->sdltexture_alpha = SDL_CreateTextureFromSurface(
-            renderer, s
-        );
-        SDL_FreeSurface(s);
-        if (!extrainfo->sdltexture_alpha)
-            return 0;
-        *out_tex = extrainfo->sdltexture_alpha;
+        extrainfo->gputexture_alpha = tex;
+        *out_tex = extrainfo->gputexture_alpha;
         return 1;
     } else {
-        extrainfo->sdltexture_noalpha = SDL_CreateTextureFromSurface(
-            renderer, s
-        );
-        SDL_FreeSurface(s);
-        if (!extrainfo->sdltexture_noalpha)
-            return 0;
-        *out_tex = extrainfo->sdltexture_noalpha;
+        extrainfo->gputexture_noalpha = tex;
+        *out_tex = extrainfo->gputexture_noalpha;
         return 1;
     }
+    return 0;
 }
-#endif  // #ifndef SPEW3D_OPTION_DISABLE_SDL
 
 S3DEXP const char *spew3d_texture_GetReadonlyPixels(
         s3d_texture_t tid
@@ -372,16 +348,24 @@ S3DHID int _spew3d_window_ProcessTexLockPixelsReq(s3d_event *ev) {
     assert(!einfo->editlocked);
     #endif
     einfo->editlocked = 0;
-    #ifndef SPEW3D_OPTION_DISABLE_SDL
-    if (einfo->sdltexture_alpha) {
-        SDL_DestroyTexture(einfo->sdltexture_alpha);
-        einfo->sdltexture_alpha = NULL;
+    if (einfo->gputexture_alpha) {
+        einfo->gpubackend->DestroyGPUTexture(
+            einfo->gpubackend,
+            einfo->gpubackend_window,
+            einfo->gpubackend_backend_winfo,
+            einfo->gputexture_alpha
+        );
+        einfo->gputexture_alpha = NULL;
     }
-    if (einfo->sdltexture_noalpha) {
-        SDL_DestroyTexture(einfo->sdltexture_noalpha);
-        einfo->sdltexture_noalpha = NULL;
+    if (einfo->gputexture_noalpha) {
+        einfo->gpubackend->DestroyGPUTexture(
+            einfo->gpubackend,
+            einfo->gpubackend_window,
+            einfo->gpubackend_backend_winfo,
+            einfo->gputexture_noalpha
+        );
+        einfo->gputexture_noalpha = NULL;
     }
-    #endif
     return 1;
 }
 
@@ -704,8 +688,8 @@ S3DEXP int spew3d_texture_DrawAtCanvasPixels(
     return spew3d_event_q_Insert(_spew3d_event_GetInternalQueue(), &e);
 }
 
-#ifndef SPEW3D_OPTION_DISABLE_SDL
-S3DHID SDL_Texture *_internal_spew3d_MainThreadOnly_GetTex_nolock(
+S3DHID s3d_backend_windowing_gputex *
+        _internal_spew3d_MainThreadOnly_GetGPUTex_nolock(
         s3d_window *win, s3d_texture_t tex, int withalphachannel
         ) {
     assert(mutex_IsLocked(_texlist_mutex));
@@ -715,9 +699,9 @@ S3DHID SDL_Texture *_internal_spew3d_MainThreadOnly_GetTex_nolock(
     );
     if (!_internal_spew3d_ForceLoadTexture(tex))
         return NULL;
-    SDL_Texture *sdltex = NULL;
+    s3d_backend_windowing_gputex *gputex = NULL;
     int gpuupload = _internal_spew3d_TextureToGPU(
-        win, tex, withalphachannel, &sdltex
+        win, tex, withalphachannel, &gputex
     );
     if (gpuupload == 0) {
         tinfo->loadingfailed = 1;
@@ -730,9 +714,8 @@ S3DHID SDL_Texture *_internal_spew3d_MainThreadOnly_GetTex_nolock(
         #endif
         return NULL;
     }
-    return sdltex;
+    return gputex;
 }
-#endif
 
 S3DHID int _spew3d_texture_ProcessSpriteDrawReq(s3d_event *e) {
     assert(mutex_IsLocked(_texlist_mutex));
@@ -754,15 +737,15 @@ S3DHID int _spew3d_texture_ProcessSpriteDrawReq(s3d_event *e) {
     spew3d_texture_extrainfo *extrainfo = (
         spew3d_extrainfo(tid)
     );
+    s3d_backend_windowing_wininfo *backend_winfo;
+    s3d_backend_windowing *backend = spew3d_window_GetBackend(
+        win, &backend_winfo
+    );
     if (!_internal_spew3d_ForceLoadTexture(tid))
         return 1;
 
-    if (
-            #ifndef SPEW3D_OPTION_DISABLE_SDL
-            extrainfo->forcenosdl
-            #else
-            1
-            #endif
+    if (extrainfo->forcenogpu ||
+            !backend->supports_gpu_textures
             ) {
         if (transparency < (1.0 / 256.0) * 0.5)
             return 1;
@@ -770,57 +753,23 @@ S3DHID int _spew3d_texture_ProcessSpriteDrawReq(s3d_event *e) {
         // FIXME: implement this, the no SDL2 render path.
         return 1;
     }
-    #ifndef SPEW3D_OPTION_DISABLE_SDL
-    SDL_Renderer *renderer = NULL;
-    spew3d_window_GetSDLWindowAndRenderer(
-        win, NULL, &renderer
-    );
-    SDL_Texture *tex = _internal_spew3d_MainThreadOnly_GetTex_nolock(
+
+    s3d_backend_windowing_gputex *gputex = NULL;
+    gputex = _internal_spew3d_MainThreadOnly_GetGPUTex_nolock(
         win, tid, withalphachannel
     );
-    if (!tex) {
+    if (gputex == NULL)
         return 1;
-    }
-
-    double transparency_dbl = transparency;
-    if (transparency_dbl < (1.0 / 256.0) * 0.5) {
-        return 1;
-    }
-
-    uint8_t old_r, old_g, old_b, old_a;
-    if (SDL_GetRenderDrawColor(renderer,
-            &old_r, &old_g, &old_b, &old_a) != 0) {
-        return 1;
-    }
-    uint8_t draw_r = fmax(0, fmin(255, (double)tint_red * 256.0));
-    uint8_t draw_g = fmax(0, fmin(255, (double)tint_green * 255.0));
-    uint8_t draw_b = fmax(0, fmin(255, (double)tint_blue * 255.0));
-    uint8_t draw_a = fmax(0, fmin(255, transparency_dbl * 255.0));
-    if (draw_a <= 0)
-        return 1;
-    if (SDL_SetRenderDrawColor(renderer,
-            draw_r, draw_g, draw_b, draw_a) != 0 ||
-            SDL_SetRenderDrawBlendMode(renderer,
-            SDL_BLENDMODE_BLEND) != 0) {
-        return 1;
-    }
-    SDL_Rect r = {0};
-    r.x = x - (centered ?
-        ((int32_t)(extrainfo->width * scale) / 2) : 0);
-    r.y = y - (centered ?
-        ((int32_t)(extrainfo->height * scale) / 2) : 0);
-    r.w = round(extrainfo->width * scale);
-    r.h = round(extrainfo->height * scale);
-    SDL_SetRenderDrawBlendMode(renderer,
-        SDL_BLENDMODE_BLEND);
-    if (SDL_RenderCopyEx(renderer, tex, NULL, &r,
-            -angle, NULL, SDL_FLIP_NONE) != 0)
-        return 1;
-    if (SDL_SetRenderDrawColor(renderer,
-            old_r, old_g, old_b, old_a) != 0)
-        return 1;
-    return 1;
-    #endif  // #ifndef SPEW3D_OPTION_DISABLE_SDL
+    assert(backend != NULL);
+    assert(win != NULL);
+    assert(gputex != NULL);
+    assert(backend_winfo != NULL);
+    return backend->DrawSpriteAtPixels(
+        backend, win, backend_winfo,
+        gputex, x, y, scale, angle, tint_red, tint_green,
+        tint_blue, transparency, centered,
+        withalphachannel
+    );
 }
 
 S3DEXP s3d_texture_t spew3d_texture_FromFile(
@@ -908,12 +857,28 @@ S3DHID int _spew3d_texture_ProcessTexDestroyReq(s3d_event *ev) {
     if (extrainfo) {
         assert(extrainfo->loadingjob == NULL);
         free(extrainfo->pixels);
-        #ifndef SPEW3D_OPTION_DISABLE_SDL
-        if (extrainfo->sdltexture_alpha)
-            SDL_DestroyTexture(extrainfo->sdltexture_alpha);
-        if (extrainfo->sdltexture_noalpha)
-            SDL_DestroyTexture(extrainfo->sdltexture_noalpha);
-        #endif  // #ifndef SPEW3D_OPTION_DISABLE_SDL
+        s3d_backend_windowing *backend = extrainfo->gpubackend;
+        s3d_backend_windowing_wininfo *backend_winfo = (
+            extrainfo->gpubackend_backend_winfo
+        );
+        s3d_window *win = extrainfo->gpubackend_window;
+        backend = spew3d_window_GetBackend(
+            win, &backend_winfo
+        );
+        if (extrainfo->gputexture_alpha) {
+            backend->DestroyGPUTexture(
+                backend, win, backend_winfo,
+                extrainfo->gputexture_alpha
+            );
+            extrainfo->gputexture_alpha = NULL;
+        }
+        if (extrainfo->gputexture_noalpha) {
+            backend->DestroyGPUTexture(
+                backend, win, backend_winfo,
+                extrainfo->gputexture_noalpha
+            );
+            extrainfo->gputexture_noalpha = NULL;
+        }
         free(extrainfo);
     }
     free(tinfo->idstring);
@@ -948,22 +913,32 @@ S3DEXP int spew3d_texture_InternalMainThreadProcessEvent(
         if (!_spew3d_window_ProcessTexLockPixelsReq(e)) {
             mutex_Release(_texlist_mutex);
             _spew3d_event_q_InsertForce(eq, e);
+        } else {
+            mutex_Release(_texlist_mutex);
         }
-        mutex_Release(_texlist_mutex);
         return 1;
     } else if (e->kind == S3DEV_INTERNAL_CMD_SPRITEDRAW) {
         if (!_spew3d_texture_ProcessSpriteDrawReq(e)) {
             mutex_Release(_texlist_mutex);
-            _spew3d_event_q_InsertForce(eq, e);
+
+            #if defined(DEBUG_SPEW3D_TEXTURE)
+            fprintf(stderr,
+                "spew3d_texture.c: debug: "
+                "spew3d_texture_InternalMainThreadProcessEvent(): "
+                "Unexpected _spew3d_texture_ProcessSpriteDrawReq() "
+                "error, might not be rendering anything.\n");
+            #endif
+        } else {
+            mutex_Release(_texlist_mutex);
         }
-        mutex_Release(_texlist_mutex);
         return 1;
     } else if (e->kind == S3DEV_INTERNAL_CMD_TEXDELETE) {
         if (!_spew3d_texture_ProcessTexDestroyReq(e)) {
             mutex_Release(_texlist_mutex);
             _spew3d_event_q_InsertForce(eq, e);
+        } else {
+            mutex_Release(_texlist_mutex);
         }
-        mutex_Release(_texlist_mutex);
         return 1;
     }
     mutex_Release(_texlist_mutex);

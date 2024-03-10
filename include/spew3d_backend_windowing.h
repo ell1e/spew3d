@@ -30,6 +30,8 @@ license, see accompanied LICENSE.md.
 
 typedef struct s3d_window s3d_window;
 typedef struct s3d_backend_windowing s3d_backend_windowing;
+typedef struct s3d_backend_windowing_gputex
+    s3d_backend_windowing_gputex;
 
 typedef struct s3d_backend_windowing_wininfo
     s3d_backend_windowing_wininfo;
@@ -41,6 +43,7 @@ enum S3dBackendWindowingKind {
 
 typedef struct s3d_backend_windowing {
     int kind;
+
     s3d_backend_windowing_wininfo *(*CreateWinInfo)(
         s3d_backend_windowing *backend, s3d_window *win
     );
@@ -74,6 +77,36 @@ typedef struct s3d_backend_windowing {
         s3d_backend_windowing *backend, s3d_window *win,
         s3d_backend_windowing_wininfo *backend_winfo
     );
+
+    int supports_gpu_textures;
+    s3d_backend_windowing_gputex *(*CreateGPUTexture)(
+        s3d_backend_windowing *backend, s3d_window *win,
+        s3d_backend_windowing_wininfo *backend_winfo,
+        void *pixel_rgba_data, uint32_t w, uint32_t h,
+        int set_alpha_solid
+    );
+    void (*DestroyGPUTexture)(
+        s3d_backend_windowing *backend, s3d_window *win,
+        s3d_backend_windowing_wininfo *backend_winfo,
+        s3d_backend_windowing_gputex *tex
+    );
+    int (*DrawSpriteAtPixels)(
+        s3d_backend_windowing *backend, s3d_window *win,
+        s3d_backend_windowing_wininfo *backend_winfo,
+        s3d_backend_windowing_gputex *tex,
+        int32_t x, int32_t y, s3dnum_t scale, s3dnum_t angle,
+        s3dnum_t tint_red, s3dnum_t tint_green, s3dnum_t tint_blue,
+        s3dnum_t transparency, int centered,
+        int withalphachannel
+    );
+    int (*DrawPolygonAtPixels)(
+        s3d_backend_windowing *backend, s3d_window *win,
+        s3d_backend_windowing_wininfo *backend_winfo,
+        s3d_backend_windowing_gputex *tex,
+        s3d_pos *vertices, s3d_point *tex_points,
+        s3d_color *colors
+    );
+
     void *internal;
 } s3d_backend_windowing;
 
