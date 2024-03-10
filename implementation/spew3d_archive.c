@@ -1,4 +1,4 @@
-/* Copyright (c) 2020-2022, ellie/@ell1e & Spew3D Team (see AUTHORS.md).
+/* Copyright (c) 2020-2024, ellie/@ell1e & Spew3D Team (see AUTHORS.md).
 
 Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions are met:
@@ -55,7 +55,6 @@ license, see accompanied LICENSE.md.
 #include <stdint.h>
 #include <stdlib.h>
 
-
 #define UNCACHED_FILE_SIZE (1024 * 5)
 
 typedef struct spew3darchive {
@@ -77,10 +76,12 @@ typedef struct spew3darchive {
         char **extract_cache_orig_name;
         char *_read_buf;
     };
+    uint8_t is_case_insensitive;
 } spew3darchive;
 
-
-int64_t spew3d_archive_GetEntryCount(spew3darchive *a) {
+S3DEXP int64_t spew3d_archive_GetEntryCount(
+        spew3darchive *a
+        ) {
     if (a->archive_type == SPEW3DARCHIVE_TYPE_ZIP) {
         if (a->in_writing_mode)
             return a->cached_entry_count;
@@ -90,8 +91,9 @@ int64_t spew3d_archive_GetEntryCount(spew3darchive *a) {
     }
 }
 
-
-int spew3d_archive_GetEntryIsDir(spew3darchive *a, uint64_t entry) {
+S3DEXP int spew3d_archive_GetEntryIsDir(
+        spew3darchive *a, uint64_t entry
+        ) {
     if (a->archive_type == SPEW3DARCHIVE_TYPE_ZIP) {
         mz_zip_archive_file_stat stat = {0};
         mz_bool result = mz_zip_reader_file_stat(
@@ -105,8 +107,9 @@ int spew3d_archive_GetEntryIsDir(spew3darchive *a, uint64_t entry) {
     }
 }
 
-
-int64_t spew3d_archive_GetEntrySize(spew3darchive *a, uint64_t entry) {
+S3DEXP int64_t spew3d_archive_GetEntrySize(
+        spew3darchive *a, uint64_t entry
+        ) {
     if (a->archive_type == SPEW3DARCHIVE_TYPE_ZIP) {
         mz_zip_archive_file_stat stat = {0};
         mz_bool result = mz_zip_reader_file_stat(
@@ -123,8 +126,7 @@ int64_t spew3d_archive_GetEntrySize(spew3darchive *a, uint64_t entry) {
     return -1;
 }
 
-
-char *spew3d_archive_NormalizeName(const char *name) {
+S3DEXP char *spew3d_archive_NormalizeName(const char *name) {
     char *nname = strdup(name);
     if (!nname)
         return NULL;
@@ -148,8 +150,7 @@ char *spew3d_archive_NormalizeName(const char *name) {
     return nname;
 }
 
-
-int spew3d_archive_GetEntryIndex(
+S3DEXP int spew3d_archive_GetEntryIndex(
         spew3darchive *a, const char *filename, int64_t *index,
         int *existsasfolder
         ) {
@@ -168,7 +169,9 @@ int spew3d_archive_GetEntryIndex(
             free(cleanname);
             return 0;
         }
-        if (strcmp(eclean, cleanname) == 0) {
+        if (strcmp(eclean, cleanname) == 0 || (
+                a->is_case_insensitive &&
+                s3dstrcasecmp(eclean, cleanname) == 0)) {
             free(eclean);
             free(cleanname);
             *index = i2;
@@ -186,8 +189,7 @@ int spew3d_archive_GetEntryIndex(
     return 1;
 }
 
-
-const char *spew3d_archive_GetEntryName(
+S3DEXP const char *spew3d_archive_GetEntryName(
         spew3darchive *a, uint64_t entry
         ) {
     if (a->archive_type == SPEW3DARCHIVE_TYPE_ZIP) {
@@ -222,8 +224,7 @@ const char *spew3d_archive_GetEntryName(
     }
 }
 
-
-int _spew3d_archive_ReadFileToMemDirectly(
+S3DHID int _spew3d_archive_ReadFileToMemDirectly(
         spew3darchive *a, int64_t entry, char *buf, size_t buflen
         ) {
     if (a->archive_type == SPEW3DARCHIVE_TYPE_ZIP) {
@@ -237,8 +238,7 @@ int _spew3d_archive_ReadFileToMemDirectly(
     return 0;
 }
 
-
-int _spew3d_archive_ReadFileToFPtr(
+S3DHID int _spew3d_archive_ReadFileToFPtr(
         spew3darchive *a, int64_t entry, FILE *f
         ) {
     const char *e = spew3d_archive_GetEntryName(a, entry);
@@ -255,8 +255,7 @@ int _spew3d_archive_ReadFileToFPtr(
     return 0;
 }
 
-
-const char *_spew3d_archive_GetFileCachePath(
+S3DEXP const char *_spew3d_archive_GetFileCachePath(
         spew3darchive *a, int64_t entry
         ) {
     const char *e = spew3d_archive_GetEntryName(a, entry);
@@ -345,8 +344,7 @@ const char *_spew3d_archive_GetFileCachePath(
     return full_path;
 }
 
-
-int spew3d_archive_ReadFileByteSlice(
+S3DEXP int spew3d_archive_ReadFileByteSlice(
         spew3darchive *a, int64_t entry,
         uint64_t offset, char *buf, size_t readlen
         ) {
@@ -394,8 +392,7 @@ int spew3d_archive_ReadFileByteSlice(
     return 0;
 }
 
-
-int _spew3d_archive_EnableWriting(spew3darchive *a) {
+S3DHID int _spew3d_archive_EnableWriting(spew3darchive *a) {
     if (a->archive_type == SPEW3DARCHIVE_TYPE_ZIP) {
         if (a->in_writing_mode)
             return 1;
@@ -453,8 +450,7 @@ int _spew3d_archive_EnableWriting(spew3darchive *a) {
     return 1;
 }
 
-
-int _spew3d_archive_AddSingleDirEntry(
+S3DHID int _spew3d_archive_AddSingleDirEntry(
         spew3darchive *a, const char *dirname
         ) {
     if (!a)
@@ -505,8 +501,8 @@ int _spew3d_archive_AddSingleDirEntry(
     return SPEW3DARCHIVE_ADDERROR_SUCCESS;
 }
 
-
-int spew3d_archive_AddDir(spew3darchive *a, const char *dirname) {
+S3DEXP int spew3d_archive_AddDir(spew3darchive *a,
+        const char *dirname) {
     if (!a)
         return SPEW3DARCHIVE_ADDERROR_OUTOFMEMORY;
     if (!_spew3d_archive_EnableWriting(a)) {
@@ -570,8 +566,7 @@ int spew3d_archive_AddDir(spew3darchive *a, const char *dirname) {
     return SPEW3DARCHIVE_ADDERROR_SUCCESS;
 }
 
-
-int _spew3d_archive_AddFile_CheckName(
+S3DEXP int _spew3d_archive_AddFile_CheckName(
         spew3darchive *a, const char *filename,
         char **cleaned_name
         ) {
@@ -618,8 +613,7 @@ int _spew3d_archive_AddFile_CheckName(
     return SPEW3DARCHIVE_ADDERROR_SUCCESS;
 }
 
-
-int spew3d_archive_AddFileFromMem(
+S3DEXP int spew3d_archive_AddFileFromMem(
         spew3darchive *a, const char *filename,
         const char *bytes, uint64_t byteslen
         ) {
@@ -683,8 +677,7 @@ int spew3d_archive_AddFileFromMem(
     }
 }
 
-
-void spew3d_archive_Close(spew3darchive *a) {
+S3DEXP void spew3d_archive_Close(spew3darchive *a) {
     if (a->archive_type == SPEW3DARCHIVE_TYPE_ZIP) {
         if (a->in_writing_mode) {
             mz_zip_writer_finalize_archive(&a->zip_archive);
@@ -726,8 +719,7 @@ void spew3d_archive_Close(spew3darchive *a) {
     free(a);
 }
 
-
-static size_t miniz_read_spew3darchive(
+S3DHID static size_t miniz_read_spew3darchive(
         void *pOpaque, mz_uint64 file_ofs, void *pBuf, size_t n
         ) {
     spew3darchive *a = (spew3darchive *)pOpaque;
@@ -738,8 +730,7 @@ static size_t miniz_read_spew3darchive(
     return result;
 }
 
-
-static size_t miniz_write_spew3darchive(
+S3DHID static size_t miniz_write_spew3darchive(
         void *pOpaque, mz_uint64 file_ofs, const void *pBuf, size_t n
         ) {
     spew3darchive *a = (spew3darchive *)pOpaque;
@@ -749,8 +740,7 @@ static size_t miniz_write_spew3darchive(
     return result;
 }
 
-
-spew3darchive *spew3d_archive_FromVFSHandleEx(
+S3DEXP spew3darchive *spew3d_archive_FromVFSHandleEx(
         SPEW3DVFS_FILE *f, int createifmissing, spew3darchivetype type
         ) {
     if (!f)
@@ -787,7 +777,7 @@ spew3darchive *spew3d_archive_FromVFSHandleEx(
 
     // Otherwise, try to open as zip:
     if (type == SPEW3DARCHIVE_TYPE_AUTODETECT)
-        type = SPEW3DARCHIVE_TYPE_ZIP;  // FIXME: guess formats once we got more
+        type = SPEW3DARCHIVE_TYPE_ZIP;  // FIXME: Update for other formats.
 
     // Handle the various archive types:
     a->archive_type = type;
@@ -855,15 +845,13 @@ spew3darchive *spew3d_archive_FromVFSHandleEx(
     }
 }
 
-
-spew3darchive *spew3d_archive_FromVFSHandle(
+S3DEXP spew3darchive *spew3d_archive_FromVFSHandle(
         SPEW3DVFS_FILE *f,  spew3darchivetype type
         ) {
     return spew3d_archive_FromVFSHandleEx(f, 0, type);
 }
 
-
-spew3darchive *spew3d_archive_FromFilePathSlice(
+S3DEXP spew3darchive *spew3d_archive_FromFilePathSlice(
         const char *path,
         uint64_t fileoffset, uint64_t maxlen,
         int createifmissing, int vfsflags,
@@ -911,8 +899,7 @@ spew3darchive *spew3d_archive_FromFilePathSlice(
     return NULL;
 }
 
-
-spew3darchive *spew3d_archive_FromFileHandleSlice(
+S3DEXP spew3darchive *spew3d_archive_FromFileHandleSlice(
         FILE *origf, uint64_t fileoffset, uint64_t maxlen,
         spew3darchivetype type, int fdiswritable
         ) {
@@ -958,8 +945,7 @@ spew3darchive *spew3d_archive_FromFileHandleSlice(
     return NULL;
 }
 
-
-spew3darchive *spew3d_archive_FromFilePath(
+S3DEXP spew3darchive *spew3d_archive_FromFilePath(
         const char *path,
         int createifmissing, int vfsflags,
         spew3darchivetype type
@@ -969,6 +955,15 @@ spew3darchive *spew3d_archive_FromFilePath(
     );
 }
 
+S3DEXP int spew3d_archive_IsCaseInsensitive(spew3darchive *a) {
+    return a->is_case_insensitive;
+}
+
+S3DEXP void spew3d_archive_SetCaseInsensitive(
+        spew3darchive *a, int enabled
+        ) {
+    a->is_case_insensitive = (enabled != 0);
+}
 
 #endif  // SPEW3D_IMPLEMENTATION
 

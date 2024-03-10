@@ -1,4 +1,4 @@
-/* Copyright (c) 2020-2023, ellie/@ell1e & Spew3D Team (see AUTHORS.md).
+/* Copyright (c) 2020-2024, ellie/@ell1e & Spew3D Team (see AUTHORS.md).
 
 Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions are met:
@@ -29,7 +29,6 @@ license, see accompanied LICENSE.md.
 #define SPEW3D_VFS_H_
 
 #include <stdint.h>
-
 
 #define VFSFLAG_NO_REALDISK_ACCESS 1
 #define VFSFLAG_NO_VIRTUALPAK_ACCESS 2
@@ -112,6 +111,16 @@ S3DEXP size_t spew3d_vfs_fwrite(
 S3DEXP int spew3d_vfs_Size(
     const char *path, int vfsflags, uint64_t *result,
     int *fserr
+);
+
+S3DEXP int spew3d_vfs_ListFolderEx(
+    const char *path, char ***out_contents,
+    int vfsflags, int allowsymlink, int *out_error
+);
+
+S3DEXP int spew3d_vfs_ListFolder(
+    const char *path, char ***out_contents,
+    int vfsflags, int *out_error
 );
 
 S3DEXP SPEW3DVFS_FILE *spew3d_vfs_fdup(SPEW3DVFS_FILE *f);

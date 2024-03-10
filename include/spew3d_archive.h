@@ -1,4 +1,4 @@
-/* Copyright (c) 2020-2022, ellie/@ell1e & Spew3D Team (see AUTHORS.md).
+/* Copyright (c) 2020-2024, ellie/@ell1e & Spew3D Team (see AUTHORS.md).
 
 Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions are met:
@@ -38,17 +38,20 @@ typedef enum spew3darchivetype {
     SPEW3DARCHIVE_TYPE_ZIP = 1
 } spew3darchivetype;
 
-int64_t spew3d_archive_GetEntryCount(
+S3DEXP int64_t spew3d_archive_GetEntryCount(
     spew3darchive *a);
 
-const char *spew3d_archive_GetEntryName(
-    spew3darchive *a, uint64_t entry);
+S3DEXP const char *spew3d_archive_GetEntryName(
+    spew3darchive *a, uint64_t entry
+);
 
-int64_t spew3d_archive_GetEntrySize(
-    spew3darchive *a, uint64_t entry);
+S3DEXP int64_t spew3d_archive_GetEntrySize(
+    spew3darchive *a, uint64_t entry
+);
 
-int spew3d_archive_GetEntryIsDir(
-    spew3darchive *a, uint64_t entry);
+S3DEXP int spew3d_archive_GetEntryIsDir(
+    spew3darchive *a, uint64_t entry
+);
 
 typedef enum spew3darchive_adderror {
     SPEW3DARCHIVE_ADDERROR_SUCCESS = 0,
@@ -58,41 +61,47 @@ typedef enum spew3darchive_adderror {
     SPEW3DARCHIVE_ADDERROR_DUPLICATENAME = -4
 } spew3darchive_adderror;
 
-int spew3d_archive_AddFileFromMem(
+S3DEXP int spew3d_archive_AddFileFromMem(
     spew3darchive *a, const char *filename,
     const char *bytes, uint64_t byteslen
 );
 
-int spew3d_archive_AddDir(
+S3DEXP int spew3d_archive_AddDir(
     spew3darchive *a, const char *dirname);
 
-int spew3d_archive_GetEntryIndex(
+S3DEXP int spew3d_archive_GetEntryIndex(
     spew3darchive *a, const char *filename, int64_t *index,
     int *existsasfolder
 );
 
-int spew3d_archive_ReadFileByteSlice(
+S3DEXP int spew3d_archive_ReadFileByteSlice(
     spew3darchive *a, int64_t entry,
     uint64_t offset, char *buf, size_t readlen
 );
 
-void spew3darchive_Close(spew3darchive *a);
+S3DEXP void spew3darchive_Close(spew3darchive *a);
 
-spew3darchive *spew3d_archive_FromFilePath(
+S3DEXP spew3darchive *spew3d_archive_FromFilePath(
     const char *path,
     int createifmissing, int vfsflags,
     spew3darchivetype type
 );
 
-spew3darchive *spew3d_archive_FromFilePathSlice(
+S3DEXP spew3darchive *spew3d_archive_FromFilePathSlice(
     const char *path,
     uint64_t fileoffset, uint64_t maxlen,
     int createifmissing, int vfsflags, spew3darchivetype type
 );
 
-spew3darchive *spew3d_archive_FromFileHandleSlice(
+S3DEXP spew3darchive *spew3d_archive_FromFileHandleSlice(
     FILE *origf, uint64_t fileoffset, uint64_t maxlen,
     spew3darchivetype type, int fdiswritable
+);
+
+int spew3d_archive_IsCaseInsensitive(spew3darchive *a);
+
+void spew3d_archive_SetCaseInsensitive(
+    spew3darchive *a, int enabled
 );
 
 #endif  // SPEW3D_ARCHIVE_H_

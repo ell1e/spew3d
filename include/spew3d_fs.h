@@ -1,4 +1,4 @@
-/* Copyright (c) 2020-2022, ellie/@ell1e & Spew3D Team (see AUTHORS.md).
+/* Copyright (c) 2020-2024, ellie/@ell1e & Spew3D Team (see AUTHORS.md).
 
 Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions are met:
@@ -83,6 +83,20 @@ S3DEXP char *spew3d_fs_NormalizeEx(
     const char *path, int always_allow_windows_separator,
     int never_allow_windows_separator,
     char unified_separator_to_use
+);
+
+S3DEXP int spew3d_fs_PathsLookEquivalentEx(
+    const char *path1, const char *path2,
+    const char *base_dir_as_cwd,
+    int always_allow_case_insensitive,
+    int never_allow_case_insensitive,
+    int always_allow_windows_paths,
+    int never_allow_windows_paths,
+    int *result
+);
+
+S3DEXP int spew3d_fs_PathsLookEquivalent(
+    const char *path1, const char *path2, int *result
 );
 
 S3DEXP int spew3d_fs_CreateDirectoryEx(

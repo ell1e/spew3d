@@ -1,4 +1,4 @@
-/* Copyright (c) 2020-2023, ellie/@ell1e & Spew3D Team (see AUTHORS.md).
+/* Copyright (c) 2020-2024, ellie/@ell1e & Spew3D Team (see AUTHORS.md).
 
 Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions are met:
@@ -53,7 +53,6 @@ license, see accompanied LICENSE.md.
 #include <errno.h>
 #include <stdint.h>
 #include <stdio.h>
-
 
 typedef struct spew3darchive spew3darchive;
 typedef struct spew3d_vfs_mount spew3d_vfs_mount;
@@ -205,6 +204,157 @@ void spew3d_vfs_fclose(SPEW3DVFS_FILE *f) {
     free(f->mode);
     free(f->path);
     free(f);
+}
+
+S3DEXP int spew3d_vfs_ListFolderEx(
+        const char *path, char ***out_contents,
+        int vfsflags, int allowsymlink, int *out_error
+        ) {
+    int _error = 0;
+    char **contents = NULL;
+    if ((vfsflags & VFSFLAG_NO_REALDISK_ACCESS) == 0 &&
+            !spew3d_fs_ListFolderEx(path, &contents,
+            0, allowsymlink, &_error)) {
+        if (out_error != NULL)
+            *out_error = _error;
+        return 0;
+    }
+    int contents_count = 0;
+    while (contents[contents_count])
+        contents_count++;
+
+    if ((vfsflags & VFSFLAG_NO_VIRTUALPAK_ACCESS) == 0 &&
+            !spew3d_fs_IsAbsolutePath(path)) {
+        char *vfspath = spew3d_fs_NormalizeEx(
+            path, 0, 0, '/'
+        );
+        if (!vfspath) {
+            spew3d_fs_FreeFolderList(contents);
+            if (out_error != NULL)
+                *out_error = FSERR_OUTOFMEMORY;
+            return 0;
+        }
+        if (strcmp(vfspath, ".") == 0 || strcmp(vfspath, "./") == 0)
+            vfspath[0] = '\0';
+        if (strlen(vfspath) > 1 &&
+                vfspath[strlen(vfspath) - 1] == '/')
+            vfspath[strlen(vfspath) - 1] = '\0';
+        int vfspathlen = strlen(vfspath);
+
+        mutex_Lock(spew3d_vfs_mutex);
+        spew3d_vfs_mount *mount = _spew3d_global_mount_list;
+        while (mount) {
+            if (strcmp(vfspath, "..") == 0 ||
+                    (strlen(vfspath) >= 3 &&
+                    memcmp(vfspath, "../", 3) == 0))
+                break;
+            int64_t ecount = spew3d_archive_GetEntryCount(
+                mount->archive
+            );
+            int64_t i = 0;
+            while (i < ecount) {
+                int iscaseinsensitive =
+                    spew3d_archive_IsCaseInsensitive(mount->archive);
+                const char *ename = spew3d_archive_GetEntryName(
+                    mount->archive, i
+                );
+                char *eclean = spew3d_archive_NormalizeName(ename);
+                if (!eclean) {
+                    spew3d_fs_FreeFolderList(contents);
+                    if (out_error != NULL)
+                        *out_error = FSERR_OUTOFMEMORY;
+                    return 0;
+                }
+                if ((strlen(vfspath) == 0 &&
+                        strstr(eclean, "/") == NULL) ||
+                        (strlen(vfspath) > 0 &&
+                        strlen(eclean) > vfspathlen &&
+                        (memcmp(eclean, vfspath, vfspathlen) == 0 ||
+                         (iscaseinsensitive &&
+                          s3dmemcasecmp(eclean, vfspath,
+                              vfspathlen) == 0))&&
+                        eclean[vfspathlen] == '/')
+                        ) {
+                    char *fs_style_path = spew3d_fs_NormalizeEx(
+                        eclean, 0, 1,
+                        #if defined(_WIN32) || defined(_WIN64)
+                        '\\'
+                        #else
+                        '/'
+                        #endif
+                    );
+                    if (!fs_style_path) {
+                        mutex_Release(spew3d_vfs_mutex);
+                        free(eclean);
+                        spew3d_fs_FreeFolderList(contents);
+                        if (out_error != NULL)
+                            *out_error = FSERR_OUTOFMEMORY;
+                        return 0;
+                    }
+                    free(eclean);
+                    eclean = NULL;
+                    int found = 0;
+                    int k = 0;
+                    while (k < contents_count) {
+                        int result = 0;
+                        if (!spew3d_fs_PathsLookEquivalentEx(
+                                fs_style_path, contents[k],
+                                NULL,
+                                iscaseinsensitive, 0,
+                                0, 0,
+                                &result
+                                )) {
+                            mutex_Release(spew3d_vfs_mutex);
+                            spew3d_fs_FreeFolderList(contents);
+                            if (out_error != NULL)
+                                *out_error = FSERR_OUTOFMEMORY;
+                            return 0;
+                        } else if (result) {
+                            found = 1;
+                            break;
+                        }
+                        k++;
+                    }
+                    if (!found) {
+                        char **new_contents = realloc(
+                            contents, sizeof(*contents) *
+                            (contents_count + 2)
+                        );
+                        if (!new_contents) {
+                            mutex_Release(spew3d_vfs_mutex);
+                            spew3d_fs_FreeFolderList(contents);
+                            if (out_error != NULL)
+                                *out_error = FSERR_OUTOFMEMORY;
+                            return 0;
+                        }
+                        contents = new_contents;
+                        contents[contents_count + 1] = NULL;
+                        contents[contents_count] = fs_style_path;
+                        contents_count++;
+                    }
+                    i++;
+                    continue;
+                }
+                free(eclean);
+                eclean = NULL;
+                i++;
+            }
+            mount = mount->next;
+        }
+        mutex_Release(spew3d_vfs_mutex);
+    }
+    *out_contents = contents;
+    if (out_error != NULL)
+        *out_error = FSERR_SUCCESS;
+    return 1;
+}
+
+S3DEXP int spew3d_vfs_ListFolder(
+        const char *path, char ***out_contents,
+        int vfsflags, int *out_error
+        ) {
+    return spew3d_vfs_ListFolderEx(path, out_contents,
+        vfsflags, 1, out_error);
 }
 
 int spew3d_vfs_fgetc(SPEW3DVFS_FILE *f) {

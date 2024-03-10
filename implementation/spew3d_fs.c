@@ -1,4 +1,4 @@
-/* Copyright (c) 2020-2023, ellie/@ell1e & Spew3D Team (see AUTHORS.md).
+/* Copyright (c) 2020-2024, ellie/@ell1e & Spew3D Team (see AUTHORS.md).
 
 Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions are met:
@@ -584,6 +584,116 @@ S3DEXP char *spew3d_fs_Normalize(const char *path) {
         #else
         '/'
         #endif
+    );
+}
+
+S3DEXP int spew3d_fs_PathsLookEquivalentEx(
+        const char *path1, const char *path2,
+        const char *base_dir_as_cwd,
+        int always_allow_case_insensitive,
+        int never_allow_case_insensitive,
+        int always_allow_windows_paths,
+        int never_allow_windows_paths,
+        int *result
+        ) {
+    char *path1copy = NULL;
+    char *path2copy = NULL;
+    if (spew3d_fs_IsAbsolutePath(path1) ||
+            spew3d_fs_IsAbsolutePath(path2)) {
+        if (!spew3d_fs_IsAbsolutePath(path1)) {
+            if (base_dir_as_cwd != NULL) {
+                path1copy = spew3d_fs_ToAbsolutePath(path1);
+            } else {
+                path1copy = spew3d_fs_Join(
+                    base_dir_as_cwd, path1
+                );
+            }
+        }
+        if (!spew3d_fs_IsAbsolutePath(path2)) {
+            if (base_dir_as_cwd != NULL) {
+                path2copy = spew3d_fs_ToAbsolutePath(path2);
+            } else {
+                path2copy = spew3d_fs_Join(
+                    base_dir_as_cwd, path2
+                );
+            }
+        }
+    }
+    if (path1copy) {
+        char *p = spew3d_fs_Normalize(
+            path1copy
+        );
+        if (!p) {
+            oom: ;
+            free(path1copy);
+            path1copy = NULL;
+            free(path2copy);
+            path2copy = NULL;
+            return 0;
+        } else {
+            free(path1copy);
+            path1copy = p;
+        }
+    } else {
+        path1copy = spew3d_fs_Normalize(
+            path1
+        );
+        if (!path1copy)
+            goto oom;
+    }
+    if (path2copy) {
+        char *p = spew3d_fs_NormalizeEx(
+            path2copy, always_allow_windows_paths,
+            never_allow_windows_paths,
+            #if defined(_WIN32) || defined(_WIN64)
+            '\\'
+            #else
+            '/'
+            #endif
+        );
+        if (!p) {
+            goto oom;
+        } else {
+            free(path2copy);
+            path2copy = p;
+        }
+    } else {
+        path2copy = spew3d_fs_NormalizeEx(
+            path2, always_allow_windows_paths,
+            never_allow_windows_paths,
+             #if defined(_WIN32) || defined(_WIN64)
+            '\\'
+            #else
+            '/'
+            #endif
+        );
+        if (!path2copy)
+            goto oom;
+    }
+    if (
+            #if defined(_WIN32) || defined(_WIN64)
+            !never_allow_case_insensitive
+            #else
+            always_allow_case_insensitive &&
+            !never_allow_case_insensitive
+            #endif
+            ) {
+        *result = (s3dstrcasecmp(path1copy, path2copy) == 0);
+        free(path1copy);
+        free(path2copy);
+        return 1;
+    }
+    *result = (s3dcmp(path1copy, path2copy) == 0);
+    free(path1copy);
+    free(path2copy);
+    return 1;
+}
+
+S3DEXP int spew3d_fs_PathsLookEquivalent(
+        const char *path1, const char *path2, int *result
+        ) {
+    return spew3d_fs_PathsLookEquivalentEx(
+        path1, path2, NULL, 0, 0, 0, 0, result
     );
 }
 
