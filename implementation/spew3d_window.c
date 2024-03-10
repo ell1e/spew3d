@@ -149,7 +149,11 @@ S3DEXP void spew3d_window_GetSDLWindowAndRenderer_nolock(
         s3d_window *win, SDL_Window **out_w,
         SDL_Renderer **out_r
         ) {
-    assert(win->backend->kind == S3D_BACKEND_WINDOWING_SDL);
+    if (win->backend->kind != S3D_BACKEND_WINDOWING_SDL) {
+        *out_w = NULL;
+        *out_r = NULL;
+        return;
+    }
     _s3d_sdl_GetWindowSDLRef(
         win, win->backend_winfo,
         out_w, out_r
@@ -392,9 +396,8 @@ void spew3d_window_Update_nolock(s3d_window *win) {
     #endif
 }
 
-#ifndef SPEW3D_OPTION_DISABLE_SDL
 static uint64_t _last_focus_update_ts = 0;
-S3DHID void _spew3d_window_UpdateSDLFocus() {
+S3DHID void _spew3d_window_UpdateKeyboardWithWinFocus() {
     uint32_t previously_focused = 0;
     mutex_Lock(_win_id_mutex);
     uint64_t now = spew3d_time_Ticks();
@@ -406,16 +409,18 @@ S3DHID void _spew3d_window_UpdateSDLFocus() {
 
     int i = 0;
     while (i < _global_win_registry_fill) {
-        SDL_Window *sdlwin = NULL;
-        spew3d_window_GetSDLWindowAndRenderer_nolock(
-            _global_win_registry[i], &sdlwin, NULL
+        s3d_backend_windowing *backend;
+        s3d_backend_windowing_wininfo *backend_winfo;
+        backend = spew3d_window_GetBackend(
+            _global_win_registry[i], &backend_winfo
         );
-        if (!sdlwin) {
+        if (!backend || !backend_winfo) {
             i++;
             continue;
         }
-        uint32_t flags = SDL_GetWindowFlags(sdlwin);
-        if ((flags & SDL_WINDOW_INPUT_FOCUS) != 0 ||
+        if (backend->IsWindowConsideredFocused(
+                backend, _global_win_registry[i],
+                backend_winfo) ||
                 _last_keyboard_focus_window_id == 0) {
             previously_focused = _last_keyboard_focus_window_id;
             _last_keyboard_focus_window_id = (
@@ -439,7 +444,6 @@ S3DHID void _spew3d_window_UpdateSDLFocus() {
         mutex_Release(_win_id_mutex);
     }
 }
-#endif
 
 S3DHID static void _force_unkeyboardfocus_win(
         s3d_window *win
@@ -622,7 +626,7 @@ S3DHID int _spew3d_window_HandleSDLEvent(SDL_Event *e) {
     assert(eq != NULL);
     s3d_equeue *equser = spew3d_event_GetMainQueue();
     assert(equser != NULL);
-    _spew3d_window_UpdateSDLFocus();
+    _spew3d_window_UpdateKeyboardWithWinFocus();
 
     if (e->type == SDL_QUIT) {
         s3d_event e2 = {0};
@@ -1002,20 +1006,12 @@ S3DHID int _spew3d_window_ProcessWinUpdateCanvasReq(s3d_event *ev) {
         return 0;
 
     s3d_window *win = _spew3d_window_GetByIDLocked(ev->window.win_id);
-    if (!win)
+    if (!win || !win->backend || !win->backend_winfo)
         return 1;
 
-    #ifndef SPEW3D_OPTION_DISABLE_SDL
-    SDL_Renderer *sdlrenderer = NULL;
-    spew3d_window_GetSDLWindowAndRenderer_nolock(
-        win, NULL, &sdlrenderer
+    win->backend->PresentWindowToScreen(
+        win->backend, win, win->backend_winfo
     );
-    if (sdlrenderer != NULL) {
-        SDL_RenderPresent(sdlrenderer);
-        return 1;
-    }
-    #endif
-
     return 1;
 }
 
@@ -1068,31 +1064,15 @@ S3DHID int _spew3d_window_ProcessWinDrawFillReq(s3d_event *ev) {
 
     s3d_window *win = _spew3d_window_GetByIDLocked(
         ev->drawprimitive.win_id);
-    if (!win)
+    if (!win || !win->backend)
         return 1;
 
-    #ifndef SPEW3D_OPTION_DISABLE_SDL
-    SDL_Window *swin = NULL;
-    SDL_Renderer *sdlrenderer = NULL;
-    spew3d_window_GetSDLWindowAndRenderer_nolock(
-        win, &swin, &sdlrenderer
+    win->backend->FillWindowWithColor(
+        win->backend, win, win->backend_winfo,
+        ev->drawprimitive.red,
+        ev->drawprimitive.green,
+        ev->drawprimitive.blue
     );
-    if (sdlrenderer != NULL) {
-        double redv = fmax(0.0, fmin(255.0,
-            (double)ev->drawprimitive.red * 256.0));
-        double greenv = fmax(0.0, fmin(255.0,
-            (double)ev->drawprimitive.green * 256.0));
-        double bluev = fmax(0.0, fmin(255.0,
-            (double)ev->drawprimitive.blue * 256.0));
-        SDL_SetRenderDrawColor(
-            sdlrenderer, redv, greenv, bluev, 255
-        );
-        SDL_RenderClear(sdlrenderer);
-        return 1;
-    }
-    #endif
-    assert(win->virtualwin.canvas != 0);
-    // FIXME: implement this later for virtual windows.
     return 1;
 }
 
@@ -1179,57 +1159,34 @@ S3DEXP void spew3d_window_PointToCanvasDrawPixels(
 S3DHID void spew3d_window_UpdateGeometryInfo(s3d_window *win) {
     assert(mutex_IsLocked(_win_id_mutex));
 
-    #ifndef SPEW3D_OPTION_DISABLE_SDL
-    SDL_Window *swin = NULL;
-    SDL_Renderer *sdlrenderer = NULL;
-    spew3d_window_GetSDLWindowAndRenderer_nolock(
-        win, &swin, &sdlrenderer
-    );
-    if (swin != NULL) {
-        SDL_Renderer *renderer =sdlrenderer;
-        if (!renderer) {
-            win->dpiscale = 1;
-            int w = win->width;
-            int h = win->height;
-            if (w < 1)
-                w = 1;
-            if (h < 1)
-                h = 1;
-            win->canvaswidth = win->width;
-            win->canvasheight = win->height;
-            return;
-        }
-        int w, h;
-        SDL_RenderGetLogicalSize(renderer, &w, &h);
-        if (w == 0 && h == 0) {
-            if (SDL_GetRendererOutputSize(
-                    renderer, &w, &h
-                    ) != 0) {
-                w = 1;
-                h = 1;
-            }
-        }
+    uint32_t cw, ch, ww, wh;
+    int result = 0;
+    if (win->backend != NULL && win->backend_winfo != NULL) {
+        result = win->backend->GetWindowGeometry(
+            win->backend, win, win->backend_winfo,
+            &cw, &ch, &ww, &wh
+        );
+    }
+    if (!result) {
+        win->dpiscale = 1;
+        int w = win->width;
+        int h = win->height;
         if (w < 1)
             w = 1;
         if (h < 1)
             h = 1;
-        win->canvaswidth = w;
-        win->canvasheight = h;
-        int ww, wh;
-        SDL_GetWindowSize(swin, &ww, &wh);
-        if (ww < 1)
-            ww = 1;
-        if (wh < 1)
-            wh = 1;
-        win->width = ww;
-        win->height = wh;
-    } else {
-        if (win->width < 1) win->width = 1;
-        if (win->height < 1) win->height = 1;
-        if (win->canvaswidth < 1) win->canvaswidth = 1;
-        if (win->canvasheight < 1) win->canvasheight = 1;
+        win->canvaswidth = win->width;
+        win->canvasheight = win->height;
+        return;
     }
-    #endif  // #ifndef SPEW3D_OPTION_DISABLE_SDL
+    win->canvaswidth = cw;
+    win->canvasheight = ch;
+    win->width = ww;
+    win->height = wh;
+    if (win->width < 1) win->width = 1;
+    if (win->height < 1) win->height = 1;
+    if (win->canvaswidth < 1) win->canvaswidth = 1;
+    if (win->canvasheight < 1) win->canvasheight = 1;
     win->dpiscale = (double)(((double)win->width) /
         (double)win->canvaswidth);
 }

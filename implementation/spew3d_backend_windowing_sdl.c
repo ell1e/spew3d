@@ -88,6 +88,111 @@ S3DHID void _s3d_sdl_SetMouseGrabInvisibleRelative(
     SDL_ShowCursor(SDL_DISABLE);
 }
 
+S3DHID int _s3d_sdl_IsWindowConsideredFocused(
+        s3d_backend_windowing *backend, s3d_window *win,
+        s3d_backend_windowing_wininfo *_backend_winfo
+        ) {
+    s3d_backend_windowing_wininfo_sdl2 *backend_winfo = (
+        (s3d_backend_windowing_wininfo_sdl2 *)_backend_winfo
+    );
+    SDL_Renderer *renderer = backend_winfo->sdl_renderer;
+    SDL_Window *sdlwin = backend_winfo->sdl_win;
+
+    if (!sdlwin) {
+        return 0;
+    }
+    uint32_t flags = SDL_GetWindowFlags(sdlwin);
+    return ((flags & SDL_WINDOW_INPUT_FOCUS) != 0);
+}
+
+S3DHID int _s3d_sdl_GetWindowGeometry(
+        s3d_backend_windowing *backend, s3d_window *win,
+        s3d_backend_windowing_wininfo *_backend_winfo,
+        uint32_t *out_canvaswidth, uint32_t *out_canvasheight,
+        uint32_t *out_windowwidth, uint32_t *out_windowheight
+        ) {
+    s3d_backend_windowing_wininfo_sdl2 *backend_winfo = (
+        (s3d_backend_windowing_wininfo_sdl2 *)_backend_winfo
+    );
+    SDL_Renderer *renderer = backend_winfo->sdl_renderer;
+    SDL_Window *sdlwin = backend_winfo->sdl_win;
+
+    if (!renderer)
+        return 0;
+
+    int w, h;
+    SDL_RenderGetLogicalSize(renderer, &w, &h);
+    if (w == 0 && h == 0) {
+        if (SDL_GetRendererOutputSize(
+                renderer, &w, &h
+                ) != 0) {
+            w = 1;
+            h = 1;
+        }
+    }
+    if (w < 1)
+        w = 1;
+    if (h < 1)
+        h = 1;
+    if (out_canvaswidth != NULL)
+        *out_canvaswidth = w;
+    if (out_canvasheight != NULL)
+        *out_canvasheight = h;
+    int ww, wh;
+    SDL_GetWindowSize(sdlwin, &ww, &wh);
+    if (ww < 1)
+        ww = 1;
+    if (wh < 1)
+        wh = 1;
+    if (out_windowwidth != NULL)
+        *out_windowwidth = ww;
+    if (out_windowheight != NULL)
+        *out_windowheight = wh;
+    return 1;
+}
+
+S3DHID void _s3d_sdl_FillWindowWithColor(
+        s3d_backend_windowing *backend, s3d_window *win,
+        s3d_backend_windowing_wininfo *_backend_winfo,
+        s3dnum_t red, s3dnum_t green, s3dnum_t blue
+        ) {
+    s3d_backend_windowing_wininfo_sdl2 *backend_winfo = (
+        (s3d_backend_windowing_wininfo_sdl2 *)_backend_winfo
+    );
+    SDL_Renderer *renderer = backend_winfo->sdl_renderer;
+    SDL_Window *sdlwin = backend_winfo->sdl_win;
+
+    if (!sdlwin) {
+        return;
+    }
+    double redv = fmax(0.0, fmin(255.0,
+        (double)red * 256.0));
+    double greenv = fmax(0.0, fmin(255.0,
+        (double)green * 256.0));
+    double bluev = fmax(0.0, fmin(255.0,
+        (double)blue * 256.0));
+    SDL_SetRenderDrawColor(
+        renderer, redv, greenv, bluev, 255
+    );
+    SDL_RenderClear(renderer);
+}
+
+S3DHID void _s3d_sdl_PresentWindowToScreen(
+        s3d_backend_windowing *backend, s3d_window *win,
+        s3d_backend_windowing_wininfo *_backend_winfo
+        ) {
+    s3d_backend_windowing_wininfo_sdl2 *backend_winfo = (
+        (s3d_backend_windowing_wininfo_sdl2 *)_backend_winfo
+    );
+    SDL_Renderer *renderer = backend_winfo->sdl_renderer;
+    SDL_Window *sdlwin = backend_winfo->sdl_win;
+
+    if (!sdlwin) {
+        return;
+    }
+    SDL_RenderPresent(renderer);
+}
+
 S3DHID int _s3d_sdl_DrawSpriteAtPixels(
         s3d_backend_windowing *backend, s3d_window *win,
         s3d_backend_windowing_wininfo *_backend_winfo,
@@ -394,6 +499,14 @@ S3DHID __attribute__((constructor)) static void _init_sdl2_backend() {
             _s3d_sdl_SetMouseGrabConstrained;
         b->SetMouseGrabInvisibleRelative =
             _s3d_sdl_SetMouseGrabInvisibleRelative;
+        b->IsWindowConsideredFocused =
+            _s3d_sdl_IsWindowConsideredFocused;
+        b->PresentWindowToScreen =
+            _s3d_sdl_PresentWindowToScreen;
+        b->GetWindowGeometry =
+            _s3d_sdl_GetWindowGeometry;
+        b->FillWindowWithColor =
+            _s3d_sdl_FillWindowWithColor;
 
         b->supports_gpu_textures = 1;
         b->CreateGPUTexture = _s3d_sdl_CreateGPUTexture;

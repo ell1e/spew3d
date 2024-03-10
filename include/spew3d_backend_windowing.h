@@ -77,6 +77,25 @@ typedef struct s3d_backend_windowing {
         s3d_backend_windowing *backend, s3d_window *win,
         s3d_backend_windowing_wininfo *backend_winfo
     );
+    int (*IsWindowConsideredFocused)(
+        s3d_backend_windowing *backend, s3d_window *win,
+        s3d_backend_windowing_wininfo *backend_winfo
+    );
+    void (*PresentWindowToScreen)(
+        s3d_backend_windowing *backend, s3d_window *win,
+        s3d_backend_windowing_wininfo *backend_winfo
+    );
+    int (*GetWindowGeometry)(
+        s3d_backend_windowing *backend, s3d_window *win,
+        s3d_backend_windowing_wininfo *backend_winfo,
+        uint32_t *out_canvaswidth, uint32_t *out_canvasheight,
+        uint32_t *out_windowwidth, uint32_t *out_windowheight
+    );
+    void (*FillWindowWithColor)(
+        s3d_backend_windowing *backend, s3d_window *win,
+        s3d_backend_windowing_wininfo *backend_winfo,
+        s3dnum_t red, s3dnum_t green, s3dnum_t blue
+    );
 
     int supports_gpu_textures;
     s3d_backend_windowing_gputex *(*CreateGPUTexture)(

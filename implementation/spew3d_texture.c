@@ -30,9 +30,6 @@ license, see accompanied LICENSE.md.
 #include <assert.h>
 #include <stdint.h>
 #include <string.h>
-#ifndef SPEW3D_OPTION_DISABLE_SDL
-#include <SDL2/SDL.h>
-#endif
 #include <unistd.h>
 
 static inline uint16_t spew3d_simplehash(const char *k);
@@ -74,15 +71,6 @@ typedef struct spew3d_texture_extrainfo {
 
 static char *_internal_tex_get_buf = NULL;
 static uint32_t _internal_tex_get_buf_size = 0;
-
-#if !defined(SPEW3D_OPTION_DISABLE_SDL) &&\
-        defined(SPEW3D_OPTION_DISABLE_SDL_HEADER)
-// This won't be in the header, so define it here:
-S3DEXP void spew3d_window_GetSDLWindowAndRenderer(
-    s3d_window *win, SDL_Window **out_w,
-    SDL_Renderer **out_r
-);
-#endif
 
 static void __attribute__((constructor)) _internal_spew3d_ensure_texhash() {
     if (_internal_spew3d_texlist_hashmap != NULL)
