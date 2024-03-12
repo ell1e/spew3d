@@ -42,6 +42,12 @@ enum Spew3dLvlboxTexwrapMode {
     S3D_LVLBOX_TEXWRAP_MODE_STRETCHED = 4
 };
 
+typedef struct s3d_lvlbox_customprops {
+    int prop_count;
+    char *prop_name;
+    char *prop_value;
+};
+
 typedef struct s3d_lvlbox_texinfo {
     char *name;
     int vfs_flags;
@@ -171,6 +177,12 @@ S3DEXP int spew3d_lvlbox_WorldPosToTilePos(
     s3d_pos *out_tile_lower_bound,
     s3d_pos *out_tile_pos_offset,
     int32_t *out_segment_no
+);
+
+S3DEXP void spew3d_lvlbox_EnforceValidFloors(
+    s3d_lvlbox *lvlbox, int32_t chunk_index,
+    uint32_t tile_index,
+    int prefer_adjust_segment_no
 );
 
 S3DEXP int spew3d_lvlbox_HoriAngleToCornerIndex(

@@ -339,8 +339,8 @@ S3DEXP s3d_resourceload_job *s3d_resourceload_NewJobWithCallback(
     memset(job, 0, sizeof(*job));
     job->extradata = extradata;
     job->callback = callback;
-    job->path = strdup(path);
-    if (!job->path) {
+    job->path = (path != NULL ? strdup(path) : NULL);
+    if (path != NULL && !job->path) {
         free(job);
         return NULL;
     }

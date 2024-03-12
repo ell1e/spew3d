@@ -512,6 +512,7 @@ S3DEXP int spew3d_geometry_Transform(
         rqueue[rfill].polygon_texture = (
             geometry->polygon_texture[i]
         );
+        rqueue[rfill].clipped = 0;
         s3d_pos vertex_positions[3];
 
         // First vertex:
