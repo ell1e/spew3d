@@ -160,8 +160,7 @@ S3DEXP int spew3d_lvlbox_CornerPosToWorldPos(
     int corner_no, int at_ceiling, s3d_pos *out_pos
 );
 
-
-S3DEXP int spew3d_lvlbox_edit_CycleTextureAtTileIdx(
+S3DEXP int spew3d_lvlbox_CycleTextureAtTileIdx(
     s3d_lvlbox *lvlbox,
     uint32_t chunk_index, uint32_t tile_index,
     int segment_no, int target_wall_no,
@@ -246,27 +245,6 @@ S3DEXP int spew3d_lvlbox_Transform(
     uint32_t *render_fill, uint32_t *render_alloc
 );
 
-S3DEXP int spew3d_lvlbox_edit_PaintLastUsedTexture(
-    s3d_lvlbox *lvlbox, s3d_pos paint_pos,
-    s3d_rotation paint_aim
-);
-
-S3DEXP int spew3d_lvlbox_edit_EraseTexture(
-    s3d_lvlbox *lvlbox, s3d_pos paint_pos,
-    s3d_rotation paint_aim
-);
-
-S3DEXP int spew3d_lvlbox_edit_AddNewLevelOfGround(
-    s3d_lvlbox *lvlbox, s3d_pos paint_pos,
-    s3d_rotation paint_aim
-);
-
-S3DEXP int spew3d_lvlbox_edit_DragFocusedTileCorner(
-    s3d_lvlbox *lvlbox, s3d_pos drag_pos,
-    s3d_rotation drag_aim, double drag_z,
-    int dragconnected
-);
-
 S3DEXP int spew3d_lvlbox_InteractPosDirToTileCorner(
     s3d_lvlbox *lvlbox, s3d_pos interact_pos,
     s3d_rotation interact_rot,
@@ -284,11 +262,6 @@ S3DEXP int spew3d_lvlbox_InteractPosDirToTileCornerOrWall(
     int32_t *out_tile_x, int32_t *out_tile_y,
     int32_t *out_segment_no, int *out_corner_no,
     int *out_wall_no, uint8_t *out_targets_top_wall
-);
-
-S3DEXP int spew3d_lvlbox_edit_CycleTexturePaint(
-    s3d_lvlbox *lvlbox, s3d_pos paint_pos,
-    s3d_rotation paint_aim, uint8_t reverse_cycle
 );
 
 S3DEXP s3d_lvlbox *spew3d_lvlbox_GetByID(uint64_t id);

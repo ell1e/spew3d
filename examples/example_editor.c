@@ -106,62 +106,19 @@ int main(int argc, const char **argv) {
                 notquit = 0;
                 break;
             }
-            if (e.kind == S3DEV_MOUSE_MOVE) {
-                if (!dragging) {
-                    s3d_rotation rot = spew3d_obj3d_GetRotation(camera);
-                    rot.hori += e.mouse.rel_x * 0.5;
-                    rot.verti -= e.mouse.rel_y * 0.5;
-                    spew3d_obj3d_SetRotation(camera, rot);
-                } else {
-                    // Mouse click dragging will adjust corner height.
-                    // (Shift key determines if neighboring tiles are
-                    // dragged along or not.)
-                    double drag_vert = -e.mouse.rel_y * 0.01;
-                    if (fabs(drag_vert) > 0.0001) {
-                        int r = spew3d_lvlbox_edit_DragFocusedTileCorner(
-                            level_contents, spew3d_obj3d_GetPos(camera),
-                            spew3d_obj3d_GetRotation(camera), drag_vert,
-                            !spew3d_keyboard_IsKeyPressed(
-                                win_id, S3D_KEY_LEFTSHIFT
-                            )
-                        );
-                    }
-                }
-            } else if (e.kind == S3DEV_MOUSEWHEEL_SCROLL) {
-                // Mouse wheel cycles through available textures.
-                if (!dragging && e.mousewheel.y > 0) {
-                    int r = spew3d_lvlbox_edit_CycleTexturePaint(
-                        level_contents, spew3d_obj3d_GetPos(camera),
-                        spew3d_obj3d_GetRotation(camera), 0
-                    );
-                } else if (!dragging && e.mousewheel.y < 0) {
-                    int r = spew3d_lvlbox_edit_CycleTexturePaint(
-                        level_contents, spew3d_obj3d_GetPos(camera),
-                        spew3d_obj3d_GetRotation(camera), 0
-                    );
-                }
-            } else if (e.kind == S3DEV_KEY_DOWN &&
-                    e.key.key == S3D_KEY_T) {
-                // Pressing T paints a texture.
-                s3d_pos pos = spew3d_obj3d_GetPos(camera);
+            int is_edit_event = spew3d_lvlbox_edit_TryUseAsInputForEditing(
+                win, level_contents, &e,
+                spew3d_obj3d_GetPos(camera),
+                spew3d_obj3d_GetRotation(camera)
+            );
+            if (!is_edit_event && e.kind == S3DEV_MOUSE_MOVE) {
                 s3d_rotation rot = spew3d_obj3d_GetRotation(camera);
-                spew3d_lvlbox_edit_PaintLastUsedTexture(
-                    level_contents, pos, rot
-                );
-            } else if (e.kind == S3DEV_KEY_DOWN &&
-                    e.key.key == S3D_KEY_G) {
-                // Pressing G adds in a new level of ground.
-                s3d_pos pos = spew3d_obj3d_GetPos(camera);
-                s3d_rotation rot = spew3d_obj3d_GetRotation(camera);
-                spew3d_lvlbox_edit_AddNewLevelOfGround(
-                    level_contents, pos, rot
-                );
-            } else if (e.kind == S3DEV_MOUSE_BUTTON_DOWN) {
-                dragging = 1;
-            } else if (e.kind == S3DEV_MOUSE_BUTTON_UP) {
-                dragging = 0;
+                rot.hori += e.mouse.rel_x * 0.5;
+                rot.verti -= e.mouse.rel_y * 0.5;
+                spew3d_obj3d_SetRotation(camera, rot);
             }
         }
+
         // Move camera:
         while (move_ts < spew3d_time_Ticks()) {
             if (spew3d_keyboard_IsKeyPressed(
