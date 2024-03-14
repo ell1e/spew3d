@@ -30,6 +30,7 @@ license, see accompanied LICENSE.md.
 
 #define LVLBOX_CHUNK_SIZE 6
 #define LVLBOX_TILE_SIZE 1.0
+#define LVLBOX_FENCE_VERTICAL_MAXHEIGHT 2.0
 #define LVLBOX_DEFAULT_TILE_HEIGHT 2.0
 
 typedef struct s3d_resourceload_job s3d_resourceload_job;
@@ -60,7 +61,6 @@ typedef struct s3d_lvlbox_texinfo {
 
 typedef struct s3d_lvlbox_fenceinfo {
     int fence_set, fence_hasalpha, fence_passable;
-    double fence_height;
     s3d_lvlbox_texinfo fence_tex;
 } s3d_lvlbox_fenceinfo;
 
@@ -110,6 +110,9 @@ typedef struct s3d_lvlbox_vertsegment {
 
     s3d_lvlbox_texinfo ceiling_tex;
     s3dnum_t ceiling_z[4];
+
+    s3d_lvlbox_fenceinfo horizontal_fence;
+    double horizontal_fence_z;
 
     s3d_lvlbox_tilecache cache;
 } s3d_lvlbox_vertsegment;

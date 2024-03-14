@@ -37,8 +37,10 @@ typedef struct s3d_lvlbox_internal {
     s3d_resourceload_job *cycle_tex_job;
 
     char *last_used_tex;
-    int _edit_dragging_floor;
     int last_used_tex_vfsflags;
+    char *last_used_fence;
+    int last_used_fence_vfsflags;
+    int _edit_dragging_floor;
 } s3d_lvlbox_internal;
 
 static s3d_mutex *_global_lvlbox_list_mutex = NULL;

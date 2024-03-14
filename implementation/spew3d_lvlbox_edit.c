@@ -221,8 +221,6 @@ S3DEXP int spew3d_lvlbox_edit_DragFocusedTileCorner(
     return result;
 }
 
-
-
 S3DEXP int spew3d_lvlbox_edit_CycleTexturePaint(
         s3d_lvlbox *lvlbox, s3d_pos paint_pos,
         s3d_rotation paint_aim, uint8_t reverse_cycle
@@ -279,6 +277,83 @@ S3DEXP int spew3d_lvlbox_edit_CycleTexturePaint(
         (wall_no < 0 && paint_aim.verti >= 0),
         topwallmodifier, reverse_cycle
     );
+    mutex_Release(_lvlbox_Internal(lvlbox)->m);
+    return 1;
+}
+
+S3DEXP int spew3d_lvlbox_edit_PaintLastUsedFenceEx(
+        s3d_lvlbox *lvlbox, s3d_pos paint_pos,
+        s3d_rotation paint_aim
+        ) {
+    mutex_Lock(_lvlbox_Internal(lvlbox)->m);
+
+    uint8_t topwallmodifier = 0;
+    const char *paint_name = "grass01.png";
+    int paint_vfsflags = 0;
+    if (_lvlbox_Internal(lvlbox)->last_used_tex) {
+        paint_name = _lvlbox_Internal(lvlbox)->last_used_tex;
+        paint_vfsflags = _lvlbox_Internal(lvlbox)->
+            last_used_tex_vfsflags;
+    }
+
+    int32_t chunk_index, tile_index, segment_no;
+    int32_t chunk_x, chunk_y, tile_x, tile_y;
+    int corner_no, wall_no;
+    int result = _spew3d_lvlbox_InteractPosDirToTileCornerOrWall_nolock(
+        lvlbox, paint_pos, paint_aim,
+        &chunk_index, &tile_index, &chunk_x, &chunk_y,
+        &tile_x, &tile_y, &segment_no, &corner_no, &wall_no,
+        &topwallmodifier
+    );
+    if (!result) {
+        mutex_Release(_lvlbox_Internal(lvlbox)->m);
+        return 1;
+    }
+
+    s3d_lvlbox_tile *tile = &(
+        lvlbox->chunk[chunk_index].tile[tile_index]
+    );
+    int opposite_wall = (wall_no >= 0 ?
+        (wall_no + 2) % 4 : -1);
+    int is_facing_floor = (
+        wall_no < 0 && paint_aim.verti < 0
+    );
+    if (!tile->occupied || tile->segment_count < 0 ||
+            segment_no < 0) {
+        mutex_Release(_lvlbox_Internal(lvlbox)->m);
+        return 1;
+    }
+    int32_t neighbor_chunk_index = -1;
+    int32_t neighbor_tile_index = -1;
+    if (wall_no >= 0) {
+        assert(opposite_wall >= 0);
+        int shift_x = 0;
+        int shift_y = 0;
+        if (wall_no == 0) {
+            shift_x = 1;
+        } else if (wall_no == 1) {
+            shift_y = 1;
+        } else if (wall_no == 2) {
+            shift_x = -1;
+        } else {
+            assert(wall_no == 3);
+            shift_y = -1;
+        }
+        int result = _spew3d_lvlbox_GetNeighborTile_nolock(
+            lvlbox, chunk_index, tile_index,
+            shift_x, shift_y, &neighbor_chunk_index,
+            &neighbor_tile_index
+        );
+        if (!result || !lvlbox->chunk[neighbor_chunk_index].
+                tile[neighbor_tile_index].occupied) {
+            neighbor_chunk_index = -1;
+            neighbor_tile_index = -1;
+        }
+        // Unset fences in all neighboring segments facing ours,
+        // whenever they have shared openings to the side:
+
+    }  // FIXME: finish this.
+
     mutex_Release(_lvlbox_Internal(lvlbox)->m);
     return 1;
 }
@@ -597,27 +672,30 @@ S3DHID int _spew3d_lvlbox_edit_AddNewLevelOfGround_nolock(
             set_ceiling_tex_vfsflags;
         tile->segment[insert_seg_no].ceiling_tex.id = ceiling_tid;
     }
+
     int i = 0;
     while (i < 4) {
+        assert(new_floor_z <
+            floor_above_z - min_vertical_spacing);
         tile->segment[insert_seg_no].floor_z[i] =
             new_floor_z;
         tile->segment[insert_seg_no].ceiling_z[i] =
-            new_floor_z + fmin(
-                LVLBOX_TILE_SIZE * 2.0,
-                (have_floor_above ? floor_above_z -
-                min_vertical_spacing :
-                new_floor_z + LVLBOX_TILE_SIZE * 10)
+            fmin(
+                new_floor_z + LVLBOX_TILE_SIZE * 2.0,
+                (have_floor_above ? (floor_above_z -
+                min_vertical_spacing) :
+                (new_floor_z + LVLBOX_TILE_SIZE * 10))
             );
         if (insert_seg_no > 0) {
             tile->segment[insert_seg_no - 1].ceiling_z[i] = fmin(
                 tile->segment[insert_seg_no - 1].ceiling_z[i],
                 ceiling_below
             );
-            assert(
-                tile->segment[insert_seg_no - 1].ceiling_z[i] >
-                tile->segment[insert_seg_no - 1].floor_z[i]
-            );
         }
+        assert(
+            tile->segment[insert_seg_no].ceiling_z[i] >
+            tile->segment[insert_seg_no].floor_z[i]
+        );
         i++;
     }
     tile->segment_count++;
@@ -666,7 +744,7 @@ S3DEXP int spew3d_lvlbox_edit_AddNewLevelOfGround(
     return result;
 }
 
-int spew3d_lvlbox_edit_TryUseAsInputForEditing(
+S3DEXP int spew3d_lvlbox_edit_TryUseAsInputForEditing(
         s3d_window *editor_window,
         s3d_lvlbox *lvlbox, s3d_event *e, s3d_pos aim_pos,
         s3d_rotation aim_rot

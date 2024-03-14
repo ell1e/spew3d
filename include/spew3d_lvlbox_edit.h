@@ -54,7 +54,12 @@ S3DEXP int spew3d_lvlbox_edit_CycleTexturePaint(
     s3d_rotation paint_aim, uint8_t reverse_cycle
 );
 
-int spew3d_lvlbox_edit_TryUseAsInputForEditing(
+S3DEXP int spew3d_lvlbox_edit_PaintLastUsedFenceEx(
+    s3d_lvlbox *lvlbox, s3d_pos paint_pos,
+    s3d_rotation paint_aim
+);
+
+S3DEXP int spew3d_lvlbox_edit_TryUseAsInputForEditing(
     s3d_window *editor_window,
     s3d_lvlbox *lvlbox, s3d_event *e, s3d_pos aim_pos,
     s3d_rotation aim_rot
