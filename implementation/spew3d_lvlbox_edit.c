@@ -160,7 +160,7 @@ S3DEXP int spew3d_lvlbox_edit_DragFocusedTileCorner(
             assert(fence_min_z <= fence_max_z);
         }
     }
-    if (hori_fence_targeted) {
+    if (hori_fence_targeted >= 0) {
         double pre_drag_z = tile->segment[segment_no].hori_fence_z[
             hori_fence_targeted
         ];
@@ -938,7 +938,7 @@ S3DHID int _spew3d_lvlbox_edit_AddNewLevelOfGround_nolock(
 
     int i = 0;
     while (i < 4) {
-        assert(new_floor_z <
+        assert(!have_floor_above || new_floor_z <
             floor_above_z - min_vertical_spacing);
         tile->segment[insert_seg_no].floor_z[i] =
             new_floor_z;
