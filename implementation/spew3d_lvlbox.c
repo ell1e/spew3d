@@ -1029,6 +1029,20 @@ S3DHID static void _spew3d_lvlbox_ActuallyDestroy(
         _spew3d_lvlbox_FreeChunkContents(&lvlbox->chunk[i]);
         i++;
     }
+    if (lvlbox->_internal != NULL) {
+        if (_lvlbox_Internal(lvlbox)->m != NULL)
+            mutex_Destroy(_lvlbox_Internal(lvlbox)->m);
+        if (_lvlbox_Internal(lvlbox)->cycle_tex_job != NULL) {
+            s3d_resourceload_DestroyJob(
+                _lvlbox_Internal(lvlbox)->cycle_tex_job
+            );
+        }
+        if (_lvlbox_Internal(lvlbox)->last_used_tex != NULL)
+            free(_lvlbox_Internal(lvlbox)->last_used_tex);
+        if (_lvlbox_Internal(lvlbox)->last_used_fence != NULL)
+            free(_lvlbox_Internal(lvlbox)->last_used_fence);
+    }
+    free(lvlbox->_internal);
     free(lvlbox->chunk);
 }
 
@@ -1349,7 +1363,7 @@ S3DHID int _spew3d_lvlbox_TryUpdateTileCache_nolock_Ex(
             }
             fence_count += tile->segment[i].hori_fence_count;
         }
-        if (cache->cached_fence_maxpolycount != fence_count * 2) {
+        if (cache->cached_fence_maxpolycount < fence_count * 2) {
             cache->flat_normals_set = 0;
             s3d_lvlbox_tilepolygon *new_polys = (
                 malloc(sizeof(*new_polys) * fence_count * 2)
@@ -1539,6 +1553,343 @@ S3DHID int _spew3d_lvlbox_TryUpdateTileCache_nolock_Ex(
                     &cache->cached_floor[1].polynormal
                 );
                 cache->cached_floor_polycount = 2;
+            }
+
+            // ** FENCES: **
+
+            cache->cached_fence_polycount = 0;
+            int k = 0;
+            while (k < 4) {
+                if (!tile->segment[segment_no].
+                        wall[k].fence.is_set) {
+                    k++;
+                    continue;
+                }
+                int32_t neighbor_chunk_index = -1;
+                int32_t neighbor_tile_index = -1;
+                s3dnum_t left_corner_x = tile_lower_end.x;
+                s3dnum_t left_corner_y = tile_lower_end.y;
+                s3dnum_t right_corner_x = tile_lower_end.x;
+                s3dnum_t right_corner_y = tile_lower_end.y;
+                s3d_pos fence_normal_inside;
+                int opposite_x = 0;
+                int opposite_y = 0;
+                if (k == 0) {
+                    opposite_x = 1;
+                    left_corner_x += (s3dnum_t)LVLBOX_TILE_SIZE;
+                    right_corner_x += (s3dnum_t)LVLBOX_TILE_SIZE;
+                    right_corner_y += (s3dnum_t)LVLBOX_TILE_SIZE;
+                    fence_normal_inside.x = -1;
+                } else if (k == 1) {
+                    opposite_y = 1;
+                    left_corner_y += (s3dnum_t)LVLBOX_TILE_SIZE;
+                    right_corner_y += (s3dnum_t)LVLBOX_TILE_SIZE;
+                    left_corner_x += (s3dnum_t)LVLBOX_TILE_SIZE;
+                    fence_normal_inside.y = -1;
+                } else if (k == 2) {
+                    opposite_x = -1;
+                    left_corner_y += (s3dnum_t)LVLBOX_TILE_SIZE;
+                    fence_normal_inside.x = 1;
+                } else {
+                    assert(k == 3);
+                    opposite_y = -1;
+                    right_corner_x += (s3dnum_t)LVLBOX_TILE_SIZE;
+                    fence_normal_inside.y = 1;
+                }
+                int result = _spew3d_lvlbox_GetNeighborTile_nolock(
+                    lvlbox, chunk_index, tile_index,
+                    opposite_x, opposite_y,
+                    &neighbor_chunk_index,
+                    &neighbor_tile_index
+                );
+                if (!result) {
+                    k++;
+                    continue;
+                }
+                s3d_lvlbox_tile *neighbor_tile = &(
+                    lvlbox->chunk[neighbor_chunk_index].
+                        tile[neighbor_tile_index]
+                );
+                if (!neighbor_tile->occupied) {
+                    k++;
+                    continue;
+                }
+                int corner_left = (k + 3) % 4;
+                int corner_right = k;
+                int neighbor_corner_left = -1;
+                int neighbor_corner_right = -1;
+                result = (
+                    _spew3d_lvlbox_GetNeighboringCorner_nolock(
+                        lvlbox, chunk_index, tile_index, corner_left,
+                        neighbor_chunk_index, neighbor_tile_index,
+                        &neighbor_corner_left
+                    )
+                );
+                if (!result) {
+                    k++;
+                    continue;
+                }
+                result = (
+                    _spew3d_lvlbox_GetNeighboringCorner_nolock(
+                        lvlbox, chunk_index, tile_index, corner_right,
+                        neighbor_chunk_index, neighbor_tile_index,
+                        &neighbor_corner_right
+                    )
+                );
+                if (!result) {
+                    k++;
+                    continue;
+                }
+                int i2 = 0;
+                while (i2 < neighbor_tile->segment_count) {
+                    double shared_min_z_left = fmax(
+                        tile->segment[segment_no].floor_z[corner_left],
+                        neighbor_tile->segment[i2].floor_z[
+                            neighbor_corner_left
+                        ]
+                    );
+                    double shared_min_z_right = fmax(
+                        tile->segment[segment_no].floor_z[corner_right],
+                        neighbor_tile->segment[i2].floor_z[
+                            neighbor_corner_right
+                        ]
+                    );
+                    double shared_max_z_left = fmax(
+                        tile->segment[segment_no].ceiling_z[corner_left],
+                        neighbor_tile->segment[i2].ceiling_z[
+                            neighbor_corner_left
+                        ]
+                    );
+                    double shared_max_z_right = fmax(
+                        tile->segment[segment_no].ceiling_z[corner_right],
+                        neighbor_tile->segment[i2].ceiling_z[
+                            neighbor_corner_right
+                        ]
+                    );
+                    if (shared_max_z_left <= shared_min_z_left ||
+                            shared_max_z_right <= shared_min_z_right) {
+                        i2++;
+                        continue;
+                    }
+                    shared_max_z_left = fmin(
+                        shared_max_z_left, shared_min_z_left + (
+                            tile->segment[segment_no].wall[k].
+                                fence.truncate_set ?
+                            tile->segment[segment_no].wall[k].
+                                fence.truncate_height_z :
+                            LVLBOX_FENCE_VERTICAL_MAXHEIGHT
+                        )
+                    );
+                    shared_max_z_right = fmin(
+                        shared_max_z_right, shared_min_z_right + (
+                            tile->segment[segment_no].wall[k].
+                                fence.truncate_set ?
+                            tile->segment[segment_no].wall[k].
+                                fence.truncate_height_z :
+                            LVLBOX_FENCE_VERTICAL_MAXHEIGHT
+                        )
+                    );
+                    if (shared_max_z_left <= shared_min_z_left ||
+                            shared_max_z_right <= shared_min_z_right) {
+                        i2++;
+                        continue;
+                    }
+                    int z = cache->cached_fence_polycount;
+                    if (z + 2 > cache->cached_fence_maxpolycount) {
+                        int newmax = z + 2;
+                        s3d_lvlbox_tilepolygon *new_polys = (
+                            realloc(cache->cached_fence,
+                                sizeof(*new_polys) * newmax)
+                        );
+                        if (!new_polys) {
+                            return 0;
+                        }
+                        if (cache->cached_fence != NULL)
+                            free(cache->cached_fence);
+                        cache->cached_fence = new_polys;
+                        cache->cached_fence_maxpolycount = newmax;
+                    }
+
+                    memset(&cache->cached_fence[z], 0,
+                        sizeof(cache->cached_fence[z]));
+                    cache->cached_fence[z].texture =
+                        tile->segment[segment_no].
+                        wall[k].fence.tex.id;
+                    cache->cached_fence[z].material =
+                        tile->segment[segment_no].
+                        wall[k].fence.tex.material;
+                    cache->cached_fence[z].vertex[0].x =
+                        left_corner_x;
+                    cache->cached_fence[z].vertex[0].y =
+                        left_corner_y;
+                    cache->cached_fence[z].vertex[0].z =
+                        shared_min_z_left;
+                    cache->cached_fence[z].vertex[1].x =
+                        right_corner_x;
+                    cache->cached_fence[z].vertex[1].y =
+                        right_corner_y;
+                    cache->cached_fence[z].vertex[1].z =
+                        shared_min_z_right;
+                    cache->cached_fence[z].vertex[2].x =
+                        right_corner_x;
+                    cache->cached_fence[z].vertex[2].y =
+                        right_corner_y;
+                    cache->cached_fence[z].vertex[2].z =
+                        shared_max_z_right;
+                    cache->cached_fence[z].texcoord[0].y = 1;
+                    cache->cached_fence[z].texcoord[1].x = 1;
+                    cache->cached_fence[z].texcoord[1].y = 1;
+                    cache->cached_fence[z].texcoord[2].x = 1;
+                    cache->cached_fence[z].polynormal =
+                        fence_normal_inside;
+                    cache->cached_fence[z].normal[0] =
+                        cache->cached_fence[z].polynormal;
+                    cache->cached_fence[z].normal[1] =
+                        cache->cached_fence[z].polynormal;
+                    cache->cached_fence[z].normal[2] =
+                        cache->cached_fence[z].polynormal;
+                    z++;
+                    cache->cached_fence_polycount++;
+
+                    memset(&cache->cached_fence[z], 0,
+                        sizeof(cache->cached_fence[z]));
+                    cache->cached_fence[z].texture =
+                        tile->segment[segment_no].
+                        wall[k].fence.tex.id;
+                    cache->cached_fence[z].material =
+                        tile->segment[segment_no].
+                        wall[k].fence.tex.material;
+                    cache->cached_fence[z].vertex[0].x =
+                        left_corner_x;
+                    cache->cached_fence[z].vertex[0].y =
+                        left_corner_y;
+                    cache->cached_fence[z].vertex[0].z =
+                        shared_min_z_left;
+                    cache->cached_fence[z].vertex[1].x =
+                        right_corner_x;
+                    cache->cached_fence[z].vertex[1].y =
+                        right_corner_y;
+                    cache->cached_fence[z].vertex[1].z =
+                        shared_max_z_right;
+                    cache->cached_fence[z].vertex[2].x =
+                        left_corner_x;
+                    cache->cached_fence[z].vertex[2].y =
+                        left_corner_y;
+                    cache->cached_fence[z].vertex[2].z =
+                        shared_max_z_left;
+                    cache->cached_fence[z].texcoord[0].y = 1;
+                    cache->cached_fence[z].texcoord[1].x = 1;
+                    cache->cached_fence[z].texcoord[1].y = 1;
+                    cache->cached_fence[z].polynormal =
+                        fence_normal_inside;
+                    cache->cached_fence[z].normal[0] =
+                        cache->cached_fence[z].polynormal;
+                    cache->cached_fence[z].normal[1] =
+                        cache->cached_fence[z].polynormal;
+                    cache->cached_fence[z].normal[2] =
+                        cache->cached_fence[z].polynormal;
+                    z++;
+                    cache->cached_fence_polycount++;
+
+                    i2++;
+                }
+                k++;
+            }
+            if (cache->cached_fence_polycount +
+                    2 * tile->segment[segment_no].
+                    hori_fence_count >
+                    cache->cached_fence_maxpolycount) {
+                int newmax = cache->cached_fence_polycount +
+                    2 * tile->segment[segment_no].
+                    hori_fence_count;
+                s3d_lvlbox_tilepolygon *new_polys = (
+                    realloc(cache->cached_fence,
+                        sizeof(*new_polys) * newmax)
+                );
+                if (!new_polys) {
+                    return 0;
+                }
+                if (cache->cached_fence != NULL)
+                    free(cache->cached_fence);
+                cache->cached_fence = new_polys;
+                cache->cached_fence_maxpolycount = newmax;
+            }
+            k = 0;
+            while (k < tile->segment[segment_no].
+                    hori_fence_count) {
+                int z = cache->cached_fence_polycount;
+
+                memset(&cache->cached_fence[z], 0,
+                    sizeof(cache->cached_fence[z]));
+                cache->cached_fence[z].texture =
+                    tile->segment[segment_no].
+                    hori_fence[k].tex.id;
+                cache->cached_fence[z].material =
+                    tile->segment[segment_no].
+                    hori_fence[k].tex.material;
+                cache->cached_fence[z].vertex[0] = front_left;
+                cache->cached_fence[z].vertex[0].z =
+                    tile->segment[segment_no].
+                    hori_fence_z[k];
+                cache->cached_fence[z].vertex[1] = back_right;
+                cache->cached_fence[z].vertex[1].z =
+                    tile->segment[segment_no].
+                    hori_fence_z[k];
+                cache->cached_fence[z].vertex[2] = front_right;
+                cache->cached_fence[z].vertex[2].z =
+                    tile->segment[segment_no].
+                    hori_fence_z[k];
+                cache->cached_fence[z].texcoord[1].x = 1;
+                cache->cached_fence[z].texcoord[1].y = 1;
+                cache->cached_fence[z].texcoord[2].x = 1;
+                cache->cached_fence[z].polynormal.x = 0;
+                cache->cached_fence[z].polynormal.y = 0;
+                cache->cached_fence[z].polynormal.z = 1;
+                cache->cached_fence[z].normal[0] =
+                    cache->cached_fence[z].polynormal;
+                cache->cached_fence[z].normal[1] =
+                    cache->cached_fence[z].polynormal;
+                cache->cached_fence[z].normal[2] =
+                    cache->cached_fence[z].polynormal;
+                z++;
+                cache->cached_fence_polycount++;
+
+                memset(&cache->cached_fence[z], 0,
+                    sizeof(cache->cached_fence[z]));
+                cache->cached_fence[z].texture =
+                    tile->segment[segment_no].
+                    hori_fence[k].tex.id;
+                cache->cached_fence[z].material =
+                    tile->segment[segment_no].
+                    hori_fence[k].tex.material;
+                cache->cached_fence[z].vertex[0] = front_left;
+                cache->cached_fence[z].vertex[0].z =
+                    tile->segment[segment_no].
+                    hori_fence_z[k];
+                cache->cached_fence[z].vertex[1] = back_left;
+                cache->cached_fence[z].vertex[1].z =
+                    tile->segment[segment_no].
+                    hori_fence_z[k];
+                cache->cached_fence[z].vertex[2] = back_right;
+                cache->cached_fence[z].vertex[2].z =
+                    tile->segment[segment_no].
+                    hori_fence_z[k];
+                cache->cached_fence[z].texcoord[1].y = 1;
+                cache->cached_fence[z].texcoord[2].x = 1;
+                cache->cached_fence[z].texcoord[2].y = 1;
+                cache->cached_fence[z].polynormal.x = 0;
+                cache->cached_fence[z].polynormal.y = 0;
+                cache->cached_fence[z].polynormal.z = 1;
+                cache->cached_fence[z].normal[0] =
+                    cache->cached_fence[z].polynormal;
+                cache->cached_fence[z].normal[1] =
+                    cache->cached_fence[z].polynormal;
+                cache->cached_fence[z].normal[2] =
+                    cache->cached_fence[z].polynormal;
+                z++;
+                cache->cached_fence_polycount++;
+
+                k++;
             }
 
             // ** CEILING: **
@@ -3159,6 +3510,15 @@ S3DEXP s3d_lvlbox *spew3d_lvlbox_New(
             LVLBOX_CHUNK_SIZE, default_tex, (double)pos.x,
             (double)pos.y);
         #endif
+        if (_lvlbox_Internal(lvlbox)->last_used_fence == NULL) {
+            _lvlbox_Internal(lvlbox)->last_used_fence = (
+                strdup(default_tex)
+            );
+            if (!_lvlbox_Internal(lvlbox)->last_used_fence) {
+                _spew3d_lvlbox_ActuallyDestroy(lvlbox);
+                return NULL;
+            }
+        }
         if (_lvlbox_Internal(lvlbox)->last_used_tex == NULL) {
             _lvlbox_Internal(lvlbox)->last_used_tex = (
                 strdup(default_tex)
@@ -3178,6 +3538,15 @@ S3DEXP s3d_lvlbox *spew3d_lvlbox_New(
             (int)lvlbox->chunk_count * LVLBOX_CHUNK_SIZE *
             LVLBOX_CHUNK_SIZE);
         #endif
+        if (_lvlbox_Internal(lvlbox)->last_used_fence == NULL) {
+            _lvlbox_Internal(lvlbox)->last_used_fence = (
+                strdup("grass01.png")
+            );
+            if (!_lvlbox_Internal(lvlbox)->last_used_fence) {
+                _spew3d_lvlbox_ActuallyDestroy(lvlbox);
+                return NULL;
+            }
+        }
         if (_lvlbox_Internal(lvlbox)->last_used_tex == NULL) {
             _lvlbox_Internal(lvlbox)->last_used_tex = (
                 strdup("grass01.png")

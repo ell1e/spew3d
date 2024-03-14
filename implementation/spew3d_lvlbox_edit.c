@@ -379,10 +379,10 @@ S3DEXP int spew3d_lvlbox_edit_PaintLastUsedFenceEx(
     uint8_t topwallmodifier = 0;
     const char *paint_name = "grass01.png";
     int paint_vfsflags = 0;
-    if (_lvlbox_Internal(lvlbox)->last_used_tex) {
-        paint_name = _lvlbox_Internal(lvlbox)->last_used_tex;
+    if (_lvlbox_Internal(lvlbox)->last_used_fence) {
+        paint_name = _lvlbox_Internal(lvlbox)->last_used_fence;
         paint_vfsflags = _lvlbox_Internal(lvlbox)->
-            last_used_tex_vfsflags;
+            last_used_fence_vfsflags;
     }
 
     int32_t chunk_index, tile_index, segment_no;
@@ -453,15 +453,29 @@ S3DEXP int spew3d_lvlbox_edit_PaintLastUsedFenceEx(
     double our_max_z = (
         tile->segment[segment_no].ceiling_z[0]
     );
+    double our_min_z_upper = (
+        tile->segment[segment_no].floor_z[0]
+    );
+    double our_max_z_lower = (
+        tile->segment[segment_no].ceiling_z[0]
+    );
     int k = 1;
     while (k < 4) {
         our_min_z = fmin(
             tile->segment[segment_no].floor_z[k],
             our_min_z
         );
+        our_min_z_upper = fmax(
+            tile->segment[segment_no].floor_z[k],
+            our_min_z_upper
+        );
         our_max_z = fmax(
             tile->segment[segment_no].ceiling_z[k],
             our_max_z
+        );
+        our_max_z_lower = fmin(
+            tile->segment[segment_no].ceiling_z[k],
+            our_max_z_lower
         );
         k++;
     }
@@ -507,7 +521,101 @@ S3DEXP int spew3d_lvlbox_edit_PaintLastUsedFenceEx(
             }
             i++;
         }
-    }  // FIXME: finish this.
+    }
+
+    if (wall_no < 0) {  // This is a horizontal fence:
+        s3dnum_t add_fence_z = paint_pos.z + (
+            paint_aim.verti > 0 ?
+            (LVLBOX_TILE_SIZE * 0.25) :
+            (-LVLBOX_TILE_SIZE)
+        );
+        int edit_candidate_idx = -1;
+        s3dnum_t edit_candidate_z = 0;
+        int cant_add_fence = 0;
+        if (add_fence_z < our_min_z_upper ||
+                add_fence_z > our_max_z_lower)
+            cant_add_fence = 1;
+        int k = 0;
+        while (k < tile->segment[segment_no].
+                hori_fence_count) {
+            if (fabs(tile->segment[segment_no].
+                    hori_fence_z[k] - add_fence_z) <
+                    min_vertical_spacing) {
+                cant_add_fence = 1;
+            }
+            if (fabs(tile->segment[segment_no].
+                    hori_fence_z[k] - add_fence_z) <
+                    edit_candidate_z ||
+                    edit_candidate_idx < 0) {
+                edit_candidate_idx = k;
+                edit_candidate_z = tile->segment[segment_no].
+                    hori_fence_z[k];
+            }
+            k++;
+        }
+        if (!cant_add_fence) {
+            int hori_count = (
+                tile->segment[segment_no].hori_fence_count
+            );
+            s3d_lvlbox_fenceinfo *new_hori_fence = realloc(
+                tile->segment[segment_no].hori_fence,
+                sizeof(*new_hori_fence) * (hori_count + 1)
+            );
+            if (!new_hori_fence) {
+                mutex_Release(_lvlbox_Internal(lvlbox)->m);
+                return 0;
+            }
+            tile->segment[segment_no].hori_fence = new_hori_fence;
+            s3dnum_t *new_hori_fence_z = realloc(
+                tile->segment[segment_no].hori_fence_z,
+                sizeof(*new_hori_fence_z) * (hori_count + 1)
+            );
+            if (!new_hori_fence_z) {
+                mutex_Release(_lvlbox_Internal(lvlbox)->m);
+                return 0;
+            }
+            tile->segment[segment_no].hori_fence_z = new_hori_fence_z;
+            memset(
+                &tile->segment[segment_no].hori_fence[hori_count],
+                0, sizeof(tile->segment[0].hori_fence[0])
+            );
+            tile->segment[segment_no].
+                hori_fence[hori_count].tex.name =
+                strdup(paint_name);
+            if (!tile->segment[segment_no].
+                    hori_fence[hori_count].tex.name) {
+                mutex_Release(_lvlbox_Internal(lvlbox)->m);
+                return 0;
+            }
+            tile->segment[segment_no].
+                hori_fence[hori_count].tex.id =
+                spew3d_texture_FromFile(
+                    paint_name, paint_vfsflags
+                );
+            if (!tile->segment[segment_no].
+                    hori_fence[hori_count].tex.id) {
+                free(tile->segment[segment_no].
+                    hori_fence[hori_count].tex.name);
+                mutex_Release(_lvlbox_Internal(lvlbox)->m);
+                return 0;
+            }
+            tile->segment[segment_no].
+                hori_fence[hori_count].tex.vfs_flags =
+                paint_vfsflags;
+            tile->segment[segment_no].
+                hori_fence[hori_count].is_set = 1;
+            tile->segment[segment_no].
+                hori_fence[hori_count].has_alpha = 1;
+
+            tile->segment[segment_no].hori_fence_count++;
+            mutex_Release(_lvlbox_Internal(lvlbox)->m);
+            return 1;
+        }
+        if (edit_candidate_idx < 0) {
+            mutex_Release(_lvlbox_Internal(lvlbox)->m);
+            return 1;
+        }
+    }
 
     mutex_Release(_lvlbox_Internal(lvlbox)->m);
     return 1;

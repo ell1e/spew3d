@@ -47,7 +47,7 @@ typedef struct s3d_lvlbox_customprops {
     int prop_count;
     char *prop_name;
     char *prop_value;
-};
+} s3d_lvlbox_customprops;
 
 typedef struct s3d_lvlbox_texinfo {
     char *name;
@@ -62,6 +62,8 @@ typedef struct s3d_lvlbox_texinfo {
 typedef struct s3d_lvlbox_fenceinfo {
     int is_set, has_alpha, is_passable;
     s3d_lvlbox_texinfo tex;
+    int truncate_set;
+    double truncate_height_z;
 } s3d_lvlbox_fenceinfo;
 
 typedef struct s3d_lvlbox_wallinfo {
@@ -116,8 +118,8 @@ typedef struct s3d_lvlbox_vertsegment {
     s3dnum_t ceiling_z[4];
 
     int16_t hori_fence_count;
-    s3d_lvlbox_fenceinfo *horil_fence;
-    double *hori_fence_z;
+    s3d_lvlbox_fenceinfo *hori_fence;
+    s3dnum_t *hori_fence_z;
 
     s3d_lvlbox_tilecache cache;
 } s3d_lvlbox_vertsegment;
