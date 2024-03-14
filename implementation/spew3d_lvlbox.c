@@ -165,21 +165,31 @@ S3DHID static void _spew3d_lvlbox_FreeTileCacheContents(
         ) {
     if (!cache)
         return;
+
     if (cache->cached_floor != NULL)
         free(cache->cached_floor);
     cache->cached_floor_maxpolycount = 0;
     cache->cached_floor_polycount = 0;
     cache->cached_floor = NULL;
+
     if (cache->cached_ceiling != NULL)
         free(cache->cached_ceiling);
     cache->cached_ceiling_maxpolycount = 0;
     cache->cached_ceiling_polycount = 0;
     cache->cached_ceiling = NULL;
+
     if (cache->cached_wall != NULL)
         free(cache->cached_wall);
     cache->cached_wall_maxpolycount = 0;
     cache->cached_wall_polycount = 0;
     cache->cached_wall = NULL;
+
+    if (cache->cached_fence != NULL)
+        free(cache->cached_fence);
+    cache->cached_fence_polycount = 0;
+    cache->cached_fence_maxpolycount = 0;
+    cache->cached_fence = NULL;
+
     cache->is_up_to_date = 0;
     cache->flat_normals_set = 0;
 }
@@ -1288,7 +1298,7 @@ S3DHID int _spew3d_lvlbox_TryUpdateTileCache_nolock_Ex(
         );
         const uint32_t segment_no =i;
 
-        // Set up floor list for use:
+        // Set up polygon list for use:
         if (cache->cached_floor_maxpolycount < 2) {
             cache->flat_normals_set = 0;
             s3d_lvlbox_tilepolygon *new_polys = (
@@ -1327,6 +1337,30 @@ S3DHID int _spew3d_lvlbox_TryUpdateTileCache_nolock_Ex(
                 free(cache->cached_wall);
             cache->cached_wall = new_polys;
             cache->cached_wall_maxpolycount = 4 * 2;
+        }
+        int fence_count = 0;
+        {
+            int k = 0;
+            while (k < 4) {
+                if (tile->segment[i].wall[k].fence.is_set) {
+                    fence_count++;
+                }
+                k++;
+            }
+            fence_count += tile->segment[i].hori_fence_count;
+        }
+        if (cache->cached_fence_maxpolycount != fence_count * 2) {
+            cache->flat_normals_set = 0;
+            s3d_lvlbox_tilepolygon *new_polys = (
+                malloc(sizeof(*new_polys) * fence_count * 2)
+            );
+            if (!new_polys) {
+                return 0;
+            }
+            if (cache->cached_fence != NULL)
+                free(cache->cached_fence);
+            cache->cached_fence = new_polys;
+            cache->cached_fence_maxpolycount = fence_count * 2;
         }
 
         // Set up flat, unsmoothed floor polygons if needed:

@@ -85,6 +85,95 @@ S3DEXP int spew3d_lvlbox_edit_DragFocusedTileCorner(
     s3d_lvlbox_tile *tile = (
         &lvlbox->chunk[chunk_index].tile[tile_index]
     );
+    int hori_fence_targeted = -1;
+    s3dnum_t fence_max_z;
+    s3dnum_t fence_min_z;
+    if (tile->segment[segment_no].hori_fence_count > 0) {
+        int best_idx = -1;
+        double best_dist = 0;
+        s3dnum_t best_z;
+        int k = 0;
+        while (k < tile->segment[segment_no].
+                hori_fence_count) {
+            if (drag_aim.verti > 0 &&
+                    tile->segment[segment_no].
+                    hori_fence_z[k] > drag_pos.z &&
+                    (best_idx < 0 || fabs(
+                    tile->segment[segment_no].
+                    hori_fence_z[k] - drag_pos.z) <
+                    best_dist)) {
+                best_dist = fabs(
+                    tile->segment[segment_no].
+                    hori_fence_z[k] - drag_pos.z
+                );
+                best_z = tile->segment[segment_no].
+                    hori_fence_z[k];
+                best_idx = k;
+                break;
+            } else if (drag_aim.verti < 0 &&
+                    tile->segment[segment_no].
+                    hori_fence_z[k] < drag_pos.z &&
+                    (best_idx < 0 || fabs(
+                    tile->segment[segment_no].
+                    hori_fence_z[k] - drag_pos.z) <
+                    best_dist)) {
+                best_dist = fabs(
+                    tile->segment[segment_no].
+                    hori_fence_z[k] - drag_pos.z
+                );
+                best_z = tile->segment[segment_no].
+                    hori_fence_z[k];
+                best_idx = k;
+                break;
+            }
+            k++;
+        }
+        if (best_idx >= 0) {
+            double corner_z;
+            if (drag_aim.verti > 0)
+                corner_z = tile->segment[segment_no].
+                    ceiling_z[corner];
+            else
+                corner_z = tile->segment[segment_no].
+                    floor_z[corner];
+            if ((drag_aim.verti > 0 && corner_z > best_z) ||
+                    (drag_aim.verti < 0 &&
+                    corner_z < best_z)) {
+                hori_fence_targeted = best_idx;
+            }
+            fence_max_z = tile->segment[segment_no].
+                ceiling_z[0] - min_vertical_spacing * 0.1;
+            fence_min_z = tile->segment[segment_no].
+                floor_z[0] + min_vertical_spacing * 0.1;
+            int k = 1;
+            while (k < 4) {
+                fence_max_z = fmin(
+                    fence_max_z,
+                    tile->segment[segment_no].ceiling_z[k]
+                );
+                fence_min_z = fmax(
+                    fence_min_z,
+                    tile->segment[segment_no].floor_z[k]
+                );
+                k++;
+            }
+            assert(fence_min_z <= fence_max_z);
+        }
+    }
+    if (hori_fence_targeted) {
+        double pre_drag_z = tile->segment[segment_no].hori_fence_z[
+            hori_fence_targeted
+        ];
+        double post_drag_z = fmax(fence_min_z,
+            fmin(fence_min_z, pre_drag_z + drag_z));
+        tile->segment[segment_no].hori_fence_z[
+            hori_fence_targeted
+        ] = post_drag_z;
+        tile->segment[segment_no].cache.is_up_to_date = 0;
+        tile->segment[segment_no].cache.flat_normals_set = 0;
+        mutex_Release(_lvlbox_Internal(lvlbox)->m);
+        return 1;
+    }
     int segment_above = segment_no + 1;
     if (segment_above >= tile->segment_count)
         segment_above = -1;
@@ -325,6 +414,7 @@ S3DEXP int spew3d_lvlbox_edit_PaintLastUsedFenceEx(
     }
     int32_t neighbor_chunk_index = -1;
     int32_t neighbor_tile_index = -1;
+    s3d_lvlbox_tile *neighbor_tile = NULL;
     if (wall_no >= 0) {
         assert(opposite_wall >= 0);
         int shift_x = 0;
@@ -349,9 +439,74 @@ S3DEXP int spew3d_lvlbox_edit_PaintLastUsedFenceEx(
             neighbor_chunk_index = -1;
             neighbor_tile_index = -1;
         }
+        if (neighbor_chunk_index >= 0 &&
+                neighbor_tile_index >= 0) {
+            neighbor_tile = &(
+                lvlbox->chunk[neighbor_chunk_index].
+                    tile[neighbor_tile_index]
+            );
+        }
+    }
+    double our_min_z = (
+        tile->segment[segment_no].floor_z[0]
+    );
+    double our_max_z = (
+        tile->segment[segment_no].ceiling_z[0]
+    );
+    int k = 1;
+    while (k < 4) {
+        our_min_z = fmin(
+            tile->segment[segment_no].floor_z[k],
+            our_min_z
+        );
+        our_max_z = fmax(
+            tile->segment[segment_no].ceiling_z[k],
+            our_max_z
+        );
+        k++;
+    }
+    if (neighbor_tile != NULL) {
         // Unset fences in all neighboring segments facing ours,
         // whenever they have shared openings to the side:
-
+        int i = 0;
+        while (i < neighbor_tile->segment_count) {
+            double seg_min_z = (
+                neighbor_tile->segment[i].floor_z[0]
+            );
+            double seg_max_z = (
+                neighbor_tile->segment[i].ceiling_z[0]
+            );
+            int k = 1;
+            while (k < 4) {
+                seg_min_z = fmin(
+                    neighbor_tile->segment[i].floor_z[k],
+                    seg_min_z
+                );
+                seg_max_z = fmax(
+                    neighbor_tile->segment[i].ceiling_z[k],
+                    seg_max_z
+                );
+                k++;
+            }
+            if (seg_max_z < our_min_z || seg_min_z > our_max_z) {
+                i++;
+                continue;
+            }
+            if (neighbor_tile->segment[i].wall[opposite_wall].
+                    fence.is_set) {
+                free(neighbor_tile->segment[i].wall[opposite_wall].
+                    fence.tex.name);
+                neighbor_tile->segment[i].wall[opposite_wall].
+                    fence.tex.name = NULL;
+                neighbor_tile->segment[i].wall[opposite_wall].
+                    fence.tex.id = 0;
+                memset(&neighbor_tile->segment[i].
+                    wall[opposite_wall].fence, 0,
+                    sizeof(neighbor_tile->segment[i].
+                    wall[opposite_wall].fence));
+            }
+            i++;
+        }
     }  // FIXME: finish this.
 
     mutex_Release(_lvlbox_Internal(lvlbox)->m);

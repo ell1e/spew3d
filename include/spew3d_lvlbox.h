@@ -60,8 +60,8 @@ typedef struct s3d_lvlbox_texinfo {
 } s3d_lvlbox_texinfo;
 
 typedef struct s3d_lvlbox_fenceinfo {
-    int fence_set, fence_hasalpha, fence_passable;
-    s3d_lvlbox_texinfo fence_tex;
+    int is_set, has_alpha, is_passable;
+    s3d_lvlbox_texinfo tex;
 } s3d_lvlbox_fenceinfo;
 
 typedef struct s3d_lvlbox_wallinfo {
@@ -100,6 +100,10 @@ typedef struct s3d_lvlbox_tilecache {
     uint16_t cached_wall_polycount;
     uint16_t cached_wall_maxpolycount;
     s3d_lvlbox_tilepolygon *cached_wall;
+
+    uint16_t cached_fence_polycount;
+    uint16_t cached_fence_maxpolycount;
+    s3d_lvlbox_tilepolygon *cached_fence;
 } s3d_lvlbox_tilecache;
 
 typedef struct s3d_lvlbox_vertsegment {
@@ -111,17 +115,18 @@ typedef struct s3d_lvlbox_vertsegment {
     s3d_lvlbox_texinfo ceiling_tex;
     s3dnum_t ceiling_z[4];
 
-    s3d_lvlbox_fenceinfo horizontal_fence;
-    double horizontal_fence_z;
+    int16_t hori_fence_count;
+    s3d_lvlbox_fenceinfo *horil_fence;
+    double *hori_fence_z;
 
     s3d_lvlbox_tilecache cache;
 } s3d_lvlbox_vertsegment;
 
 typedef struct s3d_lvlbox_tile {
-    int occupied;
+    uint8_t occupied;
 
     s3d_lvlbox_vertsegment *segment;
-    int segment_count;
+    int16_t segment_count;
 } s3d_lvlbox_tile;
 
 typedef struct s3d_lvlbox_chunk {
