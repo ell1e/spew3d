@@ -272,7 +272,10 @@ Contributions
 
 If you contribute to the project, you **permit licensing as described
 in this file** and agree to the [DCO](
-#Developer%20Certificate%20of%20Origin) below.
+#Developer%20Certificate%20of%20Origin) below. Using AI tools might
+interfere with this depending on how the training data was collected,
+so we ask that you **avoid contributing code made with involvement
+of AI code generation (like Co-Pilot)** for now.
 
 For this, sign your commit messages:
 
@@ -320,3 +323,4 @@ By making a contribution to this project, I certify that:
     maintained indefinitely and may be redistributed consistent with
     this project or the open source license(s) involved.
 ```
+
