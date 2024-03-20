@@ -273,9 +273,9 @@ Contributions
 If you contribute to the project, you **permit licensing as described
 in this file** and agree to the [DCO](
 #Developer%20Certificate%20of%20Origin) below. Using AI tools might
-interfere with this depending on how the training data was collected,
-so we ask that you **avoid contributing code made with involvement
-of AI code generation (like Co-Pilot)** for now.
+potentially interfere with this, so we ask that you **don't contribute
+code made with involvement of AI code generation like Co-Pilot**
+for now.
 
 For this, sign your commit messages:
 
