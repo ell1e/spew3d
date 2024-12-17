@@ -319,13 +319,13 @@ S3DEXP int spew3d_lvlbox_edit_CycleTexturePaint(
     uint8_t topwallmodifier = 0;
     int32_t chunk_index, tile_index, segment_no;
     int32_t chunk_x, chunk_y, tile_x, tile_y;
-    int corner_no, wall_no;
+    int corner_no, wall_no, verti_fence_no, hori_fence_no;
     int result = (
         _spew3d_lvlbox_InteractPosDirToTileCornerOrWall_nolock(
             lvlbox, paint_pos, paint_aim,
             &chunk_index, &tile_index, &chunk_x, &chunk_y,
             &tile_x, &tile_y, &segment_no, &corner_no, &wall_no,
-            &topwallmodifier
+            &topwallmodifier, &hori_fence_no, &verti_fence_no
         )
     );
     if (!result || segment_no < 0) {
@@ -345,8 +345,9 @@ S3DEXP int spew3d_lvlbox_edit_CycleTexturePaint(
         mutex_Release(_lvlbox_Internal(lvlbox)->m);
         return 1;
     }
-    assert(segment_no >= 0 && (
-        wall_no >= 0 || corner_no >= 0));;
+    assert(segment_no >= 0 && (verti_fence_no >= 0 ||
+        hori_fence_no >= 0 ||
+        wall_no >= 0 || corner_no >= 0));
     #if defined(DEBUG_SPEW3D_LVLBOX)
     printf("spew3d_lvlbox.c: debug: lvlbox %p "
         "S3DHID int spew3d_lvlbox_edit_PaintCycleTexture(): "
@@ -362,9 +363,11 @@ S3DEXP int spew3d_lvlbox_edit_CycleTexturePaint(
     #endif
     result = _spew3d_lvlbox_CycleTextureAtTileIdx_nolock(
         lvlbox, chunk_index, tile_index, segment_no,
-        wall_no, (wall_no < 0 && paint_aim.verti < 0),
+        wall_no, verti_fence_no, hori_fence_no,
+        (wall_no < 0 && paint_aim.verti < 0),
         (wall_no < 0 && paint_aim.verti >= 0),
-        topwallmodifier, reverse_cycle
+        topwallmodifier, 
+        reverse_cycle
     );
     mutex_Release(_lvlbox_Internal(lvlbox)->m);
     return 1;
@@ -392,7 +395,7 @@ S3DEXP int spew3d_lvlbox_edit_PaintLastUsedFenceEx(
         lvlbox, paint_pos, paint_aim,
         &chunk_index, &tile_index, &chunk_x, &chunk_y,
         &tile_x, &tile_y, &segment_no, &corner_no, &wall_no,
-        &topwallmodifier
+        &topwallmodifier, NULL, NULL
     );
     if (!result) {
         mutex_Release(_lvlbox_Internal(lvlbox)->m);
@@ -643,7 +646,7 @@ S3DHID int spew3d_lvlbox_edit_PaintLastUsedTextureEx(
         lvlbox, paint_pos, paint_aim,
         &chunk_index, &tile_index, &chunk_x, &chunk_y,
         &tile_x, &tile_y, &segment_no, &corner_no, &wall_no,
-        &topwallmodifier
+        &topwallmodifier, NULL, NULL
     );
     if (!result) {
         #if defined(DEBUG_SPEW3D_LVLBOX)
@@ -1031,7 +1034,8 @@ S3DEXP int spew3d_lvlbox_edit_TryUseAsInputForEditing(
         }
         return 0;
     } else if (e->kind == S3DEV_MOUSEWHEEL_SCROLL) {
-        // Mouse wheel cycles through available textures.
+        // Mouse wheel cycles through available textures for
+        // map geometry (including fences).
         if (!_lvlbox_Internal(lvlbox)->_edit_dragging_floor &&
                 e->mousewheel.y > 0) {
             int r = spew3d_lvlbox_edit_CycleTexturePaint(
@@ -1048,8 +1052,15 @@ S3DEXP int spew3d_lvlbox_edit_TryUseAsInputForEditing(
         return 0;
     } else if (e->kind == S3DEV_KEY_DOWN &&
             e->key.key == S3D_KEY_T) {
-        // Pressing T paints a texture.
+        // Pressing T paints map geometry, excluding fences.
         spew3d_lvlbox_edit_PaintLastUsedTexture(
+            lvlbox, aim_pos, aim_rot
+        );
+        return 1;
+    } else if (e->kind == S3DEV_KEY_DOWN &&
+            e->key.key == S3D_KEY_E) {
+        // Pressing E erases map geometry (including fences).
+        spew3d_lvlbox_edit_EraseTexture(
             lvlbox, aim_pos, aim_rot
         );
         return 1;

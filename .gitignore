@@ -1,7 +1,7 @@
 *.xcf
 *.kate-swp
-/implementation/test_*.bin
-/implementation/test_*.exe
+/src/test_*.bin
+/src/test_*.exe
 vgcore.*
 /examples/example_*.bin
 /examples/example_*.exe

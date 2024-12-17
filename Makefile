@@ -4,15 +4,15 @@ BINEXT:=.exe
 else
 BINEXT:=.bin
 endif
-UNITTEST_SOURCES_NOSDL=$(sort $(wildcard ./implementation/test_*_nosdl.c))
-UNITTEST_SOURCES=$(sort $(wildcard ./implementation/test_*.c))
+UNITTEST_SOURCES_NOSDL=$(sort $(wildcard ./src/test_*_nosdl.c))
+UNITTEST_SOURCES=$(sort $(wildcard ./src/test_*.c))
 UNITTEST_SOURCES_WITHSDL=$(sort $(filter-out $(UNITTEST_SOURCES), $(UNITTEST_SOURCES_NOSDL)))
 UNITTEST_BASENAMES=$(sort $(patsubst %.c, %, $(UNITTEST_SOURCES)))
 UNITTEST_BASENAMES_NOSDL=$(sort $(patsubst %.c, %, $(UNITTEST_SOURCES_NOSDL)))
 UNITTEST_BASENAMES_WITHSDL=$(sort $(patsubst %.c, %, $(UNITTEST_SOURCES_WITHSDL)))
-HEADERS=./include/spew3d_math2d.h ./include/spew3d_math3d.h $(sort $(filter-out ./include/spew3d.h ./implementation/testmain.h ./implementation/spew3d_prefix_drlibsstbvorbis.h ./implementation/spew3d_postfix_drlibsstbvorbis.h ./implementation/spew3d_prefix_all.h ./implementation/spew3d_prefix_miniz_c.h ./implementation/spew3d_postfix_miniz_c.h,$(wildcard ./include/*.h) $(wildcard ./implementation/*.h)))
-SOURCES=$(sort $(filter-out $(UNITTEST_SOURCES), $(wildcard ./implementation/*.c)))
-TESTPROG=$(sort $(patsubst %.c, %$(BINEXT), $(wildcard ./examples/example_*.c ./implementation/test_*.c)))
+HEADERS=./include/spew3d_math2d.h ./include/spew3d_math3d.h $(sort $(filter-out ./include/spew3d.h ./src/testmain.h ./src/spew3d_prefix_drlibsstbvorbis.h ./src/spew3d_postfix_drlibsstbvorbis.h ./src/spew3d_prefix_all.h ./src/spew3d_prefix_miniz_c.h ./src/spew3d_postfix_miniz_c.h,$(wildcard ./include/*.h) $(wildcard ./src/*.h)))
+SOURCES=$(sort $(filter-out $(UNITTEST_SOURCES), $(wildcard ./src/*.c)))
+TESTPROG=$(sort $(patsubst %.c, %$(BINEXT), $(wildcard ./examples/example_*.c ./src/test_*.c)))
 
 all: amalgamate build-tests
 
@@ -21,7 +21,7 @@ amalgamate: update-vendor-if-needed
 	echo "" >> .spew3d_ifdef
 	echo "#endif  // SPEW3D_IMPLEMENTATION" > .spew3d_ifndef
 	echo "" >> .spew3d_ifndef
-	cat implementation/spew3d_prefix_all.h .spew3d_ifdef vendor/siphash.c .spew3d_ifndef vendor/miniz/include/miniz/miniz.h implementation/spew3d_prefix_miniz_c.h vendor/miniz/include/miniz/miniz.c implementation/spew3d_postfix_miniz_c.h implementation/spew3d_prefix_drlibsstbvorbis.h vendor/dr_libs/dr_flac.h vendor/dr_libs/dr_mp3.h vendor/dr_libs/dr_wav.h implementation/spew3d_postfix_drlibsstbvorbis.h vendor/stb/stb_image.h $(HEADERS) $(SOURCES) > include/spew3d.h
+	cat src/spew3d_prefix_all.h .spew3d_ifdef vendor/siphash.c .spew3d_ifndef vendor/miniz/include/miniz/miniz.h src/spew3d_prefix_miniz_c.h vendor/miniz/include/miniz/miniz.c src/spew3d_postfix_miniz_c.h src/spew3d_prefix_drlibsstbvorbis.h vendor/dr_libs/dr_flac.h vendor/dr_libs/dr_mp3.h vendor/dr_libs/dr_wav.h src/spew3d_postfix_drlibsstbvorbis.h vendor/stb/stb_image.h $(HEADERS) $(SOURCES) > include/spew3d.h
 	rm -f .spew3d_ifdef
 	rm -f .spew3d_ifndef
 

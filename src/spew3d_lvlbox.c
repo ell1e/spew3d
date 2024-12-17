@@ -116,7 +116,8 @@ S3DHID int _spew3d_lvlbox_InteractPosDirToTileCornerOrWall_nolock(
     int32_t *out_chunk_x, int32_t *out_chunk_y,
     int32_t *out_tile_x, int32_t *out_tile_y,
     int32_t *out_segment_no, int *out_corner_no,
-    int *out_wall_no, uint8_t *out_targets_top_wall
+    int *out_wall_no, uint8_t *out_top_wall_targeted,
+    int *out_hori_fence_no, int *out_verti_fence_no
 );
 S3DHID int _spew3d_lvlbox_ExpandToPosition_nolock(
     s3d_lvlbox *box, s3d_pos pos
@@ -252,6 +253,8 @@ struct _s3d_lvlbox_texturecyclereq {
     int segment_no;
     char *current_tex_path;
     int target_wall_no;
+    int target_verti_fence_no;
+    int target_hori_fence_no;
     uint8_t reverse_cycle;
     uint8_t is_targeting_floor, is_targeting_ceiling,
         is_targeting_top_wall;
@@ -444,6 +447,50 @@ S3DHID void *_spew3d_lvlbox_CycleTexCb(
         free(req);
         mutex_Release(_lvlbox_Internal(lvlbox)->m);
         return (void*)1;
+    } else if (req->target_verti_fence_no >= 0) {
+        if (tile->segment[req->segment_no].
+                wall[req->target_verti_fence_no].
+                fence.tex.name) {
+            free(tile->segment[req->segment_no].
+                wall[req->target_verti_fence_no].
+                fence.tex.name);
+        }
+        tile->segment[req->segment_no].
+            wall[req->target_verti_fence_no].
+                fence.tex.name = new_tex;
+        tile->segment[req->segment_no].
+            wall[req->target_verti_fence_no].
+                fence.tex.id = new_tex_id;
+        tile->segment[req->segment_no].
+            wall[req->target_verti_fence_no].
+                fence.tex.vfs_flags = vfsflags;
+        tile->segment[req->segment_no].cache.is_up_to_date = 0;
+        tile->segment[req->segment_no].cache.flat_normals_set = 0;
+        free(req);
+        mutex_Release(_lvlbox_Internal(lvlbox)->m);
+        return (void*)1;
+    } else if (req->target_hori_fence_no >= 0) {
+        if (tile->segment[req->segment_no].
+                hori_fence[req->target_hori_fence_no].
+                tex.name) {
+            free(tile->segment[req->segment_no].
+                hori_fence[req->target_hori_fence_no].
+                tex.name);
+        }
+        tile->segment[req->segment_no].
+            hori_fence[req->target_hori_fence_no].
+                tex.name = new_tex;
+        tile->segment[req->segment_no].
+            hori_fence[req->target_hori_fence_no].
+                tex.id = new_tex_id;
+        tile->segment[req->segment_no].
+            hori_fence[req->target_hori_fence_no].
+                tex.vfs_flags = vfsflags;
+        tile->segment[req->segment_no].cache.is_up_to_date = 0;
+        tile->segment[req->segment_no].cache.flat_normals_set = 0;
+        free(req);
+        mutex_Release(_lvlbox_Internal(lvlbox)->m);
+        return (void*)1;
     } else {
         assert(req->target_wall_no >= 0);
         if (!req->is_targeting_top_wall) {
@@ -532,6 +579,7 @@ S3DHID int _spew3d_lvlbox_CycleTextureAtTileIdx_nolock(
         s3d_lvlbox *lvlbox,
         uint32_t chunk_index, uint32_t tile_index,
         int segment_no, int target_wall_no,
+        int target_verti_fence_no, int target_hori_fence_no,
         uint8_t is_targeting_floor,
         uint8_t is_targeting_ceiling,
         uint8_t is_targeting_top_wall,
@@ -565,6 +613,7 @@ S3DHID int _spew3d_lvlbox_CycleTextureAtTileIdx_nolock(
         !is_targeting_ceiling));
     assert(!is_targeting_top_wall || target_wall_no >= 0);
     assert(target_wall_no >= 0 ||
+        target_verti_fence_no >= 0 || target_hori_fence_no >= 0 ||
         is_targeting_floor || is_targeting_ceiling);
     if (chunk_index < 0 || chunk_index >= lvlbox->chunk_count ||
             tile_index < 0 ||
@@ -611,10 +660,50 @@ S3DHID int _spew3d_lvlbox_CycleTextureAtTileIdx_nolock(
             }
         }
     } else {
-        assert(target_wall_no >= 0);
+        assert(
+            target_wall_no >= 0 ||
+            target_verti_fence_no >= 0 ||
+            target_hori_fence_no >= 0
+        );
         if (!is_targeting_top_wall) {
-            if (tile->segment[segment_no].
-                    wall[target_wall_no].tex.name) {
+            if (target_verti_fence_no >= 0) {
+                if (tile->segment[segment_no].
+                        wall[target_verti_fence_no].fence.tex.name !=
+                        NULL) {
+                    old_tex = strdup(
+                        tile->segment[segment_no].
+                            wall[target_wall_no].fence.tex.name
+                    );
+                    cyclevfsflags = (
+                        tile->segment[segment_no].
+                            wall[target_wall_no].fence.tex.vfs_flags
+                    );
+                    if (!old_tex) {
+                        free(req);
+                        return 0;
+                    }
+                }
+            } else if (target_hori_fence_no >= 0) {
+                if (tile->segment[segment_no].
+                        hori_fence[target_hori_fence_no].tex.name !=
+                        NULL) {
+                    old_tex = strdup(
+                        tile->segment[segment_no].
+                            hori_fence[target_hori_fence_no].
+                                tex.name
+                    );
+                    cyclevfsflags = (
+                        tile->segment[segment_no].
+                            hori_fence[target_hori_fence_no].
+                                tex.vfs_flags
+                    );
+                    if (!old_tex) {
+                        free(req);
+                        return 0;
+                    }
+                }
+            } else if (tile->segment[segment_no].
+                    wall[target_wall_no].tex.name != NULL) {
                 old_tex = strdup(
                     tile->segment[segment_no].
                         wall[target_wall_no].tex.name
@@ -630,7 +719,7 @@ S3DHID int _spew3d_lvlbox_CycleTextureAtTileIdx_nolock(
             }
         } else {
             if (tile->segment[segment_no].
-                    wall[target_wall_no].toptex.name) {
+                    wall[target_wall_no].toptex.name != NULL) {
                 old_tex = strdup(
                     tile->segment[segment_no].
                         wall[target_wall_no].toptex.name
@@ -656,6 +745,8 @@ S3DHID int _spew3d_lvlbox_CycleTextureAtTileIdx_nolock(
     req->tile_index = tile_index;
     req->segment_no = segment_no;
     req->target_wall_no = target_wall_no;
+    req->target_verti_fence_no = target_verti_fence_no;
+    req->target_hori_fence_no = target_hori_fence_no;
     req->is_targeting_ceiling = is_targeting_ceiling;
     req->is_targeting_top_wall = is_targeting_top_wall;
     req->is_targeting_floor = is_targeting_floor;
@@ -680,6 +771,7 @@ S3DEXP int spew3d_lvlbox_CycleTextureAtTileIdx(
         s3d_lvlbox *lvlbox,
         uint32_t chunk_index, uint32_t tile_index,
         int segment_no, int target_wall_no,
+        int target_verti_fence_no, int target_hori_fence_no,
         uint8_t is_targeting_floor,
         uint8_t is_targeting_ceiling,
         uint8_t is_targeting_top_wall,
@@ -688,7 +780,8 @@ S3DEXP int spew3d_lvlbox_CycleTextureAtTileIdx(
     mutex_Lock(_lvlbox_Internal(lvlbox)->m);
     int result = _spew3d_lvlbox_CycleTextureAtTileIdx_nolock(
         lvlbox, chunk_index, tile_index,
-        segment_no, target_wall_no, is_targeting_floor,
+        segment_no, target_wall_no, target_verti_fence_no,
+        target_hori_fence_no, is_targeting_floor,
         is_targeting_ceiling, is_targeting_top_wall,
         reverse_cycle
     );
@@ -4854,7 +4947,8 @@ S3DEXP int spew3d_lvlbox_InteractPosDirToTileCornerOrWall(
         int32_t *out_chunk_x, int32_t *out_chunk_y,
         int32_t *out_tile_x, int32_t *out_tile_y,
         int32_t *out_segment_no, int *out_corner_no,
-        int *out_wall_no, uint8_t *out_top_wall_targeted
+        int *out_wall_no, uint8_t *out_top_wall_targeted,
+        int *out_hori_fence_no, int *out_verti_fence_no
         ) {
     mutex_Lock(_lvlbox_Internal(lvlbox)->m);
     int result = _spew3d_lvlbox_InteractPosDirToTileCornerOrWall_nolock(
@@ -4862,7 +4956,8 @@ S3DEXP int spew3d_lvlbox_InteractPosDirToTileCornerOrWall(
         out_chunk_index, out_tile_index,
         out_chunk_x, out_chunk_y, out_tile_x, out_tile_y,
         out_segment_no, out_corner_no, out_wall_no,
-        out_top_wall_targeted
+        out_top_wall_targeted, out_hori_fence_no,
+        out_verti_fence_no
     );
     mutex_Release(_lvlbox_Internal(lvlbox)->m);
     return result;
@@ -4875,7 +4970,8 @@ S3DHID int _spew3d_lvlbox_InteractPosDirToTileCornerOrWall_nolock(
         int32_t *out_chunk_x, int32_t *out_chunk_y,
         int32_t *out_tile_x, int32_t *out_tile_y,
         int32_t *out_segment_no, int *out_corner_no,
-        int *out_wall_no, uint8_t *out_top_wall_targeted
+        int *out_wall_no, uint8_t *out_top_wall_targeted,
+        int *out_hori_fence_no, int *out_verti_fence_no
         ) {
     int32_t _chunk_index, _tile_index;
     int32_t _chunk_x, _chunk_y, _tile_x, _tile_y, _segment_no;
@@ -4893,7 +4989,7 @@ S3DHID int _spew3d_lvlbox_InteractPosDirToTileCornerOrWall_nolock(
         lvlbox, _chunk_index, _tile_index, _segment_no,
         _corner, interact_rot.verti > 0, &corner_pos
     );
-    int target_wall = 0;
+    int targeting_wall = 0;
     if (result) {
         s3d_point hori_dir_to_corner;
         hori_dir_to_corner.x = (
@@ -4909,13 +5005,280 @@ S3DHID int _spew3d_lvlbox_InteractPosDirToTileCornerOrWall_nolock(
             corner_pos.z - interact_pos.z
         );
         if (verti_dist_to_corner > hori_dist_to_corner) {
-            target_wall = 1;
+            targeting_wall = 1;
         }
     }
-    if (fabs(interact_rot.verti) > 60) target_wall = 0;
-    if (fabs(interact_rot.verti) < 30) target_wall = 1;
+    if (fabs(interact_rot.verti) > 60) targeting_wall = 0;
+    if (fabs(interact_rot.verti) < 30) targeting_wall = 1;
+
+    int _wall_no = -1;
+    if (targeting_wall) {
+        double hori_angle = spew3d_math3d_normalizeangle(
+            interact_rot.hori
+        );
+        _wall_no = 0;
+        if (fabs(hori_angle) > 45) {
+            if (fabs(hori_angle) > 135) {
+                _wall_no = 2;
+            } else if (hori_angle > 0) {
+                _wall_no = 1;
+            } else {
+                assert(hori_angle < 0);
+                _wall_no = 3;
+            }
+        }
+    }
 
     uint8_t top_wall_targeted = 0;
+    s3d_lvlbox_tile *tile = &(
+        lvlbox->chunk[_chunk_index].tile[_tile_index]
+    );
+    s3d_lvlbox_tile *neighbor_tile = NULL;
+    int verti_fence_no = -1;
+    int hori_fence_targeted = -1;
+    if (_wall_no < 0 && _segment_no >= 0 && _corner >= 0 &&
+            tile->segment[_segment_no].hori_fence_count > 0 &&
+            out_hori_fence_no != NULL
+            ) {
+        // Check if this targets a horizontal fence.
+        s3dnum_t fence_max_z;
+        s3dnum_t fence_min_z;
+        int best_idx = -1;
+        double best_dist = 0;
+        s3dnum_t best_z;
+        int k = 0;
+        while (k < tile->segment[_segment_no].
+                hori_fence_count) {
+            if (interact_rot.verti > 0 &&
+                    tile->segment[_segment_no].
+                    hori_fence_z[k] > interact_pos.z &&
+                    (best_idx < 0 || fabs(
+                    tile->segment[_segment_no].
+                    hori_fence_z[k] - interact_pos.z) <
+                    best_dist)) {
+                best_dist = fabs(
+                    tile->segment[_segment_no].
+                    hori_fence_z[k] - interact_pos.z
+                );
+                best_z = tile->segment[_segment_no].
+                    hori_fence_z[k];
+                best_idx = k;
+                break;
+            } else if (interact_rot.verti < 0 &&
+                    tile->segment[_segment_no].
+                    hori_fence_z[k] < interact_pos.z &&
+                    (best_idx < 0 || fabs(
+                    tile->segment[_segment_no].
+                    hori_fence_z[k] - interact_pos.z) <
+                    best_dist)) {
+                best_dist = fabs(
+                    tile->segment[_segment_no].
+                    hori_fence_z[k] - interact_pos.z
+                );
+                best_z = tile->segment[_segment_no].
+                    hori_fence_z[k];
+                best_idx = k;
+                break;
+            }
+            k++;
+        }
+        if (best_idx >= 0) {
+            double corner_z;
+            if (interact_rot.verti > 0)
+                corner_z = tile->segment[_segment_no].
+                    ceiling_z[_corner];
+            else
+                corner_z = tile->segment[_segment_no].
+                    floor_z[_corner];
+            if ((interact_rot.verti > 0 &&
+                    corner_z > best_z) ||
+                    (interact_rot.verti < 0 &&
+                    corner_z < best_z)) {
+                hori_fence_targeted = best_idx;
+            }
+            fence_max_z = tile->segment[_segment_no].
+                ceiling_z[0] - min_vertical_spacing * 0.1;
+            fence_min_z = tile->segment[_segment_no].
+                floor_z[0] + min_vertical_spacing * 0.1;
+            int k = 1;
+            while (k < 4) {
+                fence_max_z = fmin(
+                    fence_max_z,
+                    tile->segment[_segment_no].ceiling_z[k]
+                );
+                fence_min_z = fmax(
+                    fence_min_z,
+                    tile->segment[_segment_no].floor_z[k]
+                );
+                k++;
+            }
+            assert(fence_min_z <= fence_max_z);
+        }
+    } else if (_wall_no >= 0 && _segment_no >= 0 && _corner < 0
+            ) {
+        // Check if this targets a fence part.
+        int opposite_wall = (_wall_no + 2) % 4;
+        int shift_x = 0;
+        int shift_y = 0;
+        if (_wall_no == 0) {
+            shift_x = 1;
+        } else if (_wall_no == 1) {
+            shift_y = 1;
+        } else if (_wall_no == 2) {
+            shift_x = -1;
+        } else {
+            assert(_wall_no == 3);
+            shift_y = -1;
+        }
+        int32_t neighbor_chunk_index = -1;
+        int32_t neighbor_tile_index = -1;
+        int result = _spew3d_lvlbox_GetNeighborTile_nolock(
+            lvlbox, _chunk_index, _tile_index,
+            shift_x, shift_y, &neighbor_chunk_index,
+            &neighbor_tile_index
+        );
+        if (!result || !lvlbox->chunk[neighbor_chunk_index].
+                tile[neighbor_tile_index].occupied) {
+            neighbor_chunk_index = -1;
+            neighbor_tile_index = -1;
+        }
+        if (neighbor_chunk_index >= 0 &&
+                neighbor_tile_index >= 0) {
+            neighbor_tile = &(
+                lvlbox->chunk[neighbor_chunk_index].
+                    tile[neighbor_tile_index]
+            );
+        }
+        if (neighbor_tile != NULL && out_verti_fence_no != NULL) {
+            int our_side_has_fence = (
+                tile->segment[_segment_no].
+                    wall[_wall_no].fence.is_set
+            );
+            s3dnum_t ourseg_min_z = (
+                tile->segment[_segment_no].floor_z[0]
+            );
+            s3dnum_t ourseg_max_z = (
+                tile->segment[_segment_no].ceiling_z[0]
+            );
+            int k = 1;
+            while (k < 4) {
+                ourseg_min_z = fmin(
+                    ourseg_min_z,
+                    tile->segment[_segment_no].floor_z[k]);
+                ourseg_max_z = fmax(
+                    ourseg_max_z,
+                    tile->segment[_segment_no].ceiling_z[k]);
+                k++;
+            }
+
+            int i = 0;
+            while (i < neighbor_tile->segment_count) {
+                if (!our_side_has_fence &&
+                        !neighbor_tile->segment[i].
+                        wall[opposite_wall].fence.is_set) {
+                    i++;
+                    continue;
+                }
+                s3dnum_t nseg_min_z = (
+                    neighbor_tile->segment[i].floor_z[0]
+                );
+                s3dnum_t nseg_max_z = (
+                    neighbor_tile->segment[i].ceiling_z[0]
+                );
+                int k = 1;
+                while (k < 4) {
+                    nseg_min_z = fmin(
+                        nseg_min_z,
+                        neighbor_tile->segment[i].floor_z[k]);
+                    nseg_max_z = fmax(
+                        nseg_max_z,
+                        neighbor_tile->segment[i].ceiling_z[k]);
+                    k++;
+                }
+                if (nseg_max_z < ourseg_min_z ||
+                        nseg_min_z > ourseg_max_z) {
+                    i++;
+                    continue;
+                }
+                if (interact_pos.z >= nseg_min_z &&
+                        interact_pos.z <= nseg_max_z) {
+                    if (our_side_has_fence) {
+                        verti_fence_no = _wall_no;
+                        _wall_no = -1;
+                    } else {
+                        verti_fence_no = opposite_wall;
+                        int32_t neighbor_chunk_x;
+                        int32_t neighbor_chunk_y;
+                        int32_t neighbor_tile_x;
+                        int32_t neighbor_tile_y;
+                        _chunk_index = neighbor_chunk_index;
+                        _tile_index = neighbor_tile_index;
+                        _chunk_x = neighbor_chunk_x;
+                        _chunk_y = neighbor_chunk_y;
+                        _tile_x = neighbor_tile_x;
+                        _tile_y = neighbor_tile_y;
+                        _segment_no = i;
+                        top_wall_targeted = 0;
+                        _wall_no = -1;
+                    }
+                    break;
+                }
+                i++;
+            }
+        }
+    }
+    if (_wall_no >= 0 && neighbor_tile != NULL &&
+            verti_fence_no < 0) {
+        // Check if we might be targeting the top wall
+        // segment.
+        s3dnum_t ourseg_min_z = (
+            tile->segment[_segment_no].floor_z[0]
+        );
+        s3dnum_t ourseg_max_z = (
+            tile->segment[_segment_no].ceiling_z[0]
+        );
+        int k = 1;
+        while (k < 4) {
+            ourseg_min_z = fmin(
+                ourseg_min_z,
+                tile->segment[_segment_no].floor_z[k]);
+            ourseg_max_z = fmax(
+                ourseg_max_z,
+                tile->segment[_segment_no].ceiling_z[k]);
+            k++;
+        }
+        int have_top_segment = 0;
+        s3dnum_t top_segment_min_z = 0;
+        k = 0;
+        while (k < neighbor_tile->segment_count) {
+            s3dnum_t potential_top_seg_z = (
+                fmin(fmin(neighbor_tile->segment[k].ceiling_z[0],
+                    neighbor_tile->segment[k].ceiling_z[1]),
+                    fmin(neighbor_tile->segment[k].ceiling_z[0],
+                    neighbor_tile->segment[k].ceiling_z[1]))
+            );
+            if (potential_top_seg_z < ourseg_max_z &&
+                    k + 1 < neighbor_tile->segment_count &&
+                    fmin(fmin(neighbor_tile->segment[k + 1].floor_z[0],
+                    neighbor_tile->segment[k + 1].floor_z[1]),
+                    fmin(neighbor_tile->segment[k + 1].floor_z[0],
+                    neighbor_tile->segment[k + 1].floor_z[1]))
+                    ) {
+                // A top segment exists.
+                have_top_segment = 1;
+                top_segment_min_z = potential_top_seg_z;
+                break;
+            }
+            k++;
+        }
+        if (have_top_segment && (interact_rot.verti > 0 ||
+                interact_pos.z + LVLBOX_TILE_SIZE * 0.5 >
+                top_segment_min_z) &&
+                interact_pos.z > top_segment_min_z) {
+            top_wall_targeted = 1;
+        }
+    }
+
     if (out_chunk_index)
         *out_chunk_index = _chunk_index;
     if (out_tile_index)
@@ -4930,30 +5293,22 @@ S3DHID int _spew3d_lvlbox_InteractPosDirToTileCornerOrWall_nolock(
         *out_tile_y = _tile_y;
     if (out_segment_no)
         *out_segment_no = _segment_no;
-    if (target_wall) {
+    if (_wall_no >= 0) {
         if (out_corner_no)
             *out_corner_no = -1;
-        double hori_angle = spew3d_math3d_normalizeangle(
-            interact_rot.hori
-        );
-        int wall_no = 0;
-        if (fabs(hori_angle) > 45) {
-            if (fabs(hori_angle) > 135) {
-                wall_no = 2;
-            } else if (hori_angle > 0) {
-                wall_no = 1;
-            } else {
-                assert(hori_angle < 0);
-                wall_no = 3;
-            }
-        }
         if (out_wall_no)
-            *out_wall_no = wall_no;
+            *out_wall_no = (
+                verti_fence_no >= 0 ? -1 : _wall_no
+            );
         if (out_top_wall_targeted)
             *out_top_wall_targeted = top_wall_targeted;
+        if (out_verti_fence_no)
+            *out_verti_fence_no = verti_fence_no;
+        if (out_hori_fence_no)
+            *out_hori_fence_no = -1;
     } else {
         if (out_corner_no) {
-            if (result)
+            if (result && hori_fence_targeted < 0)
                 *out_corner_no = _corner;
             else
                 *out_corner_no = -1;
@@ -4962,6 +5317,10 @@ S3DHID int _spew3d_lvlbox_InteractPosDirToTileCornerOrWall_nolock(
             *out_wall_no = -1;
         if (out_top_wall_targeted)
             *out_top_wall_targeted = 0;
+        if (out_verti_fence_no)
+            *out_verti_fence_no = -1;
+        if (out_hori_fence_no)
+            *out_hori_fence_no = hori_fence_targeted;
     }
     return 1;
 }

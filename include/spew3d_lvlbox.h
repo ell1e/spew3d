@@ -174,6 +174,7 @@ S3DEXP int spew3d_lvlbox_CycleTextureAtTileIdx(
     s3d_lvlbox *lvlbox,
     uint32_t chunk_index, uint32_t tile_index,
     int segment_no, int target_wall_no,
+    int target_verti_fence_no, int target_hori_fence_no,
     uint8_t is_targeting_floor,
     uint8_t is_targeting_ceiling,
     uint8_t is_targeting_top_wall,
@@ -271,7 +272,8 @@ S3DEXP int spew3d_lvlbox_InteractPosDirToTileCornerOrWall(
     int32_t *out_chunk_x, int32_t *out_chunk_y,
     int32_t *out_tile_x, int32_t *out_tile_y,
     int32_t *out_segment_no, int *out_corner_no,
-    int *out_wall_no, uint8_t *out_targets_top_wall
+    int *out_wall_no, uint8_t *out_top_wall_targeted,
+    int *out_hori_fence_no, int *out_verti_fence_no
 );
 
 S3DEXP s3d_lvlbox *spew3d_lvlbox_GetByID(uint64_t id);
