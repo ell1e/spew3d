@@ -31,7 +31,6 @@ license, see accompanied LICENSE.md.
 #include <stdio.h>
 #include <unistd.h>
 
-
 static FILE *_dupfhandle(FILE *f, const char* mode) {
     int fd = -1;
     int fd2 = -1;

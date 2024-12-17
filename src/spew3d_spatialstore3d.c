@@ -25,7 +25,8 @@ Alternatively, at your option, this file is offered under the Apache 2
 license, see accompanied LICENSE.md.
 */
 
-#ifdef SPEW3D_IMPLEMENTATION
+#if defined(SPEW3D_IMPLEMENTATION) && \
+    SPEW3D_IMPLEMENTATION != 0
 
 S3DEXP s3d_spatialstore3d *s3d_spatialstore3d_NewGrid(
     double max_coord_range, double max_regular_collision_size,

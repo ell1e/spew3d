@@ -29,7 +29,7 @@ license, see accompanied LICENSE.md.
 #include <check.h>
 
 #define SPEW3D_OPTION_DISABLE_SDL
-#define SPEW3D_IMPLEMENTATION
+#define SPEW3D_IMPLEMENTATION 1
 #include "spew3d.h"
 
 #include "testmain.h"

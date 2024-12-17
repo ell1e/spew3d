@@ -25,7 +25,8 @@ Alternatively, at your option, this file is offered under the Apache 2
 license, see accompanied LICENSE.md.
 */
 
-#ifdef SPEW3D_IMPLEMENTATION
+#if defined(SPEW3D_IMPLEMENTATION) && \
+    SPEW3D_IMPLEMENTATION != 0
 
 #ifndef SPEW3D_OPTION_DISABLE_SDL
 S3DEXP s3d_backend_windowing *spew3d_backend_windowing_GetSDL();

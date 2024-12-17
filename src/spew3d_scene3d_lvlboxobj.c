@@ -25,7 +25,8 @@ Alternatively, at your option, this file is offered under the Apache 2
 license, see accompanied LICENSE.md.
 */
 
-#ifdef SPEW3D_IMPLEMENTATION
+#if defined(SPEW3D_IMPLEMENTATION) && \
+    SPEW3D_IMPLEMENTATION != 0
 
 extern s3d_mutex *_win_id_mutex;
 typedef struct s3d_window s3d_window;

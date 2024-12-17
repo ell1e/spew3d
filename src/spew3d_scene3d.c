@@ -40,7 +40,8 @@ license, see accompanied LICENSE.md.
  *   assigned to an object in a scene.
  */
 
-#ifdef SPEW3D_IMPLEMENTATION
+#if defined(SPEW3D_IMPLEMENTATION) && \
+    SPEW3D_IMPLEMENTATION != 0
 
 typedef struct s3d_spatialstore3d s3d_spatialstore3d;
 

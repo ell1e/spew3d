@@ -68,12 +68,14 @@ license, see accompanied LICENSE.md.
 #define STBI_ONLY_BMP
 #define STBI_ONLY_TGA
 #define STBI_ONLY_PNM
-#ifdef SPEW3D_IMPLEMENTATION
+#if defined(SPEW3D_IMPLEMENTATION) && \
+    SPEW3D_IMPLEMENTATION != 0
 #define STB_IMAGE_IMPLEMENTATION
 #endif
 
 // For <r128.h>:
-#ifdef SPEW3D_IMPLEMENTATION
+#if defined(SPEW3D_IMPLEMENTATION) && \
+    SPEW3D_IMPLEMENTATION != 0
 #define R128_IMPLEMENTATION
 #endif
 

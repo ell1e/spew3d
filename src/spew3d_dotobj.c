@@ -25,7 +25,8 @@ Alternatively, at your option, this file is offered under the Apache 2
 license, see accompanied LICENSE.md.
 */
 
-#ifdef SPEW3D_IMPLEMENTATION
+#if defined(SPEW3D_IMPLEMENTATION) && \
+    SPEW3D_IMPLEMENTATION != 0
 
 struct _s3d_dotobj_defaultcbinfo {
     SPEW3DVFS_FILE *read_from_file_ptr;
@@ -135,5 +136,5 @@ S3DEXP s3d_geometry *spew3d_dotobj_LoadFromMem(
     );
 }
 
-#endif  // #ifdef SPEW3D_IMPLEMENTATION
+#endif  // SPEW3D_IMPLEMENTATION
 

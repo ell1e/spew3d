@@ -1,6 +1,6 @@
 
 #define SPEW3D_DEBUG_OUTPUT
-#define SPEW3D_IMPLEMENTATION
+#define SPEW3D_IMPLEMENTATION 1
 #include <spew3d.h>
 #undef SPEW3D_IMPLEMENTATION
 #include <math.h>
